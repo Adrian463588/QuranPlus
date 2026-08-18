@@ -1,0 +1,45 @@
+# Built outputs
+/build
+**/build/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Gradle
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+gradle-wrapper.jar
+local.properties
+
+# Android Studio / IntelliJ IDEA
+*.iml
+/.idea/
+.idea/
+*.idea/
+*.orig
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Native build
+.externalNativeBuild/
+.cxx/
+
+# Profiling / captures
+/captures/
+
+# Model assets — large files, download separately (see README Models section)
+*.tflite
+*.bin
+*.litertlm
+
+# Exception: the bundled MiniLM embedding model must ship inside the APK
+!app/src/main/assets/**/*.tflite
+
+# Signing keys — never commit these
+*.jks
+*.keystore
+keystore.properties

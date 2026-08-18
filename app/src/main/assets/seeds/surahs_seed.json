@@ -1,0 +1,1028 @@
+[
+  {
+    "id": 1,
+    "number": 1,
+    "name_arabic": "سُورَةُ ٱلْفَاتِحَةِ",
+    "name_latin": "Al-Faatiha",
+    "name_english": "The Opening",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 7
+  },
+  {
+    "id": 2,
+    "number": 2,
+    "name_arabic": "سُورَةُ البَقَرَةِ",
+    "name_latin": "Al-Baqara",
+    "name_english": "The Cow",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 286
+  },
+  {
+    "id": 3,
+    "number": 3,
+    "name_arabic": "سُورَةُ آلِ عِمۡرَانَ",
+    "name_latin": "Aal-i-Imraan",
+    "name_english": "The Family of Imraan",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 200
+  },
+  {
+    "id": 4,
+    "number": 4,
+    "name_arabic": "سُورَةُ النِّسَاءِ",
+    "name_latin": "An-Nisaa",
+    "name_english": "The Women",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 176
+  },
+  {
+    "id": 5,
+    "number": 5,
+    "name_arabic": "سُورَةُ المَائـِدَةِ",
+    "name_latin": "Al-Maaida",
+    "name_english": "The Table",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 120
+  },
+  {
+    "id": 6,
+    "number": 6,
+    "name_arabic": "سُورَةُ الأَنۡعَامِ",
+    "name_latin": "Al-An'aam",
+    "name_english": "The Cattle",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 165
+  },
+  {
+    "id": 7,
+    "number": 7,
+    "name_arabic": "سُورَةُ الأَعۡرَافِ",
+    "name_latin": "Al-A'raaf",
+    "name_english": "The Heights",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 206
+  },
+  {
+    "id": 8,
+    "number": 8,
+    "name_arabic": "سُورَةُ الأَنفَالِ",
+    "name_latin": "Al-Anfaal",
+    "name_english": "The Spoils of War",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 75
+  },
+  {
+    "id": 9,
+    "number": 9,
+    "name_arabic": "سُورَةُ التَّوۡبَةِ",
+    "name_latin": "At-Tawba",
+    "name_english": "The Repentance",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 129
+  },
+  {
+    "id": 10,
+    "number": 10,
+    "name_arabic": "سُورَةُ يُونُسَ",
+    "name_latin": "Yunus",
+    "name_english": "Jonas",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 109
+  },
+  {
+    "id": 11,
+    "number": 11,
+    "name_arabic": "سُورَةُ هُودٍ",
+    "name_latin": "Hud",
+    "name_english": "Hud",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 123
+  },
+  {
+    "id": 12,
+    "number": 12,
+    "name_arabic": "سُورَةُ يُوسُفَ",
+    "name_latin": "Yusuf",
+    "name_english": "Joseph",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 111
+  },
+  {
+    "id": 13,
+    "number": 13,
+    "name_arabic": "سُورَةُ الرَّعۡدِ",
+    "name_latin": "Ar-Ra'd",
+    "name_english": "The Thunder",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 43
+  },
+  {
+    "id": 14,
+    "number": 14,
+    "name_arabic": "سُورَةُ إِبۡرَاهِيمَ",
+    "name_latin": "Ibrahim",
+    "name_english": "Abraham",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 52
+  },
+  {
+    "id": 15,
+    "number": 15,
+    "name_arabic": "سُورَةُ الحِجۡرِ",
+    "name_latin": "Al-Hijr",
+    "name_english": "The Rock",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 99
+  },
+  {
+    "id": 16,
+    "number": 16,
+    "name_arabic": "سُورَةُ النَّحۡلِ",
+    "name_latin": "An-Nahl",
+    "name_english": "The Bee",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 128
+  },
+  {
+    "id": 17,
+    "number": 17,
+    "name_arabic": "سُورَةُ الإِسۡرَاءِ",
+    "name_latin": "Al-Israa",
+    "name_english": "The Night Journey",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 111
+  },
+  {
+    "id": 18,
+    "number": 18,
+    "name_arabic": "سُورَةُ الكَهۡفِ",
+    "name_latin": "Al-Kahf",
+    "name_english": "The Cave",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 110
+  },
+  {
+    "id": 19,
+    "number": 19,
+    "name_arabic": "سُورَةُ مَرۡيَمَ",
+    "name_latin": "Maryam",
+    "name_english": "Mary",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 98
+  },
+  {
+    "id": 20,
+    "number": 20,
+    "name_arabic": "سُورَةُ طه",
+    "name_latin": "Taa-Haa",
+    "name_english": "Taa-Haa",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 135
+  },
+  {
+    "id": 21,
+    "number": 21,
+    "name_arabic": "سُورَةُ الأَنبِيَاءِ",
+    "name_latin": "Al-Anbiyaa",
+    "name_english": "The Prophets",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 112
+  },
+  {
+    "id": 22,
+    "number": 22,
+    "name_arabic": "سُورَةُ الحَجِّ",
+    "name_latin": "Al-Hajj",
+    "name_english": "The Pilgrimage",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 78
+  },
+  {
+    "id": 23,
+    "number": 23,
+    "name_arabic": "سُورَةُ المُؤۡمِنُونَ",
+    "name_latin": "Al-Muminoon",
+    "name_english": "The Believers",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 118
+  },
+  {
+    "id": 24,
+    "number": 24,
+    "name_arabic": "سُورَةُ النُّورِ",
+    "name_latin": "An-Noor",
+    "name_english": "The Light",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 64
+  },
+  {
+    "id": 25,
+    "number": 25,
+    "name_arabic": "سُورَةُ الفُرۡقَانِ",
+    "name_latin": "Al-Furqaan",
+    "name_english": "The Criterion",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 77
+  },
+  {
+    "id": 26,
+    "number": 26,
+    "name_arabic": "سُورَةُ الشُّعَرَاءِ",
+    "name_latin": "Ash-Shu'araa",
+    "name_english": "The Poets",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 227
+  },
+  {
+    "id": 27,
+    "number": 27,
+    "name_arabic": "سُورَةُ النَّمۡلِ",
+    "name_latin": "An-Naml",
+    "name_english": "The Ant",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 93
+  },
+  {
+    "id": 28,
+    "number": 28,
+    "name_arabic": "سُورَةُ القَصَصِ",
+    "name_latin": "Al-Qasas",
+    "name_english": "The Stories",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 88
+  },
+  {
+    "id": 29,
+    "number": 29,
+    "name_arabic": "سُورَةُ العَنكَبُوتِ",
+    "name_latin": "Al-Ankaboot",
+    "name_english": "The Spider",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 69
+  },
+  {
+    "id": 30,
+    "number": 30,
+    "name_arabic": "سُورَةُ الرُّومِ",
+    "name_latin": "Ar-Room",
+    "name_english": "The Romans",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 60
+  },
+  {
+    "id": 31,
+    "number": 31,
+    "name_arabic": "سُورَةُ لُقۡمَانَ",
+    "name_latin": "Luqman",
+    "name_english": "Luqman",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 34
+  },
+  {
+    "id": 32,
+    "number": 32,
+    "name_arabic": "سُورَةُ السَّجۡدَةِ",
+    "name_latin": "As-Sajda",
+    "name_english": "The Prostration",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 30
+  },
+  {
+    "id": 33,
+    "number": 33,
+    "name_arabic": "سُورَةُ الأَحۡزَابِ",
+    "name_latin": "Al-Ahzaab",
+    "name_english": "The Clans",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 73
+  },
+  {
+    "id": 34,
+    "number": 34,
+    "name_arabic": "سُورَةُ سَبَإٍ",
+    "name_latin": "Saba",
+    "name_english": "Sheba",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 54
+  },
+  {
+    "id": 35,
+    "number": 35,
+    "name_arabic": "سُورَةُ فَاطِرٍ",
+    "name_latin": "Faatir",
+    "name_english": "The Originator",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 45
+  },
+  {
+    "id": 36,
+    "number": 36,
+    "name_arabic": "سُورَةُ يسٓ",
+    "name_latin": "Yaseen",
+    "name_english": "Yaseen",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 83
+  },
+  {
+    "id": 37,
+    "number": 37,
+    "name_arabic": "سُورَةُ الصَّافَّاتِ",
+    "name_latin": "As-Saaffaat",
+    "name_english": "Those drawn up in Ranks",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 182
+  },
+  {
+    "id": 38,
+    "number": 38,
+    "name_arabic": "سُورَةُ صٓ",
+    "name_latin": "Saad",
+    "name_english": "The letter Saad",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 88
+  },
+  {
+    "id": 39,
+    "number": 39,
+    "name_arabic": "سُورَةُ الزُّمَرِ",
+    "name_latin": "Az-Zumar",
+    "name_english": "The Groups",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 75
+  },
+  {
+    "id": 40,
+    "number": 40,
+    "name_arabic": "سُورَةُ غَافِرٍ",
+    "name_latin": "Ghafir",
+    "name_english": "The Forgiver",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 85
+  },
+  {
+    "id": 41,
+    "number": 41,
+    "name_arabic": "سُورَةُ فُصِّلَتۡ",
+    "name_latin": "Fussilat",
+    "name_english": "Explained in detail",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 54
+  },
+  {
+    "id": 42,
+    "number": 42,
+    "name_arabic": "سُورَةُ الشُّورَىٰ",
+    "name_latin": "Ash-Shura",
+    "name_english": "Consultation",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 53
+  },
+  {
+    "id": 43,
+    "number": 43,
+    "name_arabic": "سُورَةُ الزُّخۡرُفِ",
+    "name_latin": "Az-Zukhruf",
+    "name_english": "Ornaments of gold",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 89
+  },
+  {
+    "id": 44,
+    "number": 44,
+    "name_arabic": "سُورَةُ الدُّخَانِ",
+    "name_latin": "Ad-Dukhaan",
+    "name_english": "The Smoke",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 59
+  },
+  {
+    "id": 45,
+    "number": 45,
+    "name_arabic": "سُورَةُ الجَاثِيَةِ",
+    "name_latin": "Al-Jaathiya",
+    "name_english": "Crouching",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 37
+  },
+  {
+    "id": 46,
+    "number": 46,
+    "name_arabic": "سُورَةُ الأَحۡقَافِ",
+    "name_latin": "Al-Ahqaf",
+    "name_english": "The Dunes",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 35
+  },
+  {
+    "id": 47,
+    "number": 47,
+    "name_arabic": "سُورَةُ مُحَمَّدٍ",
+    "name_latin": "Muhammad",
+    "name_english": "Muhammad",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 38
+  },
+  {
+    "id": 48,
+    "number": 48,
+    "name_arabic": "سُورَةُ الفَتۡحِ",
+    "name_latin": "Al-Fath",
+    "name_english": "The Victory",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 29
+  },
+  {
+    "id": 49,
+    "number": 49,
+    "name_arabic": "سُورَةُ الحُجُرَاتِ",
+    "name_latin": "Al-Hujuraat",
+    "name_english": "The Inner Apartments",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 18
+  },
+  {
+    "id": 50,
+    "number": 50,
+    "name_arabic": "سُورَةُ قٓ",
+    "name_latin": "Qaaf",
+    "name_english": "The letter Qaaf",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 45
+  },
+  {
+    "id": 51,
+    "number": 51,
+    "name_arabic": "سُورَةُ الذَّارِيَاتِ",
+    "name_latin": "Adh-Dhaariyat",
+    "name_english": "The Winnowing Winds",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 60
+  },
+  {
+    "id": 52,
+    "number": 52,
+    "name_arabic": "سُورَةُ الطُّورِ",
+    "name_latin": "At-Tur",
+    "name_english": "The Mount",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 49
+  },
+  {
+    "id": 53,
+    "number": 53,
+    "name_arabic": "سُورَةُ النَّجۡمِ",
+    "name_latin": "An-Najm",
+    "name_english": "The Star",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 62
+  },
+  {
+    "id": 54,
+    "number": 54,
+    "name_arabic": "سُورَةُ القَمَرِ",
+    "name_latin": "Al-Qamar",
+    "name_english": "The Moon",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 55
+  },
+  {
+    "id": 55,
+    "number": 55,
+    "name_arabic": "سُورَةُ الرَّحۡمَٰن",
+    "name_latin": "Ar-Rahmaan",
+    "name_english": "The Beneficent",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 78
+  },
+  {
+    "id": 56,
+    "number": 56,
+    "name_arabic": "سُورَةُ الوَاقِعَةِ",
+    "name_latin": "Al-Waaqia",
+    "name_english": "The Inevitable",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 96
+  },
+  {
+    "id": 57,
+    "number": 57,
+    "name_arabic": "سُورَةُ الحَدِيدِ",
+    "name_latin": "Al-Hadid",
+    "name_english": "The Iron",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 29
+  },
+  {
+    "id": 58,
+    "number": 58,
+    "name_arabic": "سُورَةُ المُجَادلَةِ",
+    "name_latin": "Al-Mujaadila",
+    "name_english": "The Pleading Woman",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 22
+  },
+  {
+    "id": 59,
+    "number": 59,
+    "name_arabic": "سُورَةُ الحَشۡرِ",
+    "name_latin": "Al-Hashr",
+    "name_english": "The Exile",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 24
+  },
+  {
+    "id": 60,
+    "number": 60,
+    "name_arabic": "سُورَةُ المُمۡتَحنَةِ",
+    "name_latin": "Al-Mumtahana",
+    "name_english": "She that is to be examined",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 13
+  },
+  {
+    "id": 61,
+    "number": 61,
+    "name_arabic": "سُورَةُ الصَّفِّ",
+    "name_latin": "As-Saff",
+    "name_english": "The Ranks",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 14
+  },
+  {
+    "id": 62,
+    "number": 62,
+    "name_arabic": "سُورَةُ الجُمُعَةِ",
+    "name_latin": "Al-Jumu'a",
+    "name_english": "Friday",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 11
+  },
+  {
+    "id": 63,
+    "number": 63,
+    "name_arabic": "سُورَةُ المُنَافِقُونَ",
+    "name_latin": "Al-Munaafiqoon",
+    "name_english": "The Hypocrites",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 11
+  },
+  {
+    "id": 64,
+    "number": 64,
+    "name_arabic": "سُورَةُ التَّغَابُنِ",
+    "name_latin": "At-Taghaabun",
+    "name_english": "Mutual Disillusion",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 18
+  },
+  {
+    "id": 65,
+    "number": 65,
+    "name_arabic": "سُورَةُ الطَّلَاقِ",
+    "name_latin": "At-Talaaq",
+    "name_english": "Divorce",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 12
+  },
+  {
+    "id": 66,
+    "number": 66,
+    "name_arabic": "سُورَةُ التَّحۡرِيمِ",
+    "name_latin": "At-Tahrim",
+    "name_english": "The Prohibition",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 12
+  },
+  {
+    "id": 67,
+    "number": 67,
+    "name_arabic": "سُورَةُ المُلۡكِ",
+    "name_latin": "Al-Mulk",
+    "name_english": "The Sovereignty",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 30
+  },
+  {
+    "id": 68,
+    "number": 68,
+    "name_arabic": "سُورَةُ القَلَمِ",
+    "name_latin": "Al-Qalam",
+    "name_english": "The Pen",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 52
+  },
+  {
+    "id": 69,
+    "number": 69,
+    "name_arabic": "سُورَةُ الحَاقَّةِ",
+    "name_latin": "Al-Haaqqa",
+    "name_english": "The Reality",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 52
+  },
+  {
+    "id": 70,
+    "number": 70,
+    "name_arabic": "سُورَةُ المَعَارِجِ",
+    "name_latin": "Al-Ma'aarij",
+    "name_english": "The Ascending Stairways",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 44
+  },
+  {
+    "id": 71,
+    "number": 71,
+    "name_arabic": "سُورَةُ نُوحٍ",
+    "name_latin": "Nooh",
+    "name_english": "Noah",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 28
+  },
+  {
+    "id": 72,
+    "number": 72,
+    "name_arabic": "سُورَةُ الجِنِّ",
+    "name_latin": "Al-Jinn",
+    "name_english": "The Jinn",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 28
+  },
+  {
+    "id": 73,
+    "number": 73,
+    "name_arabic": "سُورَةُ المُزَّمِّلِ",
+    "name_latin": "Al-Muzzammil",
+    "name_english": "The Enshrouded One",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 20
+  },
+  {
+    "id": 74,
+    "number": 74,
+    "name_arabic": "سُورَةُ المُدَّثِّرِ",
+    "name_latin": "Al-Muddaththir",
+    "name_english": "The Cloaked One",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 56
+  },
+  {
+    "id": 75,
+    "number": 75,
+    "name_arabic": "سُورَةُ القِيَامَةِ",
+    "name_latin": "Al-Qiyaama",
+    "name_english": "The Resurrection",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 40
+  },
+  {
+    "id": 76,
+    "number": 76,
+    "name_arabic": "سُورَةُ الإِنسَانِ",
+    "name_latin": "Al-Insaan",
+    "name_english": "Man",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 31
+  },
+  {
+    "id": 77,
+    "number": 77,
+    "name_arabic": "سُورَةُ المُرۡسَلَاتِ",
+    "name_latin": "Al-Mursalaat",
+    "name_english": "The Emissaries",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 50
+  },
+  {
+    "id": 78,
+    "number": 78,
+    "name_arabic": "سُورَةُ النَّبَإِ",
+    "name_latin": "An-Naba",
+    "name_english": "The Announcement",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 40
+  },
+  {
+    "id": 79,
+    "number": 79,
+    "name_arabic": "سُورَةُ النَّازِعَاتِ",
+    "name_latin": "An-Naazi'aat",
+    "name_english": "Those who drag forth",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 46
+  },
+  {
+    "id": 80,
+    "number": 80,
+    "name_arabic": "سُورَةُ عَبَسَ",
+    "name_latin": "Abasa",
+    "name_english": "He frowned",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 42
+  },
+  {
+    "id": 81,
+    "number": 81,
+    "name_arabic": "سُورَةُ التَّكۡوِيرِ",
+    "name_latin": "At-Takwir",
+    "name_english": "The Overthrowing",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 29
+  },
+  {
+    "id": 82,
+    "number": 82,
+    "name_arabic": "سُورَةُ الانفِطَارِ",
+    "name_latin": "Al-Infitaar",
+    "name_english": "The Cleaving",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 19
+  },
+  {
+    "id": 83,
+    "number": 83,
+    "name_arabic": "سُورَةُ المُطَفِّفِينَ",
+    "name_latin": "Al-Mutaffifin",
+    "name_english": "Defrauding",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 36
+  },
+  {
+    "id": 84,
+    "number": 84,
+    "name_arabic": "سُورَةُ الانشِقَاقِ",
+    "name_latin": "Al-Inshiqaaq",
+    "name_english": "The Splitting Open",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 25
+  },
+  {
+    "id": 85,
+    "number": 85,
+    "name_arabic": "سُورَةُ البُرُوجِ",
+    "name_latin": "Al-Burooj",
+    "name_english": "The Constellations",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 22
+  },
+  {
+    "id": 86,
+    "number": 86,
+    "name_arabic": "سُورَةُ الطَّارِقِ",
+    "name_latin": "At-Taariq",
+    "name_english": "The Morning Star",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 17
+  },
+  {
+    "id": 87,
+    "number": 87,
+    "name_arabic": "سُورَةُ الأَعۡلَىٰ",
+    "name_latin": "Al-A'laa",
+    "name_english": "The Most High",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 19
+  },
+  {
+    "id": 88,
+    "number": 88,
+    "name_arabic": "سُورَةُ الغَاشِيَةِ",
+    "name_latin": "Al-Ghaashiya",
+    "name_english": "The Overwhelming",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 26
+  },
+  {
+    "id": 89,
+    "number": 89,
+    "name_arabic": "سُورَةُ الفَجۡرِ",
+    "name_latin": "Al-Fajr",
+    "name_english": "The Dawn",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 30
+  },
+  {
+    "id": 90,
+    "number": 90,
+    "name_arabic": "سُورَةُ البَلَدِ",
+    "name_latin": "Al-Balad",
+    "name_english": "The City",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 20
+  },
+  {
+    "id": 91,
+    "number": 91,
+    "name_arabic": "سُورَةُ الشَّمۡسِ",
+    "name_latin": "Ash-Shams",
+    "name_english": "The Sun",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 15
+  },
+  {
+    "id": 92,
+    "number": 92,
+    "name_arabic": "سُورَةُ اللَّيۡلِ",
+    "name_latin": "Al-Lail",
+    "name_english": "The Night",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 21
+  },
+  {
+    "id": 93,
+    "number": 93,
+    "name_arabic": "سُورَةُ الضُّحَىٰ",
+    "name_latin": "Ad-Dhuhaa",
+    "name_english": "The Morning Hours",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 11
+  },
+  {
+    "id": 94,
+    "number": 94,
+    "name_arabic": "سُورَةُ الشَّرۡحِ",
+    "name_latin": "Ash-Sharh",
+    "name_english": "The Consolation",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 8
+  },
+  {
+    "id": 95,
+    "number": 95,
+    "name_arabic": "سُورَةُ التِّينِ",
+    "name_latin": "At-Tin",
+    "name_english": "The Fig",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 8
+  },
+  {
+    "id": 96,
+    "number": 96,
+    "name_arabic": "سُورَةُ العَلَقِ",
+    "name_latin": "Al-Alaq",
+    "name_english": "The Clot",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 19
+  },
+  {
+    "id": 97,
+    "number": 97,
+    "name_arabic": "سُورَةُ القَدۡرِ",
+    "name_latin": "Al-Qadr",
+    "name_english": "The Power, Fate",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 5
+  },
+  {
+    "id": 98,
+    "number": 98,
+    "name_arabic": "سُورَةُ البَيِّنَةِ",
+    "name_latin": "Al-Bayyina",
+    "name_english": "The Evidence",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 8
+  },
+  {
+    "id": 99,
+    "number": 99,
+    "name_arabic": "سُورَةُ الزَّلۡزَلَةِ",
+    "name_latin": "Az-Zalzala",
+    "name_english": "The Earthquake",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 8
+  },
+  {
+    "id": 100,
+    "number": 100,
+    "name_arabic": "سُورَةُ العَادِيَاتِ",
+    "name_latin": "Al-Aadiyaat",
+    "name_english": "The Chargers",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 11
+  },
+  {
+    "id": 101,
+    "number": 101,
+    "name_arabic": "سُورَةُ القَارِعَةِ",
+    "name_latin": "Al-Qaari'a",
+    "name_english": "The Calamity",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 11
+  },
+  {
+    "id": 102,
+    "number": 102,
+    "name_arabic": "سُورَةُ التَّكَاثُرِ",
+    "name_latin": "At-Takaathur",
+    "name_english": "Competition",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 8
+  },
+  {
+    "id": 103,
+    "number": 103,
+    "name_arabic": "سُورَةُ العَصۡرِ",
+    "name_latin": "Al-Asr",
+    "name_english": "The Declining Day, Epoch",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 3
+  },
+  {
+    "id": 104,
+    "number": 104,
+    "name_arabic": "سُورَةُ الهُمَزَةِ",
+    "name_latin": "Al-Humaza",
+    "name_english": "The Traducer",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 9
+  },
+  {
+    "id": 105,
+    "number": 105,
+    "name_arabic": "سُورَةُ الفِيلِ",
+    "name_latin": "Al-Fil",
+    "name_english": "The Elephant",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 5
+  },
+  {
+    "id": 106,
+    "number": 106,
+    "name_arabic": "سُورَةُ قُرَيۡشٍ",
+    "name_latin": "Quraish",
+    "name_english": "Quraysh",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 4
+  },
+  {
+    "id": 107,
+    "number": 107,
+    "name_arabic": "سُورَةُ المَاعُونِ",
+    "name_latin": "Al-Maa'un",
+    "name_english": "Almsgiving",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 7
+  },
+  {
+    "id": 108,
+    "number": 108,
+    "name_arabic": "سُورَةُ الكَوۡثَرِ",
+    "name_latin": "Al-Kawthar",
+    "name_english": "Abundance",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 3
+  },
+  {
+    "id": 109,
+    "number": 109,
+    "name_arabic": "سُورَةُ الكَافِرُونَ",
+    "name_latin": "Al-Kaafiroon",
+    "name_english": "The Disbelievers",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 6
+  },
+  {
+    "id": 110,
+    "number": 110,
+    "name_arabic": "سُورَةُ النَّصۡرِ",
+    "name_latin": "An-Nasr",
+    "name_english": "Divine Support",
+    "revelation_type": "Madaniyyah",
+    "ayah_count": 3
+  },
+  {
+    "id": 111,
+    "number": 111,
+    "name_arabic": "سُورَةُ المَسَدِ",
+    "name_latin": "Al-Masad",
+    "name_english": "The Palm Fibre",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 5
+  },
+  {
+    "id": 112,
+    "number": 112,
+    "name_arabic": "سُورَةُ الإِخۡلَاصِ",
+    "name_latin": "Al-Ikhlaas",
+    "name_english": "Sincerity",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 4
+  },
+  {
+    "id": 113,
+    "number": 113,
+    "name_arabic": "سُورَةُ الفَلَقِ",
+    "name_latin": "Al-Falaq",
+    "name_english": "The Dawn",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 5
+  },
+  {
+    "id": 114,
+    "number": 114,
+    "name_arabic": "سُورَةُ النَّاسِ",
+    "name_latin": "An-Naas",
+    "name_english": "Mankind",
+    "revelation_type": "Makkiyyah",
+    "ayah_count": 6
+  }
+]

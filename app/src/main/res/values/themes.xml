@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.QuranPlus" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#0D1415</item>
+        <item name="android:navigationBarColor">#0D1415</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

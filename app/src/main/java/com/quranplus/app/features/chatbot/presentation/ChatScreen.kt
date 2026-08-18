@@ -1,0 +1,312 @@
+package com.quranplus.app.features.chatbot.presentation
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.quranplus.app.core.ui.components.AppEmptyState
+import com.quranplus.app.core.ui.components.AppTopBar
+import com.quranplus.app.core.ui.theme.Spacing
+import com.quranplus.app.features.chatbot.domain.ChatMessage
+import com.quranplus.app.features.chatbot.domain.MessageRole
+import com.quranplus.app.features.rag.domain.RetrievedCitation
+import com.quranplus.app.features.settings.data.AiPersona
+import com.quranplus.app.features.settings.data.PreferencesManager
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatScreen(
+    viewModel: ChatViewModel,
+    preferencesManager: PreferencesManager,
+    onNavigateToAyah: (Int, Int) -> Unit
+) {
+    val messages by viewModel.messages.collectAsState()
+    val isStreaming by viewModel.isStreaming.collectAsState()
+    val streamingContent by viewModel.streamingContent.collectAsState()
+    val selectedPersona by preferencesManager.selectedPersona.collectAsState(initial = AiPersona.USTADZ)
+
+    var inputPrompt by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+
+    // Auto-scroll on new message
+    LaunchedEffect(messages.size, streamingContent.length) {
+        if (messages.isNotEmpty() || streamingContent.isNotEmpty()) {
+            listState.animateScrollToItem(index = (messages.size + if (isStreaming) 1 else 0).coerceAtLeast(0))
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            AppTopBar(
+                title = "Tanya AI (${selectedPersona.title})",
+                subtitle = "Ground truth: Al-Qur'an & As-Sunnah",
+                actions = {
+                    IconButton(onClick = { viewModel.clearChat() }) {
+                        Icon(imageVector = Icons.Rounded.DeleteOutline, contentDescription = "Hapus Riwayat")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // Chat message list
+            if (messages.isEmpty() && !isStreaming) {
+                Box(modifier = Modifier.weight(1f)) {
+                    AppEmptyState(
+                        icon = Icons.Rounded.AutoAwesome,
+                        title = "Asisten AI Islami Offline",
+                        description = "Tanyakan seputar hukum, fiqih, tafsir ayat, atau akhlak. Jawaban akan dirujuk langsung ke dalil Al-Qur'an dan Hadits Shahih."
+                    )
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                ) {
+                    items(items = messages, key = { it.id }) { message ->
+                        ChatBubbleItem(
+                            message = message,
+                            onCitationClick = { citation ->
+                                if (citation.surahNumber != null && citation.ayahNumber != null) {
+                                    onNavigateToAyah(citation.surahNumber, citation.ayahNumber)
+                                }
+                            }
+                        )
+                    }
+
+                    // Live Streaming Bubble
+                    if (isStreaming && streamingContent.isNotEmpty()) {
+                        item {
+                            ChatBubbleItem(
+                                message = ChatMessage(
+                                    conversationId = "stream",
+                                    role = MessageRole.ASSISTANT,
+                                    content = streamingContent,
+                                    isStreaming = true
+                                ),
+                                onCitationClick = {}
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Input Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = inputPrompt,
+                    onValueChange = { inputPrompt = it },
+                    placeholder = { Text("Tanyakan masalah agama...", fontSize = 14.sp) },
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    ),
+                    maxLines = 4
+                )
+
+                Spacer(modifier = Modifier.width(Spacing.sm))
+
+                IconButton(
+                    onClick = {
+                        val text = inputPrompt
+                        inputPrompt = ""
+                        viewModel.sendMessage(text)
+                    },
+                    enabled = inputPrompt.isNotBlank() && !isStreaming,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(if (inputPrompt.isNotBlank() && !isStreaming) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    if (isStreaming) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.Send,
+                            contentDescription = "Kirim",
+                            tint = if (inputPrompt.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ChatBubbleItem(
+    message: ChatMessage,
+    onCitationClick: (RetrievedCitation) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isUser = message.role == MessageRole.USER
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    ) {
+        if (!isUser) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(Spacing.sm))
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(0.85f),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+            ),
+            shape = if (isUser) MaterialTheme.shapes.medium else MaterialTheme.shapes.large
+        ) {
+            Column(modifier = Modifier.padding(Spacing.md)) {
+                Text(
+                    text = message.content,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 22.sp
+                )
+
+                // Render Sourced Citations
+                if (message.citations.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(Spacing.sm))
+                    Text(
+                        text = "Rujukan Dalil:",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    message.citations.forEach { cite ->
+                        CitationChip(
+                            citation = cite,
+                            onClick = { onCitationClick(cite) }
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+                }
+            }
+        }
+
+        if (isUser) {
+            Spacer(modifier = Modifier.width(Spacing.sm))
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CitationChip(
+    citation: RetrievedCitation,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.extraSmall)
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spacing.sm, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.MenuBook,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(14.dp)
+        )
+        Spacer(modifier = Modifier.width(Spacing.xs))
+        Text(
+            text = citation.title,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
