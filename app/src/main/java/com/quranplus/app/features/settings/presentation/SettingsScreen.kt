@@ -1,6 +1,7 @@
 package com.quranplus.app.features.settings.presentation
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -67,14 +69,20 @@ fun SettingsScreen(
             AppTopBar(title = "Pengaturan")
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(Spacing.md),
-            verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 680.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+            ) {
             // Section 1: Tampilan & Tilawah
             SettingsSectionHeader(title = "Tampilan & Tilawah", icon = Icons.Rounded.Palette)
 
@@ -237,6 +245,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(Spacing.xl))
         }
     }
+}
 }
 
 @Composable

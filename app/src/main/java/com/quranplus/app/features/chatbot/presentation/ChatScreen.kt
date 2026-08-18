@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -149,7 +151,8 @@ fun ChatScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                    .padding(horizontal = Spacing.md, vertical = Spacing.sm)
+                    .imePadding(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
@@ -225,7 +228,9 @@ fun ChatBubbleItem(
         }
 
         Card(
-            modifier = Modifier.fillMaxWidth(0.85f),
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .widthIn(max = 640.dp),
             colors = CardDefaults.cardColors(
                 containerColor = if (isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
             ),

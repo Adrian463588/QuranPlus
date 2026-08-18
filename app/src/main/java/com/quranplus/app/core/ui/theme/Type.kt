@@ -7,6 +7,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.sp
+import com.quranplus.app.R
 
 // Typography definition conforming to DESIGN.md
 val QuranPlusTypography = Typography(
@@ -96,11 +97,20 @@ val QuranPlusTypography = Typography(
     )
 )
 
+val QuranFontFamily = FontFamily(
+    Font(R.font.kitab, FontWeight.Normal)
+)
+
+val UthmanFontFamily = FontFamily(
+    Font(R.font.uthman, FontWeight.Normal)
+)
+
 /**
  * Arabic Quran Text Typography Scale
  */
 fun getQuranArabicStyle(fontSizeSp: Float = 28f): TextStyle {
     return TextStyle(
+        fontFamily = QuranFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = fontSizeSp.sp,
         lineHeight = (fontSizeSp * 2.0f).sp, // Generous line spacing for tashkeel/harakat

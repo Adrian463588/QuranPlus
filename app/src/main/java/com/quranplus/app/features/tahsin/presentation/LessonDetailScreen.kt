@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppSecondaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
@@ -95,7 +97,7 @@ fun LessonDetailScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = item.letterArabic.ifBlank { "ح" },
+                                text = item.letterArabic.ifBlank { item.title.take(1) },
                                 style = getQuranArabicStyle(40f),
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -120,7 +122,7 @@ fun LessonDetailScreen(
                 // Makhraj / Articulation Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Column(modifier = Modifier.padding(Spacing.md)) {
@@ -128,14 +130,13 @@ fun LessonDetailScreen(
                             text = "Titik Artikulasi (Makhraj):",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.secondary
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(
                             text = item.articulationPoint,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 22.sp
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -145,12 +146,12 @@ fun LessonDetailScreen(
                 // Description Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Column(modifier = Modifier.padding(Spacing.md)) {
                         Text(
-                            text = "Karakteristik & Cara Pengucapan:",
+                            text = "Penjelasan & Kaidah:",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -194,10 +195,15 @@ fun LessonDetailScreen(
 
                 Spacer(modifier = Modifier.height(Spacing.lg))
 
+                val haptic = LocalHapticFeedback.current
+
                 // Mark Completed CTA
                 if (item.isCompleted) {
                     AppSecondaryButton(
-                        onClick = { viewModel.toggleLessonCompleted(item) },
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.toggleLessonCompleted(item)
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(imageVector = Icons.Rounded.CheckCircle, contentDescription = null)
@@ -206,7 +212,10 @@ fun LessonDetailScreen(
                     }
                 } else {
                     AppPrimaryButton(
-                        onClick = { viewModel.toggleLessonCompleted(item) },
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.toggleLessonCompleted(item)
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(imageVector = Icons.Rounded.Check, contentDescription = null)

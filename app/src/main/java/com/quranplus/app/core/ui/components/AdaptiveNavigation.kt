@@ -48,6 +48,19 @@ enum class AppDestination(
     SETTINGS("settings_home", "Pengaturan", Icons.Rounded.Settings)
 }
 
+private fun isDestinationSelected(currentRoute: String, dest: AppDestination): Boolean {
+    return when (dest) {
+        AppDestination.QURAN -> currentRoute.startsWith(AppDestination.QURAN.route) ||
+                currentRoute.startsWith("quran_reader") ||
+                currentRoute.startsWith("quran_search")
+        AppDestination.TAHSIN -> currentRoute.startsWith(AppDestination.TAHSIN.route) ||
+                currentRoute.startsWith("tahsin_detail")
+        AppDestination.CHAT -> currentRoute.startsWith(AppDestination.CHAT.route)
+        AppDestination.BOOKMARKS -> currentRoute.startsWith(AppDestination.BOOKMARKS.route)
+        AppDestination.SETTINGS -> currentRoute.startsWith(AppDestination.SETTINGS.route)
+    }
+}
+
 @Composable
 fun AdaptiveNavigationScaffold(
     currentRoute: String,
@@ -76,7 +89,7 @@ fun AdaptiveNavigationScaffold(
                         )
                         Spacer(modifier = Modifier.height(Spacing.lg))
                         destinations.forEach { dest ->
-                            val selected = currentRoute.startsWith(dest.route)
+                            val selected = isDestinationSelected(currentRoute, dest)
                             NavigationDrawerItem(
                                 icon = { Icon(dest.icon, contentDescription = dest.title) },
                                 label = { Text(dest.title) },
@@ -108,7 +121,7 @@ fun AdaptiveNavigationScaffold(
                 ) {
                     Spacer(modifier = Modifier.height(Spacing.md))
                     destinations.forEach { dest ->
-                        val selected = currentRoute.startsWith(dest.route)
+                        val selected = isDestinationSelected(currentRoute, dest)
                         NavigationRailItem(
                             icon = { Icon(dest.icon, contentDescription = dest.title) },
                             label = { Text(dest.title, style = MaterialTheme.typography.labelSmall) },
@@ -129,33 +142,41 @@ fun AdaptiveNavigationScaffold(
         }
         else -> {
             // Phone (Compact): Standard Bottom Navigation Bar
+            val showBottomBar = !currentRoute.startsWith("quran_reader") && !currentRoute.startsWith("quran_search")
+
             Scaffold(
                 bottomBar = {
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        tonalElevation = 2.dp
-                    ) {
-                        destinations.forEach { dest ->
-                            val selected = currentRoute.startsWith(dest.route)
-                            NavigationBarItem(
-                                icon = { Icon(dest.icon, contentDescription = dest.title) },
-                                label = { Text(dest.title, style = MaterialTheme.typography.labelMedium) },
-                                selected = selected,
-                                onClick = { onNavigateToDestination(dest) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    if (showBottomBar) {
+                        NavigationBar(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            tonalElevation = 2.dp
+                        ) {
+                            destinations.forEach { dest ->
+                                val selected = isDestinationSelected(currentRoute, dest)
+                                NavigationBarItem(
+                                    icon = { Icon(dest.icon, contentDescription = dest.title) },
+                                    label = { Text(dest.title, style = MaterialTheme.typography.labelMedium) },
+                                    selected = selected,
+                                    onClick = { onNavigateToDestination(dest) },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }
             ) { padding ->
-                Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(if (showBottomBar) padding else androidx.compose.foundation.layout.PaddingValues(0.dp))
+                ) {
                     content()
                 }
             }

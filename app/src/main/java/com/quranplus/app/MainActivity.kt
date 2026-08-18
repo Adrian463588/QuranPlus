@@ -36,6 +36,11 @@ import com.quranplus.app.features.tahsin.presentation.TahsinHomeScreen
 import com.quranplus.app.features.tahsin.presentation.TahsinViewModel
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 
 class MainActivity : ComponentActivity() {
 
@@ -44,6 +49,7 @@ class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         setContent {
@@ -115,7 +121,11 @@ fun AppNavHost(
 
     NavHost(
         navController = navController,
-        startDestination = AppDestination.QURAN.route
+        startDestination = AppDestination.QURAN.route,
+        enterTransition = { fadeIn(tween(260)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(260)) },
+        exitTransition = { fadeOut(tween(220)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(220)) },
+        popEnterTransition = { fadeIn(tween(260)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(260)) },
+        popExitTransition = { fadeOut(tween(220)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(220)) }
     ) {
         // --- 1. Al-Quran Navigation ---
         composable(AppDestination.QURAN.route) {
@@ -131,12 +141,20 @@ fun AppNavHost(
         }
 
         composable(
-            route = "quran_reader/{surahNumber}",
-            arguments = listOf(navArgument("surahNumber") { type = NavType.IntType })
+            route = "quran_reader/{surahNumber}?initialAyah={initialAyah}",
+            arguments = listOf(
+                navArgument("surahNumber") { type = NavType.IntType },
+                navArgument("initialAyah") {
+                    type = NavType.IntType
+                    defaultValue = 1
+                }
+            )
         ) { backStackEntry ->
             val surahNumber = backStackEntry.arguments?.getInt("surahNumber") ?: 1
+            val initialAyah = backStackEntry.arguments?.getInt("initialAyah") ?: 1
             QuranReaderScreen(
                 surahNumber = surahNumber,
+                initialAyahNumber = initialAyah,
                 viewModel = quranViewModel,
                 preferencesManager = preferencesManager,
                 onBackClick = { navController.popBackStack() }
@@ -146,8 +164,8 @@ fun AppNavHost(
         composable("quran_search") {
             SearchScreen(
                 viewModel = quranViewModel,
-                onAyahClick = { surahNumber, _ ->
-                    navController.navigate("quran_reader/$surahNumber")
+                onAyahClick = { surahNumber, ayahNumber ->
+                    navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
                 },
                 onBackClick = { navController.popBackStack() }
             )
@@ -159,8 +177,8 @@ fun AppNavHost(
                 ChatScreen(
                     viewModel = chatViewModel,
                     preferencesManager = preferencesManager,
-                    onNavigateToAyah = { surahNumber, _ ->
-                        navController.navigate("quran_reader/$surahNumber")
+                    onNavigateToAyah = { surahNumber, ayahNumber ->
+                        navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
                     }
                 )
             } else {

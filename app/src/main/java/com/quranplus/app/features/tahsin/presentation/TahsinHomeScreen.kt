@@ -164,7 +164,7 @@ fun TahsinLessonRow(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = lesson.letterArabic.ifBlank { "ط" },
+                    text = lesson.letterArabic.ifBlank { lesson.title.take(1) },
                     style = getQuranArabicStyle(22f),
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )

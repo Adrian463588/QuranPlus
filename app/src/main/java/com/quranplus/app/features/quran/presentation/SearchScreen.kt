@@ -45,6 +45,8 @@ import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
 import com.quranplus.app.features.quran.domain.Ayah
 
+import androidx.compose.foundation.layout.imePadding
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
@@ -102,6 +104,7 @@ fun SearchScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
         ) {
             when (val state = searchState) {
                 is UiState.Idle -> {

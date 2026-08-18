@@ -59,10 +59,16 @@ import com.quranplus.app.core.utils.TajwidParser
 import com.quranplus.app.features.quran.domain.Ayah
 import com.quranplus.app.features.settings.data.PreferencesManager
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuranReaderScreen(
     surahNumber: Int,
+    initialAyahNumber: Int = 1,
     viewModel: QuranViewModel,
     preferencesManager: PreferencesManager,
     onBackClick: () -> Unit
@@ -79,9 +85,18 @@ fun QuranReaderScreen(
     var showFontSlider by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
 
     LaunchedEffect(surahNumber) {
         viewModel.loadSurahDetail(surahNumber)
+    }
+
+    LaunchedEffect(ayahsState, initialAyahNumber) {
+        if (ayahsState is UiState.Success && initialAyahNumber > 1) {
+            val targetIndex = (initialAyahNumber - 1 + if (surahNumber != 9) 1 else 0).coerceAtLeast(0)
+            listState.animateScrollToItem(targetIndex)
+        }
     }
 
     // Auto-update last read position as user scrolls
@@ -142,16 +157,18 @@ fun QuranReaderScreen(
                         )
                         Row {
                             IconButton(onClick = {
-                                preferencesManager.let { pm ->
-                                    kotlinx.coroutines.GlobalScope.let {
-                                        // Decrease
-                                    }
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                scope.launch {
+                                    preferencesManager.setArabicFontSize((arabicFontSize - 2f).coerceIn(20f, 40f))
                                 }
                             }) {
                                 Text("A-", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
                             IconButton(onClick = {
-                                // Increase
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                scope.launch {
+                                    preferencesManager.setArabicFontSize((arabicFontSize + 2f).coerceIn(20f, 40f))
+                                }
                             }) {
                                 Text("A+", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
@@ -190,6 +207,7 @@ fun QuranReaderScreen(
                                 showTransliteration = showTransliteration,
                                 showTranslation = showTranslation,
                                 onBookmarkClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     viewModel.toggleBookmark(ayah, surah?.nameLatin ?: "Surah $surahNumber")
                                 }
                             )

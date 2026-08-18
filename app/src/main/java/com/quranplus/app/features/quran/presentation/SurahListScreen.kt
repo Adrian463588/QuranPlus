@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -88,14 +89,17 @@ fun SurahListScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Quick Continue / Last Read Card
             if (lastRead != null) {
-                LastReadBanner(
-                    lastRead = lastRead!!,
-                    onClick = { onSurahClick(lastRead!!.surahNumber) }
-                )
+                Box(modifier = Modifier.widthIn(max = 840.dp)) {
+                    LastReadBanner(
+                        lastRead = lastRead!!,
+                        onClick = { onSurahClick(lastRead!!.surahNumber) }
+                    )
+                }
             }
 
             when (val state = surahState) {
@@ -109,9 +113,12 @@ fun SurahListScreen(
                 }
                 is UiState.Success -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .widthIn(max = 840.dp),
                         contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         items(
                             items = state.data,
