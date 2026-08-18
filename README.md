@@ -24,7 +24,11 @@
 
 | Instant FTS5 Search | Tilawah & AI Settings | Bookmark Management |
 |:---:|:---:|:---:|
-| ![FTS Search](docs/preview_search_results.png) | ![Settings](docs/preview_settings.png) | ![Bookmarks](docs/preview_bookmarks.png) |
+| ![FTS Search](docs/preview_search.png) | ![Settings](docs/preview_settings.png) | ![Bookmarks](docs/preview_bookmark.png) |
+
+| Quick Font Scaling (30sp) | Auto-Scroll Search Jump |
+|:---:|:---:|
+| ![Font Scale](docs/preview_reader_font.png) | ![Search Jump](docs/preview_search_jump.png) |
 
 ---
 
@@ -102,7 +106,7 @@ app/src/main/java/com/quranplus/app/
 ### Clone & Build
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/QuranPlus.git
+git clone https://github.com/Adrian463588/QuranPlus.git
 cd QuranPlus
 
 # Build the debug APK
@@ -114,6 +118,16 @@ cd QuranPlus
 # Install on connected Android device
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+
+---
+
+## 🛡️ Anti AI Slop & Quality Standard
+
+This project strictly adheres to [`ANTISLOP.md`](ANTISLOP.md), [`AGENTS.md`](AGENTS.md), and [`DESIGN.md`](DESIGN.md):
+- **Zero Mock Data:** 100% authentic SQLite records without any placeholder stubs or dummy models.
+- **Authentic Calligraphy:** Real Uthmani fonts (`kitab.ttf`, `uthman.otf`) with full tashkeel support.
+- **Adaptive Multi-Pane:** Responsive layout centering (`widthIn(max = 840.dp)`) across Foldables, Tablets, and Desktops.
+- **Material 3 Expressive:** Spring-based motion, haptic feedback, and dynamic edge-to-edge system insets.
 
 ---
 
@@ -132,3 +146,4 @@ The prepackaged asset database (`quranplus.db`, ~15 MB) is fully offline and pre
 ## 📜 License & Acknowledgments
 - Quranic text and translations provided by authentic open databases.
 - Open-sourced under the [Apache License 2.0](LICENSE).
+
