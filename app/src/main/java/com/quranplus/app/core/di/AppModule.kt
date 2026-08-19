@@ -52,6 +52,7 @@ val appModule = module {
 
     // Core Managers & Services
     single { PreferencesManager(androidContext()) }
+    single { com.quranplus.app.core.audio.AudioPlayerManager(androidContext()) }
     single { ResumableDownloader(androidContext()) }
     single { TfLiteEmbeddingService(androidContext()) }
     single<VectorRetriever> { VectorRetrieverImpl(get(), get(), get()) }

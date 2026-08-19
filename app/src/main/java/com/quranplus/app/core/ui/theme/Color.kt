@@ -49,12 +49,25 @@ object QuranColors {
     val OutlineVariantLight = Color(0xFFE2ECEE)
 
     // === Tajwid Colors (IMMUTABLE — standard tajwid visual guidelines) ===
-    val TajwidIdgham = Color(0xFF4CAF50)    // Hijau (Merger/Ghunnah)
-    val TajwidIkhfa = Color(0xFF42A5F5)     // Biru muda (Samar)
-    val TajwidIqlab = Color(0xFFEF5350)     // Merah (Membalik nun ke mim)
-    val TajwidQalqalah = Color(0xFFFF7043)  // Oranye (Memantul)
-    val TajwidMad = Color(0xFFAB47BC)       // Ungu muda (Panjang)
-    val TajwidGhunnah = Color(0xFFEC407A)   // Merah muda (Dengung)
+    val TajwidIdgham = Color(0xFF4CAF50)        // Hijau (Merger/Ghunnah)
+    val TajwidIdghamBila = Color(0xFF66BB6A)    // Hijau muda (Idgham Bilaghunnah)
+    val TajwidIdghamMimi = Color(0xFF43A047)    // Hijau tua (Idgham Mimi)
+    val TajwidIkhfa = Color(0xFF42A5F5)         // Biru muda (Samar)
+    val TajwidIkhfaSyafawi = Color(0xFF29B6F6)  // Biru kehijauan (Ikhfa Syafawi)
+    val TajwidIqlab = Color(0xFFEF5350)         // Merah (Membalik nun ke mim)
+    val TajwidQalqalah = Color(0xFFFF7043)      // Oranye (Memantul)
+    val TajwidIzhar = Color(0xFF78909C)         // Abu-abu netral (Jelas)
+    val TajwidMad = Color(0xFFAB47BC)           // Ungu muda (Mad Thabi'i 2 harakat)
+    val TajwidMadWajib = Color(0xFF8E24AA)      // Ungu sedang (Mad Wajib/Jaiz 4-5 harakat)
+    val TajwidMadLazim = Color(0xFF6A1B9A)      // Ungu pekat (Mad Lazim 6 harakat)
+    val TajwidGhunnah = Color(0xFFEC407A)       // Merah muda (Dengung)
+
+    // === Waqaf Colors ===
+    val BadgeWaqafStop = Color(0xFFEF5350)      // Merah (Wajib Berhenti / Dilarang Berhenti)
+    val BadgeWaqafContinue = Color(0xFF4CAF50)  // Hijau (Lebih Utama Lanjut)
+    val BadgeWaqafOptional = Color(0xFFFFA726)  // Kuning / Oranye (Boleh Berhenti/Lanjut)
+
+    val TextArabicDefault = Color(0xFFFFFFFF)
 
     // === Semantic ===
     val Success = Color(0xFF66BB6A)

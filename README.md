@@ -1,94 +1,113 @@
-# 📖 Quran Plus — Offline Quran & On-Device RAG AI Assistant
+# 📖 Quran Plus — Offline Quran, Tajwid Engine & On-Device RAG AI Assistant
 
 <p align="center">
-  <img src="docs/preview_home.png" width="280" alt="Quran Plus Home" />
-  <img src="docs/preview_reader.png" width="280" alt="Quran Reader Screen" />
-  <img src="docs/preview_chat.png" width="280" alt="Tanya AI ModelGate" />
+  <img src="docs/screenshot_quran_main.png" width="240" alt="Quran Plus Home" />
+  <img src="docs/screenshot_quran_reader.png" width="240" alt="Quran Reader Screen" />
+  <img src="docs/screenshot_ayah_actions.png" width="240" alt="Ayah Action Bottom Sheet" />
+  <img src="docs/screenshot_tahsin_makharij.png" width="240" alt="Tahsin & Makharij Screen" />
 </p>
 
 <p align="center">
-  <b>A modern, dignified, offline-first Android application featuring the complete Al-Qur'an 30 Juz, colored Tajwid parsing, an interactive Tahsin & Makharij curriculum, and a 100% on-device RAG AI Assistant powered by Google LiteRT-LM.</b>
+  <b>A modern, dignified, offline-first Android application featuring the complete Al-Qur'an 30 Juz, inter-character colored Tajwid parsing, End-of-Ayah Waqaf markers, Gharib & Sajdah reading encyclopedia, offline Murottal audio management, interactive Tahsin quizzes, and a 100% on-device RAG AI Assistant powered by Google LiteRT-LM.</b>
 </p>
 
 ---
 
-## 🌟 Visual Showcase
+## 🌟 Visual Showcase (Sprint 2 Live Device Captures)
 
-| Surah List & Last Read | Mushaf Reader & Tajwid | Tajwid Legend Modal |
+| Surah Index & Last Read | Mushaf Reader (Two-Letter Tajwid) | Interactive Ayah Action Sheet |
 |:---:|:---:|:---:|
-| ![Surah List](docs/preview_home.png) | ![Quran Reader](docs/preview_reader.png) | ![Tajwid Sheet](docs/preview_tajwid_sheet.png) |
+| ![Surah List](docs/screenshot_quran_main.png) | ![Quran Reader](docs/screenshot_quran_reader.png) | ![Ayah Actions](docs/screenshot_ayah_actions.png) |
 
-| AI Setup (Model Gate) | Tahsin & Makharij | Tahsin Lesson Detail |
+| Makharij al-Huruf | Hukum Tajwid Catalog | Tajwid & Waqaf Quiz |
 |:---:|:---:|:---:|
-| ![AI ModelGate](docs/preview_chat.png) | ![Tahsin Home](docs/preview_tahsin.png) | ![Lesson Detail](docs/preview_lesson_detail.png) |
+| ![Makharij](docs/screenshot_tahsin_makharij.png) | ![Hukum Tajwid](docs/screenshot_tahsin_tajwid.png) | ![Quiz Screen](docs/screenshot_tahsin_quiz.png) |
 
-| Instant FTS5 Search | Tilawah & AI Settings | Bookmark Management |
+| Bacaan Gharib Encyclopedia | Isymam Lip Movement Diagram | Waqaf & Ibtida' Guide |
 |:---:|:---:|:---:|
-| ![FTS Search](docs/preview_search.png) | ![Settings](docs/preview_settings.png) | ![Bookmarks](docs/preview_bookmark.png) |
+| ![Gharib](docs/screenshot_gharib_encyclopedia.png) | ![Isymam](docs/screenshot_gharib_isymam.png) | ![Waqaf Guide](docs/screenshot_waqaf_guide.png) |
 
-| Quick Font Scaling (30sp) | Auto-Scroll Search Jump |
-|:---:|:---:|
-| ![Font Scale](docs/preview_reader_font.png) | ![Search Jump](docs/preview_search_jump.png) |
+| Offline Murottal Manager | Settings & Tilawah Preferences | On-Device AI ModelGate |
+|:---:|:---:|:---:|
+| ![Audio Manager](docs/screenshot_audio_manager.png) | ![Settings](docs/screenshot_settings.png) | ![AI ModelGate](docs/preview_chat.png) |
 
 ---
 
 ## ✨ Key Features
 
 ### 1. 📖 Al-Qur'an Al-Karim (Complete 30 Juz & 114 Surahs)
-- **Authentic Uthmani Script:** Clean and legible Arabic typography with customizable font sizing (20sp–40sp).
-- **Phonetic & Tagged Tajwid Highlighting:** Real-time color coding conforming to classical Tajwid rules (Idgham, Ikhfa, Iqlab, Qalqalah, Mad, Ghunnah).
+- **Authentic Uthmani Script:** Clean and legible Arabic typography (`kitab.ttf`, `uthman.otf`) with customizable font sizing (20sp–40sp).
+- **Inter-Character Two-Letter Tajwid Engine:** Real-time color coding conforming to classical Tajwid rules (Idgham, Ikhfa, Iqlab, Qalqalah, Mad Wajib/Jaiz/Lazim, Ghunnah) highlighting both the source consonant and destination modifier.
+- **End-of-Ayah (`۝`) Waqaf Marker Engine:** Authentic Arabic-Indic numeral glyphs (`۝١`, `۝٢`, `۝٣`) with instant Waqaf rule tooltips.
 - **Dual Translations & Transliteration:** Official Indonesian translation (*Kemenag RI*), Sahih International English translation, and standard Latin transliteration.
+- **Word-by-Word Translation View:** Granular vocabulary comprehension mode with word-level breakdown.
 - **Instant FTS4/FTS5 Search:** Blazing-fast full-text search across Arabic verses, translations, and transliterations.
-- **Bookmarks & Last Read:** Persistent tracking with optional personal reflection notes and quick resume.
+- **Ayah Action Sheet:** Audio playback, Muraja'ah repeat mode (1x, 2x, 3x, 5x, loop), bookmark with tadabbur notes, clipboard copy, and granular Tajwid breakdown dialogs.
 
-### 2. 🤖 Tanya AI — 100% On-Device RAG Assistant
-- **Complete Offline Privacy:** All embeddings and LLM inference run entirely on-device without sending any data to external servers.
-- **Google LiteRT-LM Integration:** Hardware-accelerated local inference (GPU/NPU) supporting Gemma 3 1B IT (4-bit), Qwen 2.5 1.5B, and Gemma 4 E2B models.
-- **Authentic Knowledge Base Ground Truth:** Vector retrieval powered by on-device `all-MiniLM-L6-v2` embeddings (384 dimensions) over curated Quranic thematic tafsir, Hadith Arbain Nawawi, and Tajwid rules.
-- **Multiple Persona Characterization:** Mufti (Formal & Dalil-grounded), Ustadz (Educational & gentle), Sahabat (Conversational), and Custom personas.
-- **Resumable Model Downloader:** Range-request background downloader with SHA-256 integrity verification.
+### 2. 📚 Ensiklopedia Bacaan Gharib & Ayat Sajdah
+- **9 Specialized Gharib Categories:**
+  1. *Imalah:* `مَجْرٜىٰهَا` (QS. Hud: 41) with phonetic explanation.
+  2. *Isymam:* `لَا تَأْمَ۫نَّا` (QS. Yusuf: 11) with interactive 3-stage lip movement diagram (*Buka → Moncongkan → Sempurnakan*).
+  3. *Tashil:* `ءَا۬عْجَمِيٌّ` (QS. Fussilat: 44) with soft hamzah pronunciation guide.
+  4. *Naql:* `بِئْسَ الاِسْمُ` (QS. Al-Hujurat: 11).
+  5. *Saktah:* QS. Al-Kahf: 1-2, Ya-Sin: 52, Al-Qiyamah: 27, Al-Muthaffifin: 14.
+  6. *Sifir Mustathil:* Wasal vs. Waqaf pronunciation rules.
+  7. *Sifir Mustadir:* Unpronounced extra letters.
+  8. *Nun Wiqayah / Wasal:* Kasrah assimilation when connecting tanwin to hamzah wasal.
+  9. *15 Ayat Sajdah:* Complete citations and step-by-step Sujud Tilawah guidance.
 
-### 3. 🎓 Tahsin & Makharij Curriculum
+### 3. 🎙️ Murottal Audio Manager & Mini Player Bar
+- **Multi-Qari Audio Streaming & Caching:** High quality audio CDN from Mishary Rashid Alafasy, Mahmoud Khalil Al-Husary, and Abdur-Rahman As-Sudais.
+- **Smart Mini Audio Player Bar:** Docked reader player bar with real-time playback progress, play/pause, ayah skipper, and speed controller (0.5x, 0.75x, 1.0x, 1.25x).
+- **Muraja'ah Repeat Loop:** Loop specific ayahs for memorization.
+- **Storage Capacity Meter:** Dedicated offline storage tracker with one-click cache cleaner.
+
+### 4. 🎓 Tahsin, Makharij & Interactive Quiz
 - **Structured 3-Stage Curriculum:**
-  1. *17 Makharij al-Huruf:* Al-Jawf, Al-Halq, Al-Lisan, Asy-Syafatain, and Al-Khaisyum.
+  1. *17 Makharij al-Huruf:* Al-Jawf, Al-Halq, Al-Lisan, Asy-Syafatain, and Al-Khaisyum with non-clipping Arabic letter badges.
   2. *13 Sifat al-Huruf:* Hams/Jahr, Syiddah/Rakhawah, Isti'la/Istifal, Ithbaq/Infitah, Qalqalah, Shafir, Lien, Inhiraf, Takrir, Tafasysyi, and Istithalah.
   3. *24 Hukum Tajwid:* Nun Sukun/Tanwin, Mim Sukun, Idgham, Mad, etc.
-- **Authentic Quranic Verse Examples:** Every rule is linked with real Quranic ayah citations and pronunciation guides.
-- **Interactive Progress Tracking:** Mark completed lessons with persistent local state.
+- **Tajwid & Waqaf Interactive Quiz:** 6-question randomized challenge with instant color-coded feedback, scoring meter, and detailed pedagogical explanations.
 
-### 4. 🎨 Dignified Islamic Visual Design
-- **OKLCH Palette:** Deep Teal (`#006B6B`), Warm Gold (`#7A5900`), and OLED Dark Background (`#0D1415`).
-- **Strict 8dp Grid System:** Clean spacing, generous touch targets (≥48dp), and smooth microinteractions.
-- **Adaptive Layout:** Responsive across Phone, Foldable, Tablet, and Desktop orientations via `WindowWidthSizeClass`.
+### 5. 🤖 Tanya AI — 100% On-Device RAG Assistant
+- **Complete Offline Privacy:** All embeddings and LLM inference run entirely on-device without sending any data to external servers.
+- **Google LiteRT-LM Integration:** Hardware-accelerated local inference (GPU/NPU) supporting Gemma 3 1B IT (4-bit), Qwen 2.5 1.5B, and Gemma 4 E2B models.
+- **Authentic Ground Truth Knowledge Base:** Vector retrieval powered by on-device `all-MiniLM-L6-v2` embeddings (384 dimensions) over curated Quranic thematic tafsir, Hadith Arbain Nawawi, and Tajwid rules.
+- **Multiple Persona Characterization:** Mufti (Formal & Dalil-grounded), Ustadz (Educational & gentle), Sahabat (Conversational), and Custom personas.
 
 ---
 
 ## 🏗️ Architecture & Tech Stack
 
-The project strictly follows **Clean Architecture**, **SOLID**, **DRY**, and **MVVM** patterns:
+The project strictly adheres to **Clean Architecture**, **SOLID**, **DRY**, **KISS**, and **UDF (Unidirectional Data Flow)**:
 
 ```
 app/src/main/java/com/quranplus/app/
 ├── core/
-│   ├── database/        # Room Database, DAOs, Entities, Prepackaged Asset DB
+│   ├── audio/           # AudioPlayerManager (MediaPlayer CDN + Speed/Repeat)
+│   ├── database/        # Room Database, DAOs, Entities, Prepackaged SQLite Asset DB
 │   ├── di/              # Koin Dependency Injection Module
 │   ├── ui/
-│   │   ├── components/  # AppTopBar, AppButton, TajwidLegendSheet, AdaptiveNav
+│   │   ├── components/  # AppTopBar, AppPrimaryButton, TajwidLegendSheet, AdaptiveNav
 │   │   └── theme/       # Color, Theme, Type, Spacing, Shape
-│   └── utils/           # TajwidParser, VecMath, Extensions
+│   └── utils/           # TajwidParser, WaqafParser, VecMath, Extensions
 └── features/
-    ├── quran/           # Quran Reader, Surah List, Bookmarks, Search
+    ├── quran/           # Quran Reader, Surah List, Word-by-Word, Bookmarks, Search
+    ├── gharib/          # Ensiklopedia Bacaan Gharib & Ayat Sajdah
+    ├── waqaf/           # Panduan Waqaf & Ibtida' Rulebook
+    ├── audio/           # Murottal Audio Manager & Downloader Screen
+    ├── tahsin/          # Tahsin Home, Categories, Lesson Detail, Tahsin Quiz
     ├── chatbot/         # RAG Chat Screen, Model Gate Downloader
     ├── rag/             # TfLiteEmbeddingService, VectorRetriever, RagPipeline, LiteRtLm
-    ├── tahsin/          # Tahsin Home, Categories, Lesson Detail
-    └── settings/        # PreferencesManager, Theme & Persona Settings
+    └── settings/        # PreferencesManager, Theme & Tilawah Settings
 ```
 
 | Layer | Technology |
 |---|---|
-| **UI Framework** | Jetpack Compose + Material 3 |
+| **UI Framework** | Jetpack Compose + Material 3 Expressive |
 | **Dependency Injection** | Koin 3.5+ |
 | **Local Database** | Room 2.7 + SQLite FTS4 / FTS5 |
+| **Audio Engine** | Android MediaPlayer + CDN Streaming / Cache |
 | **LLM Inference** | Google LiteRT-LM (`litertlm-android`) |
 | **Embedding Engine** | TensorFlow Lite (`all-MiniLM-L6-v2`) |
 | **Async & State** | Kotlin Coroutines + StateFlow / SharedFlow |
@@ -123,21 +142,21 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## 🛡️ Anti AI Slop & Quality Standard
 
-This project strictly adheres to [`ANTISLOP.md`](ANTISLOP.md), [`AGENTS.md`](AGENTS.md), and [`DESIGN.md`](DESIGN.md):
-- **Zero Mock Data:** 100% authentic SQLite records without any placeholder stubs or dummy models.
-- **Authentic Calligraphy:** Real Uthmani fonts (`kitab.ttf`, `uthman.otf`) with full tashkeel support.
-- **Adaptive Multi-Pane:** Responsive layout centering (`widthIn(max = 840.dp)`) across Foldables, Tablets, and Desktops.
+This project strictly follows [`ANTISLOP.md`](ANTISLOP.md), [`AGENTS.md`](AGENTS.md), and [`DESIGN.md`](DESIGN.md):
+- **Zero Mock / Fake Data:** 100% authentic SQLite database records without placeholder stubs.
+- **Authentic Calligraphy:** Real Uthmani fonts (`kitab.ttf`, `uthman.otf`) with complete vowelization (tashkeel).
+- **Responsive Layout:** Responsive layout centering (`widthIn(max = 840.dp)`) across Foldables, Tablets, and Desktops.
 - **Material 3 Expressive:** Spring-based motion, haptic feedback, and dynamic edge-to-edge system insets.
 
 ---
 
 ## 📊 Database Specification
 
-The prepackaged asset database (`quranplus.db`, ~15 MB) is fully offline and pre-seeded:
-- `surahs`: 114 Surahs with metadata (revelation place, ayah count, arabic title).
+The prepackaged asset database (`quranplus.db`, ~15.6 MB) is fully offline and pre-seeded:
+- `surahs`: 114 Surahs with metadata (revelation place, ayah count, Arabic title).
 - `ayahs`: 6,236 Ayahs with Uthmani Arabic, Tajwid tags, Kemenag Indonesian translation, Sahih International English translation, and Latin transliteration.
 - `ayahs_fts`: Full-Text Search virtual table for instantaneous querying.
-- `hadiths`: 54 authentic Hadiths (complete Nawawi 40 + Malik/Ahmad/Darimi selections).
+- `hadiths`: 54 authentic Hadiths (complete Nawawi 40 + selections).
 - `tahsin_lessons`: 54 structured curriculum lessons.
 - `knowledge_chunks`: 112 thematic knowledge chunks for offline RAG retrieval.
 

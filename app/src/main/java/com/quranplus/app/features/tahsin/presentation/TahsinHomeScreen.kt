@@ -16,17 +16,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Quiz
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,13 +40,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
-import androidx.compose.material3.ExperimentalMaterial3Api
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
 import com.quranplus.app.features.quran.presentation.UiState
 import com.quranplus.app.features.tahsin.domain.TahsinCategory
@@ -52,7 +56,8 @@ import com.quranplus.app.features.tahsin.domain.TahsinLesson
 @Composable
 fun TahsinHomeScreen(
     viewModel: TahsinViewModel,
-    onLessonClick: (Int) -> Unit
+    onLessonClick: (Int) -> Unit,
+    onQuizClick: () -> Unit = {}
 ) {
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val lessonsState by viewModel.lessonsState.collectAsState()
@@ -62,7 +67,16 @@ fun TahsinHomeScreen(
         topBar = {
             AppTopBar(
                 title = "Tahsin & Makharij",
-                subtitle = "Panduan tartil dan makhraj huruf"
+                subtitle = "Panduan tartil dan makhraj huruf",
+                actions = {
+                    IconButton(onClick = onQuizClick) {
+                        Icon(
+                            imageVector = Icons.Rounded.Quiz,
+                            contentDescription = "Kuis Latihan Tajwid",
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
             )
         }
     ) { padding ->
@@ -71,11 +85,13 @@ fun TahsinHomeScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Category Tabs
-            PrimaryTabRow(
+            // Responsive Scrollable Tab Row (Prevents Left & Right Edge Clipping)
+            ScrollableTabRow(
                 selectedTabIndex = categories.indexOf(selectedCategory),
+                edgePadding = Spacing.md,
                 containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary
+                contentColor = MaterialTheme.colorScheme.primary,
+                divider = {}
             ) {
                 categories.forEach { category ->
                     Tab(
@@ -85,7 +101,8 @@ fun TahsinHomeScreen(
                             Text(
                                 text = category.title,
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = if (category == selectedCategory) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (category == selectedCategory) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.sm)
                             )
                         }
                     )
@@ -123,7 +140,6 @@ fun TahsinHomeScreen(
                                 )
                             }
                         }
-
                     }
                 }
                 is UiState.Error -> {
@@ -151,7 +167,7 @@ fun TahsinLessonRow(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        shape = MaterialTheme.shapes.small
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier
@@ -159,7 +175,14 @@ fun TahsinLessonRow(
                 .padding(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Arabic Letter Badge
+            // Adaptive Arabic Letter Badge (Never Clips)
+            val badgeText = lesson.letterArabic.ifBlank { lesson.title.take(2) }
+            val fontSize = when {
+                badgeText.length <= 3 -> 18f
+                badgeText.length <= 6 -> 14f
+                else -> 12f
+            }
+
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -168,13 +191,13 @@ fun TahsinLessonRow(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = lesson.letterArabic.ifBlank { lesson.title.take(1) },
-                    style = getQuranArabicStyle(20f),
+                    text = badgeText,
+                    style = getQuranArabicStyle(fontSize),
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    textAlign = TextAlign.Center,
                     maxLines = 1
                 )
             }
-
 
             Spacer(modifier = Modifier.width(Spacing.md))
 
@@ -184,7 +207,9 @@ fun TahsinLessonRow(
                     text = lesson.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -205,3 +230,4 @@ fun TahsinLessonRow(
         }
     }
 }
+

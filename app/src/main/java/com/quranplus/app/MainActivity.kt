@@ -3,6 +3,11 @@ package com.quranplus.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
@@ -16,13 +21,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.quranplus.app.core.audio.AudioPlayerManager
 import com.quranplus.app.core.ui.components.AdaptiveNavigationScaffold
 import com.quranplus.app.core.ui.components.AppDestination
 import com.quranplus.app.core.ui.theme.QuranPlusTheme
+import com.quranplus.app.features.audio.presentation.AudioManagerScreen
 import com.quranplus.app.features.chatbot.data.ModelRepository
 import com.quranplus.app.features.chatbot.presentation.ChatScreen
 import com.quranplus.app.features.chatbot.presentation.ChatViewModel
 import com.quranplus.app.features.chatbot.presentation.ModelGateScreen
+import com.quranplus.app.features.gharib.presentation.GharibScreen
 import com.quranplus.app.features.quran.presentation.BookmarksScreen
 import com.quranplus.app.features.quran.presentation.QuranReaderScreen
 import com.quranplus.app.features.quran.presentation.QuranViewModel
@@ -33,19 +41,17 @@ import com.quranplus.app.features.settings.presentation.SettingsScreen
 import com.quranplus.app.features.settings.presentation.SettingsViewModel
 import com.quranplus.app.features.tahsin.presentation.LessonDetailScreen
 import com.quranplus.app.features.tahsin.presentation.TahsinHomeScreen
+import com.quranplus.app.features.tahsin.presentation.TahsinQuizScreen
 import com.quranplus.app.features.tahsin.presentation.TahsinViewModel
+import com.quranplus.app.features.waqaf.presentation.WaqafGuideScreen
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 
 class MainActivity : ComponentActivity() {
 
     private val preferencesManager: PreferencesManager by inject()
     private val modelRepository: ModelRepository by inject()
+    private val audioPlayerManager: AudioPlayerManager by inject()
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,7 +66,8 @@ class MainActivity : ComponentActivity() {
                 AppMain(
                     widthSizeClass = windowSizeClass.widthSizeClass,
                     preferencesManager = preferencesManager,
-                    modelRepository = modelRepository
+                    modelRepository = modelRepository,
+                    audioPlayerManager = audioPlayerManager
                 )
             }
         }
@@ -71,7 +78,8 @@ class MainActivity : ComponentActivity() {
 fun AppMain(
     widthSizeClass: WindowWidthSizeClass,
     preferencesManager: PreferencesManager,
-    modelRepository: ModelRepository
+    modelRepository: ModelRepository,
+    audioPlayerManager: AudioPlayerManager
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -102,7 +110,8 @@ fun AppMain(
             tahsinViewModel = tahsinViewModel,
             settingsViewModel = settingsViewModel,
             preferencesManager = preferencesManager,
-            modelRepository = modelRepository
+            modelRepository = modelRepository,
+            audioPlayerManager = audioPlayerManager
         )
     }
 }
@@ -115,7 +124,8 @@ fun AppNavHost(
     tahsinViewModel: TahsinViewModel,
     settingsViewModel: SettingsViewModel,
     preferencesManager: PreferencesManager,
-    modelRepository: ModelRepository
+    modelRepository: ModelRepository,
+    audioPlayerManager: AudioPlayerManager
 ) {
     val isModelReady by chatViewModel.isModelReady.collectAsState()
 
@@ -157,6 +167,7 @@ fun AppNavHost(
                 initialAyahNumber = initialAyah,
                 viewModel = quranViewModel,
                 preferencesManager = preferencesManager,
+                audioPlayerManager = audioPlayerManager,
                 onBackClick = { navController.popBackStack() }
             )
         }
@@ -190,12 +201,15 @@ fun AppNavHost(
             }
         }
 
-        // --- 3. Tahsin Navigation ---
+        // --- 3. Tahsin & Quiz Navigation ---
         composable(AppDestination.TAHSIN.route) {
             TahsinHomeScreen(
                 viewModel = tahsinViewModel,
                 onLessonClick = { lessonId ->
                     navController.navigate("tahsin_detail/$lessonId")
+                },
+                onQuizClick = {
+                    navController.navigate("tahsin_quiz")
                 }
             )
         }
@@ -212,19 +226,56 @@ fun AppNavHost(
             )
         }
 
-        // --- 4. Bookmarks Navigation ---
+        composable("tahsin_quiz") {
+            TahsinQuizScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        // --- 4. Sprint 2 Knowledge & Tools Screens ---
+        composable("gharib_directory") {
+            GharibScreen(
+                audioPlayerManager = audioPlayerManager,
+                onNavigateToAyah = { surah, ayah ->
+                    navController.navigate("quran_reader/$surah?initialAyah=$ayah")
+                },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable("waqaf_guide") {
+            WaqafGuideScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable("audio_manager") {
+            AudioManagerScreen(
+                audioPlayerManager = audioPlayerManager,
+                quranViewModel = quranViewModel,
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        // --- 5. Bookmarks Navigation ---
         composable(AppDestination.BOOKMARKS.route) {
             BookmarksScreen(
                 viewModel = quranViewModel,
-                onBookmarkClick = { surahNumber, _ ->
-                    navController.navigate("quran_reader/$surahNumber")
+                onBookmarkClick = { surahNumber, ayahNumber ->
+                    navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
                 }
             )
         }
 
-        // --- 5. Settings Navigation ---
+        // --- 6. Settings Navigation ---
         composable(AppDestination.SETTINGS.route) {
-            SettingsScreen(viewModel = settingsViewModel)
+            SettingsScreen(
+                viewModel = settingsViewModel,
+                onNavigateToAudioManager = { navController.navigate("audio_manager") },
+                onNavigateToWaqafGuide = { navController.navigate("waqaf_guide") },
+                onNavigateToGharib = { navController.navigate("gharib_directory") },
+                onNavigateToQuiz = { navController.navigate("tahsin_quiz") }
+            )
         }
     }
 }

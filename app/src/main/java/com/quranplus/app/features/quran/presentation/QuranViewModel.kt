@@ -90,14 +90,15 @@ class QuranViewModel(
         }
     }
 
-    fun toggleBookmark(ayah: Ayah, surahName: String) {
+    fun toggleBookmark(ayah: Ayah, surahName: String, note: String? = null) {
         viewModelScope.launch {
             toggleBookmarkUseCase(
                 surahNumber = ayah.surahNumber,
                 surahName = surahName,
                 ayahNumber = ayah.ayahNumber,
                 textArabic = ayah.textArabic,
-                translation = ayah.translationId
+                translation = ayah.translationId,
+                note = note
             )
         }
     }
