@@ -57,6 +57,18 @@ QuranPlus/
 
 Working cache internal boleh dibuat ulang setelah uninstall; model dan source RAG yang sudah dipublish tetap berada di folder SAF pengguna. Download memakai WorkManager, network constraint, resume/checksum, retry terbatas, dan tidak melakukan retry otomatis untuk kegagalan konfigurasi/storage.
 
+### Katalog model tambahan
+
+Model tambahan tampil sebagai kandidat source-only sampai format runtime, revision immutable, checksum artifact, tokenizer, ukuran, dan lisensi turunannya direview. Tidak ada kandidat di bawah ini yang otomatis aktif atau boleh diunduh dari aplikasi:
+
+- [Alif Islamic v4 Base](https://huggingface.co/ahmedtamseer3/alif-islamic-v4-base) — artifact `.task` untuk MediaPipe/LiteRT; belum kompatibel dengan loader LiteRT-LM aplikasi.
+- [Qwen2.5 1.5B Instruct LiteRT/GGUF](https://huggingface.co/DuoNeural/Qwen2.5-1.5B-Instruct-LiteRT) — format/runtime community belum tervalidasi untuk LiteRT-LM aplikasi.
+- [Gemma 3 1B IT MNN](https://huggingface.co/darkmaniac7/Gemma-3-1B-IT-MNN) — MNN bukan runtime aplikasi dan profil safety community belum direview.
+- [Qwen3 Embedding 0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) — embedding candidate; pipeline saat ini membutuhkan ONNX 384-dimensi, sehingga tidak boleh menggantikan index secara diam-diam.
+- [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) — kandidat ONNX 384-dimensi; model, tokenizer, asset pendamping, dan checksum belum dipublish ke SAF.
+
+Katalog memisahkan `CHATBOT` dan `EMBEDDING`. Model GGUF, MNN, `.task`, dan embedding tidak pernah dikirim ke `LiteRtLmRunner`; AI tetap blocked sampai `ModelGate` lengkap.
+
 ## Arsitektur
 
 ```text
@@ -89,7 +101,7 @@ Gate terakhir yang lolos:
 - `QSWSEMRKNFZ9LJRC` tidak terhubung pada acceptance run ini, sehingga tidak diklaim lulus pada APK/commit ini;
 - DB runtime setelah upgrade: 6.236 ayat, 77.430 word rows, 17 hadist collection metadata, 0 hadist text;
 - accessibility tree memverifikasi hamburger, bottom-bar five-slot, selected state, marker `۝`, mu‘anaqah `ۛ`, word selection, dan ModelGate blocker;
-- APK SHA-256: `EE165FEC511B2AC9B3B8D3397F19B2C6C0D7CE10997B88A68B7AA7DF3C6A1DA1` (245,000,579 bytes).
+- APK SHA-256: `5A9738E34D2CBFA975C79CFD8AD5E06B3FDD63EE88F5427BF941B5E088BA8127` (245,000,579 bytes).
 
 Landscape, font-scale 200%, TalkBack/IME journey, audio, model lokal nyata, corpus hadist distributable, embedding, dan sqlite-vec index tetap memerlukan acceptance terpisah/prerequisite nyata; tidak diklaim lulus dari run portrait ini.
 

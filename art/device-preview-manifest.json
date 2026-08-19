@@ -3,8 +3,8 @@
   "build_variant": "debug",
   "current_apk": {
     "path": "app/build/outputs/apk/debug/app-debug.apk",
-    "source_commit_sha": "01e1949246c7272f6683d45c3e200b7005f1de16",
-    "sha256": "EE165FEC511B2AC9B3B8D3397F19B2C6C0D7CE10997B88A68B7AA7DF3C6A1DA1",
+    "source_commit_sha": "39ae63ec1ec33076f316ab2175ecd48664ec24ff",
+    "sha256": "5A9738E34D2CBFA975C79CFD8AD5E06B3FDD63EE88F5427BF941B5E088BA8127",
     "size_bytes": 245000579
   },
   "capture_command": "adb -s <serial> exec-out screencap -p",
@@ -20,8 +20,8 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-20T00:57:53+07:00",
-      "sha256": "38653C96AF75A5B3C2387312DFDD46C92F0E421A49806F36665E59BF4ED8B958"
+      "captured_at": "2026-08-20T01:56:59+07:00",
+      "sha256": "962484856575916833B918F66B0D45B2194144D66BCEB3A3E93C8CCBCDCB0F6B"
     },
     {
       "path": "art/device-sm-g988b-current-reader.png",
@@ -76,8 +76,8 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-20T01:02:40+07:00",
-      "sha256": "39996AC4C2EE80994B8926946D3064AE481CF05ADBE8CB2E6BC75F066B9C04A2"
+      "captured_at": "2026-08-20T01:57:42+07:00",
+      "sha256": "DD3CD44A15E2A2FFDDCD7C0230BD2B02B074F034A90CD60E2EBFBBB9EAE90017"
     }
   ],
   "acceptance_scope": "Debug APK install/launch and 15/15 instrumentation tests on RRCN3008VYE (Samsung SM-G988B, API 33); current portrait Quran home, reader Tajwid/Waqaf, word-by-word, Hadist gate, ModelGate, and five-slot navigation.",
