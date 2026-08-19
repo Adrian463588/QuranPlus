@@ -28,6 +28,7 @@ import com.quranplus.app.core.ui.components.AdaptiveNavigationScaffold
 import com.quranplus.app.core.ui.components.AppDestination
 import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.theme.QuranPlusTheme
+import com.quranplus.app.features.audio.presentation.AudioDownloadViewModel
 import com.quranplus.app.features.audio.presentation.AudioManagerScreen
 import com.quranplus.app.features.chatbot.data.ModelRepository
 import com.quranplus.app.features.chatbot.presentation.ChatScreen
@@ -134,6 +135,7 @@ fun AppMain(
     val hadithViewModel: HadithViewModel = koinViewModel()
     val quizViewModel: QuizViewModel = koinViewModel()
     val settingsViewModel: SettingsViewModel = koinViewModel()
+    val audioDownloadViewModel: AudioDownloadViewModel = koinViewModel()
 
     AdaptiveNavigationScaffold(
         currentRoute = currentRoute,
@@ -159,6 +161,7 @@ fun AppMain(
             hadithViewModel = hadithViewModel,
             quizViewModel = quizViewModel,
             settingsViewModel = settingsViewModel,
+            audioDownloadViewModel = audioDownloadViewModel,
             preferencesManager = preferencesManager,
             modelRepository = modelRepository,
             audioPlayerManager = audioPlayerManager,
@@ -179,6 +182,7 @@ fun AppNavHost(
     hadithViewModel: HadithViewModel,
     quizViewModel: QuizViewModel,
     settingsViewModel: SettingsViewModel,
+    audioDownloadViewModel: AudioDownloadViewModel,
     preferencesManager: PreferencesManager,
     modelRepository: ModelRepository,
     audioPlayerManager: AudioPlayerManager,
@@ -360,6 +364,7 @@ fun AppNavHost(
             AudioManagerScreen(
                 audioPlayerManager = audioPlayerManager,
                 quranViewModel = quranViewModel,
+                downloadViewModel = audioDownloadViewModel,
                 onBackClick = { navController.popBackStack() }
             )
         }

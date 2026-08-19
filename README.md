@@ -19,6 +19,15 @@ Katalog memakai manifest minimal dengan URL HTTPS yang dipin, ukuran artifact, f
 - all-MiniLM-L6-v2 ONNX untuk RAG — [source](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/tree/1110a243fdf4706b3f48f1d95db1a4f5529b4d41), 23.026.053 bytes, 384 dimensi, SHA-256 `4278337fd0ff3c68bfb6291042cad8ab363e1d9fbc43dcb499fe91c871902474`.
 - Gemma 3, Alif Islamic, Qwen GGUF, dan Qwen3 Embedding tetap tampil sebagai sumber tambahan, tetapi tidak dapat diunduh atau dipakai sebelum format dan runtime-nya benar-benar cocok dengan aplikasi.
 
+## Audio Quran: unduh dan putar offline
+
+Audio murottal diunduh per ayat dari [katalog EveryAyah](https://everyayah.com/recitations_ayat.html). Implementasi memakai folder qari yang sudah dipetakan ke URL HTTPS nyata, manifest `000_checksum.md5` dari sumber, HTTP Range untuk melanjutkan file `.tmp`, WorkManager dengan batas retry jaringan, lalu publish atomik setelah MD5 cocok. [Dokumentasi Quran Foundation](https://api-docs.quran.com/docs/content_apis_versioned/4.0.0/list-surah-recitation/) juga mendokumentasikan pola URL audio per ayat yang digunakan oleh layanan Quran.
+
+- Qari tersedia: Mishary Alafasy, Mahmud Khalil Al-Husary, dan Abdurrahman As-Sudais.
+- Audio tidak dibundel ke APK. Pilih surah pada More → Audio, tunggu status `Audio surah selesai diunduh`, lalu buka ayat dan pilih `Putar Audio Murottal`.
+- File terverifikasi disimpan sebagai cache app-private di `filesDir/audio`; cache ini dapat dihapus dari Audio Manager dan akan ikut terhapus saat aplikasi di-uninstall. Model AI dan dokumen RAG memiliki alur SAF terpisah agar tetap berada di folder pengguna.
+- EveryAyah menjadi sumber rekaman dan checksum; aplikasi tidak mengubah atau mengklaim lisensi rekaman tersebut. Hak penggunaan tetap mengikuti sumber dan qari.
+
 ## Folder SAF dan uninstall
 
 Pilih folder melalui `ACTION_OPEN_DOCUMENT_TREE` pada Settings. Aplikasi membuat:

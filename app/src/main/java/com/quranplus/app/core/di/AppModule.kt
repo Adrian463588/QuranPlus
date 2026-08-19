@@ -14,6 +14,8 @@ import com.quranplus.app.features.chatbot.domain.GenerateRagAnswerUseCase
 import com.quranplus.app.features.chatbot.domain.GetChatHistoryUseCase
 import com.quranplus.app.features.chatbot.domain.SaveChatMessageUseCase
 import com.quranplus.app.features.chatbot.presentation.ChatViewModel
+import com.quranplus.app.features.audio.data.AudioDownloadScheduler
+import com.quranplus.app.features.audio.presentation.AudioDownloadViewModel
 import com.quranplus.app.features.hadith.data.HadithRepositoryImpl
 import com.quranplus.app.features.hadith.data.HadithReferenceImporter
 import com.quranplus.app.features.hadith.domain.GetHadithCollectionsUseCase
@@ -84,6 +86,7 @@ val appModule = module {
 
     // Core Managers & Services
     single { PreferencesManager(androidContext()) }
+    single { AudioDownloadScheduler(androidContext()) }
     single { com.quranplus.app.core.audio.AudioPlayerManager(androidContext()) }
     single { ResumableDownloader(androidContext()) }
     single { ModelDownloadScheduler(androidContext()) }
@@ -143,6 +146,7 @@ val appModule = module {
 
     // ViewModels
     viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { AudioDownloadViewModel(get()) }
     viewModel { ChatViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { HadithViewModel(get(), get()) }
     viewModel { TahsinViewModel(get(), get(), get()) }

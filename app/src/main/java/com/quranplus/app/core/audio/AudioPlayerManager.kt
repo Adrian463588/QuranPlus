@@ -14,18 +14,31 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import java.security.MessageDigest
-import java.io.File
 
 enum class Qari(
     val id: String,
     val displayName: String,
-    val style: String
+    val style: String,
+    val everyAyahFolder: String
 ) {
-    MISHARY_ALAFASY("alafasy", "Mishary Rashid Alafasy", "Murattal Hafs - Suara Merdu & Jelas"),
-    HUSARY("husary", "Mahmud Khalil Al-Husary", "Mu'allim - Tartil Standar Tajwid"),
-    SUDAIS("sudais", "Abdurrahman As-Sudais", "Imam Masjidil Haram");
+    MISHARY_ALAFASY(
+        "alafasy",
+        "Mishary Rashid Alafasy",
+        "Murattal Hafs - Suara Merdu & Jelas",
+        "Alafasy_128kbps"
+    ),
+    HUSARY(
+        "husary",
+        "Mahmud Khalil Al-Husary",
+        "Mu'allim - Tartil Standar Tajwid",
+        "Husary_128kbps"
+    ),
+    SUDAIS(
+        "sudais",
+        "Abdurrahman As-Sudais",
+        "Imam Masjidil Haram",
+        "Abdurrahmaan_As-Sudais_192kbps"
+    );
 
     companion object {
         fun fromId(id: String): Qari? = entries.firstOrNull { it.id == id }
@@ -57,15 +70,10 @@ data class CurrentAudioTrack(
 )
 
 /** Media3 player for verified, app-private audio assets only. */
-class AudioPlayerManager(private val context: Context) {
-
-    private data class AudioManifestEntry(
-        val qariId: String,
-        val surahNumber: Int,
-        val ayahNumber: Int,
-        val fileName: String,
-        val sha256: String
-    )
+class AudioPlayerManager(
+    private val context: Context,
+    private val audioAssetStore: AudioAssetStore = AudioAssetStore(context)
+) {
 
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var player: ExoPlayer? = null
@@ -92,7 +100,7 @@ class AudioPlayerManager(private val context: Context) {
     private var currentRepeatCounter = 0
 
     fun getAyahAudioUrl(qari: Qari, surahNumber: Int, ayahNumber: Int): String? {
-        return findLocalAudio(qari, surahNumber, ayahNumber)?.absolutePath
+        return audioAssetStore.findVerifiedFile(qari, surahNumber, ayahNumber)?.absolutePath
     }
 
     fun playAyah(
@@ -103,7 +111,7 @@ class AudioPlayerManager(private val context: Context) {
         qari: Qari = _selectedQari.value
     ) {
         stop()
-        val audioFile = findLocalAudio(qari, surahNumber, ayahNumber)
+        val audioFile = audioAssetStore.findVerifiedFile(qari, surahNumber, ayahNumber)
         _currentTrack.value = CurrentAudioTrack(surahNumber, surahName, ayahNumber, totalAyahsInSurah, qari)
         if (audioFile == null) {
             _playbackState.value = PlaybackState.Error(
@@ -202,22 +210,17 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun getAudioStorageBytes(): Long {
-        return readManifest().sumOf { entry ->
-            verifiedFile(entry)?.length() ?: 0L
-        }
+        return audioAssetStore.getAudioStorageBytes()
     }
 
     fun clearDownloadedAudio(): Long {
         val bytes = getAudioStorageBytes()
-        audioRoot().deleteRecursively()
+        audioAssetStore.clear()
         return bytes
     }
 
     fun getSurahAudioBytes(qari: Qari, surahNumber: Int): Long {
-        return readManifest()
-            .asSequence()
-            .filter { it.qariId == qari.id && it.surahNumber == surahNumber }
-            .sumOf { entry -> verifiedFile(entry)?.length() ?: 0L }
+        return audioAssetStore.getSurahAudioBytes(qari, surahNumber)
     }
 
     private fun handleTrackCompletion() {
@@ -255,76 +258,4 @@ class AudioPlayerManager(private val context: Context) {
         }
     }
 
-    private fun findLocalAudio(qari: Qari, surahNumber: Int, ayahNumber: Int): File? {
-        if (surahNumber <= 0 || ayahNumber <= 0) return null
-        val entry = readManifest().firstOrNull {
-            it.qariId == qari.id &&
-                it.surahNumber == surahNumber &&
-                it.ayahNumber == ayahNumber
-        } ?: return null
-        return verifiedFile(entry)
-    }
-
-    private fun verifiedFile(entry: AudioManifestEntry): File? {
-        val qariDirectory = File(audioRoot(), entry.qariId)
-        val file = File(qariDirectory, entry.fileName)
-        val isInsideQariDirectory = runCatching {
-            file.canonicalPath.startsWith(qariDirectory.canonicalPath + File.separator)
-        }.getOrDefault(false)
-        return file.takeIf {
-            isInsideQariDirectory &&
-                it.isFile &&
-                it.length() > 0L &&
-                calculateSha256(it).equals(entry.sha256, ignoreCase = true)
-        }
-    }
-
-    private fun audioRoot(): File = File(context.filesDir, "audio")
-
-    private fun readManifest(): List<AudioManifestEntry> {
-        val manifestFile = File(audioRoot(), AUDIO_MANIFEST_NAME)
-        if (!manifestFile.isFile) return emptyList()
-        return runCatching {
-            val assets = JSONArray(manifestFile.readText(Charsets.UTF_8))
-            buildList(assets.length()) {
-                for (index in 0 until assets.length()) {
-                    val item = assets.getJSONObject(index)
-                    val fileName = item.getString("file_name")
-                    val sha256 = item.getString("sha256")
-                    if (fileName.isBlank() || File(fileName).name != fileName ||
-                        !sha256.matches(SHA256_PATTERN)
-                    ) {
-                        continue
-                    }
-                    add(
-                        AudioManifestEntry(
-                            qariId = item.getString("qari_id"),
-                            surahNumber = item.getInt("surah_number"),
-                            ayahNumber = item.getInt("ayah_number"),
-                            fileName = fileName,
-                            sha256 = sha256
-                        )
-                    )
-                }
-            }
-        }.getOrDefault(emptyList())
-    }
-
-    private fun calculateSha256(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (true) {
-                val read = input.read(buffer)
-                if (read < 0) break
-                digest.update(buffer, 0, read)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it) }
-    }
-
-    private companion object {
-        const val AUDIO_MANIFEST_NAME = "manifest.json"
-        val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
-    }
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -60,11 +61,19 @@ class ResumableDownloader(
         url: String,
         targetDestination: File,
         expectedSha256: String,
-        expectedSizeBytes: Long? = null
+        expectedSizeBytes: Long? = null,
+        expectedMd5: String? = null
     ): Flow<DownloadState> = flow {
         emit(DownloadState.Idle)
-        if (!expectedSha256.matches(SHA256_PATTERN)) {
-            emit(DownloadState.Failed("Manifest SHA-256 model tidak valid atau belum tersedia"))
+        val digestAlgorithm = when {
+            expectedSha256.matches(SHA256_PATTERN) -> "SHA-256"
+            expectedMd5?.matches(MD5_PATTERN) == true -> "MD5"
+            else -> null
+        }
+        val expectedDigest = expectedSha256.takeIf { it.matches(SHA256_PATTERN) }
+            ?: expectedMd5?.takeIf { it.matches(MD5_PATTERN) }
+        if (digestAlgorithm == null || expectedDigest == null) {
+            emit(DownloadState.Failed("Manifest checksum audio/model tidak valid atau belum tersedia"))
             return@flow
         }
         val parsedUrl = url.toHttpUrlOrNull()
@@ -158,10 +167,10 @@ class ResumableDownloader(
                 emit(DownloadState.ChecksumError("Verifikasi ukuran artifact gagal"))
                 return@flow
             }
-            val actualSha256 = calculateSha256(tempFile)
-            if (!actualSha256.equals(expectedSha256, ignoreCase = true)) {
+            val actualDigest = calculateDigest(tempFile, digestAlgorithm)
+            if (!actualDigest.equals(expectedDigest, ignoreCase = true)) {
                 tempFile.delete()
-                emit(DownloadState.ChecksumError("Verifikasi SHA-256 gagal: integritas file rusak"))
+                emit(DownloadState.ChecksumError("Verifikasi $digestAlgorithm gagal: integritas file rusak"))
                 return@flow
             }
 
@@ -192,6 +201,8 @@ class ResumableDownloader(
             } else {
                 emit(DownloadState.Failed("Penyimpanan atau konfigurasi unduhan bermasalah", error))
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             emit(DownloadState.Failed("Terjadi kesalahan saat mengunduh: ${error.localizedMessage}", error))
         }
@@ -205,8 +216,8 @@ class ResumableDownloader(
             error is EOFException
     }
 
-    private fun calculateSha256(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
+    private fun calculateDigest(file: File, algorithm: String): String {
+        val digest = MessageDigest.getInstance(algorithm)
         file.inputStream().use { input ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
             while (true) {
@@ -221,5 +232,6 @@ class ResumableDownloader(
     private companion object {
         const val REPORT_INTERVAL_MS = 300L
         val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
+        val MD5_PATTERN = Regex("[0-9a-fA-F]{32}")
     }
 }

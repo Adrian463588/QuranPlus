@@ -22,24 +22,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.FolderSpecial
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -54,24 +56,36 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quranplus.app.core.audio.AudioPlayerManager
 import com.quranplus.app.core.audio.Qari
-import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
+import com.quranplus.app.features.audio.domain.AudioDownloadKey
+import com.quranplus.app.features.audio.domain.AudioDownloadState
 import com.quranplus.app.features.quran.domain.Surah
 import com.quranplus.app.features.quran.presentation.QuranViewModel
 import com.quranplus.app.features.quran.presentation.UiState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioManagerScreen(
     audioPlayerManager: AudioPlayerManager,
     quranViewModel: QuranViewModel,
+    downloadViewModel: AudioDownloadViewModel,
     onBackClick: () -> Unit
 ) {
     val selectedQari by audioPlayerManager.selectedQari.collectAsStateWithLifecycle()
     val surahsState by quranViewModel.surahListState.collectAsStateWithLifecycle()
+    val downloadStates by downloadViewModel.states.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var storageBytes by remember { mutableLongStateOf(audioPlayerManager.getAudioStorageBytes()) }
+    var storageBytes by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(Unit) {
+        storageBytes = withContext(Dispatchers.IO) { audioPlayerManager.getAudioStorageBytes() }
+    }
+    LaunchedEffect(downloadStates.values.count { it is AudioDownloadState.Completed }) {
+        storageBytes = withContext(Dispatchers.IO) { audioPlayerManager.getAudioStorageBytes() }
+    }
 
     Scaffold(
         topBar = {
@@ -194,12 +208,15 @@ fun AudioManagerScreen(
                                 surah = surah,
                                 qari = selectedQari,
                                 storedBytes = audioPlayerManager.getSurahAudioBytes(selectedQari, surah.number),
+                                downloadState = downloadStates[
+                                    AudioDownloadKey(selectedQari.id, surah.number)
+                                ] ?: AudioDownloadState.Idle,
                                 onDownloadClick = {
-                                    Toast.makeText(
-                                        context,
-                                        "Unduhan diblokir sampai URL dan SHA-256 audio terverifikasi tersedia.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    downloadViewModel.download(
+                                        qari = selectedQari,
+                                        surahNumber = surah.number,
+                                        totalAyahs = surah.ayahCount
+                                    )
                                 }
                             )
                         }
@@ -240,8 +257,12 @@ fun SurahAudioDownloadRow(
     surah: Surah,
     qari: Qari,
     storedBytes: Long,
+    downloadState: AudioDownloadState,
     onDownloadClick: () -> Unit
 ) {
+    val isBusy = downloadState is AudioDownloadState.Queued ||
+        downloadState is AudioDownloadState.Downloading ||
+        downloadState is AudioDownloadState.Verifying
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -270,7 +291,7 @@ fun SurahAudioDownloadRow(
                     )
                 }
                 Spacer(modifier = Modifier.width(Spacing.sm))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = surah.nameLatin,
                         style = MaterialTheme.typography.titleSmall,
@@ -278,26 +299,73 @@ fun SurahAudioDownloadRow(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (storedBytes > 0L) {
-                            "${storedBytes / (1024 * 1024)} MB tersimpan • ${qari.displayName}"
-                        } else {
-                            "Asset audio terverifikasi belum tersedia"
-                        },
+                        text = audioStatusText(downloadState, storedBytes, surah.ayahCount, qari),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (downloadState is AudioDownloadState.Downloading) {
+                        LinearProgressIndicator(
+                            progress = { downloadState.progressPercentage / 100f },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = Spacing.xs),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
             IconButton(
-                onClick = onDownloadClick
+                onClick = onDownloadClick,
+                enabled = !isBusy
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Download,
-                    contentDescription = "Unduh audio ${surah.nameLatin}; manifest URL dan SHA-256 belum tersedia",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (isBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (downloadState is AudioDownloadState.Completed || storedBytes > 0L) {
+                            Icons.Rounded.CheckCircle
+                        } else if (downloadState is AudioDownloadState.Paused) {
+                            Icons.Rounded.CloudOff
+                        } else {
+                            Icons.Rounded.Download
+                        },
+                        contentDescription = when (downloadState) {
+                            is AudioDownloadState.Paused,
+                            is AudioDownloadState.Failed -> "Coba lagi unduh audio ${surah.nameLatin}"
+                            else -> "Unduh audio ${surah.nameLatin} dari EveryAyah"
+                        },
+                        tint = if (downloadState is AudioDownloadState.Completed || storedBytes > 0L) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
             }
         }
     }
+}
+
+private fun audioStatusText(
+    state: AudioDownloadState,
+    storedBytes: Long,
+    totalAyahs: Int,
+    qari: Qari
+): String = when (state) {
+    AudioDownloadState.Idle -> if (storedBytes > 0L) {
+        "${storedBytes / (1024 * 1024)} MB tersimpan • ${qari.displayName}"
+    } else {
+        "Unduh $totalAyahs ayat • sumber EveryAyah"
+    }
+    AudioDownloadState.Queued -> "Menunggu koneksi untuk $totalAyahs ayat"
+    is AudioDownloadState.Downloading ->
+        "Mengunduh ayat ${state.currentAyah}/$totalAyahs • ${state.progressPercentage}%"
+    is AudioDownloadState.Verifying -> "Memverifikasi ayat ${state.currentAyah}/$totalAyahs"
+    is AudioDownloadState.Paused -> "Dijeda: ${state.reason}"
+    AudioDownloadState.Completed -> "Audio surah selesai diunduh • ${qari.displayName}"
+    is AudioDownloadState.Failed -> "Gagal: ${state.message}"
 }
