@@ -3,9 +3,9 @@
   "build_variant": "debug",
   "current_apk": {
     "path": "app/build/outputs/apk/debug/app-debug.apk",
-    "source_commit_sha": "39ae63ec1ec33076f316ab2175ecd48664ec24ff",
-    "sha256": "5A9738E34D2CBFA975C79CFD8AD5E06B3FDD63EE88F5427BF941B5E088BA8127",
-    "size_bytes": 245000579
+    "source_commit_sha": "6851cfb726d0ad4e5fa8183a082a31b14ec24870",
+    "sha256": "C4DA9E2A943AC9EEFB64ED003328281975BEC7D502A893FADA78E9D1FD41A741",
+    "size_bytes": 245000169
   },
   "capture_command": "adb -s <serial> exec-out screencap -p",
   "screens": [
@@ -20,8 +20,8 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-20T01:56:59+07:00",
-      "sha256": "962484856575916833B918F66B0D45B2194144D66BCEB3A3E93C8CCBCDCB0F6B"
+      "captured_at": "2026-08-20T04:06:00+07:00",
+      "sha256": "11156621749CD4A0F5E1CE24235EEB443A1B01CFFA019740CC56781FDE771CBB"
     },
     {
       "path": "art/device-sm-g988b-current-reader.png",
@@ -34,8 +34,8 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-20T01:05:23+07:00",
-      "sha256": "D53507E2F659E564A093576A60086A0EC57C16CFFEAAAD352DB3D23F8D74490D"
+      "captured_at": "2026-08-20T04:07:00+07:00",
+      "sha256": "22161F0F0DC6D51DAD615CD16780F7CA296CD097B6B03C4661F31D06DD4E3A85"
     },
     {
       "path": "art/device-sm-g988b-current-word.png",
@@ -48,8 +48,8 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-20T01:01:57+07:00",
-      "sha256": "BFB0CFC685F10E3129C851FC2031BF55E5427DD1E083BF55EA78264B9C6F1436"
+      "captured_at": "2026-08-20T04:07:30+07:00",
+      "sha256": "3A03BE96A74CDE739A6687FAAFCEEB7A4F8072791440B5607526BCC64C180859"
     },
     {
       "path": "art/device-sm-g988b-current-hadith.png",
@@ -62,8 +62,8 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-20T01:02:24+07:00",
-      "sha256": "062B24141D0EA0F6BAC95F95112206584F8333C625FCF9896D65D1F89B1C56BF"
+      "captured_at": "2026-08-20T04:08:00+07:00",
+      "sha256": "1D6B478BFA7711B9F96FC85B60DA63113E659DEACA44C21EECE44A23A48BC83C"
     },
     {
       "path": "art/device-sm-g988b-current-ai.png",
@@ -76,17 +76,18 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-20T01:57:42+07:00",
-      "sha256": "DD3CD44A15E2A2FFDDCD7C0230BD2B02B074F034A90CD60E2EBFBBB9EAE90017"
+      "captured_at": "2026-08-20T04:09:00+07:00",
+      "sha256": "8C4A6675ECE9DB5CFCF7BE4DE52AEA19AD7AC32921381CB8E66990B0C963E53A"
     }
   ],
-  "acceptance_scope": "Debug APK install/launch and 15/15 instrumentation tests on RRCN3008VYE (Samsung SM-G988B, API 33); current portrait Quran home, reader Tajwid/Waqaf, word-by-word, Hadist gate, ModelGate, and five-slot navigation.",
+  "acceptance_scope": "Debug APK install/launch and 17/17 instrumentation tests on RRCN3008VYE (Samsung SM-G988B, API 33); current portrait Quran home, reader Tajwid/Waqaf, word-by-word, Hadist gate, ModelGate, sqlite-vec self-test/round-trip, and five-slot navigation.",
   "not_proven": [
     "QSWSEMRKNFZ9LJRC was not connected for this acceptance run",
     "Landscape, font scale 200 percent, TalkBack, and IME journeys in this current capture",
     "Verified audio assets and playback",
     "Hadith distribution license, grading, completeness, and bundled text",
-    "Local LLM, tokenizer, ONNX embedding asset, corpus, and sqlite-vec index",
+    "Downloaded local LLM, tokenizer, ONNX embedding asset, imported Hadith corpus, and production sqlite-vec corpus index",
+    "Physical uninstall/reinstall and SAF relink on a second installation",
     "Production-signed release artifact"
   ],
   "repository_scope": "Internal docs, reference projects, raw model/index files, archives, credentials, and local instruction Markdown are excluded from GitHub."
