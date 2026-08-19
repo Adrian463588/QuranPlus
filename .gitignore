@@ -3,14 +3,14 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 1. Dokumentasi Internal, Spesifikasi, dan Proyek Referensi
+# 1. Dokumentasi Internal, Spesifikasi, dan Proyek Referensi (Fail-Safe DevSecOps)
 # ------------------------------------------------------------------------------
-docs/
-docsSprint2/
-PRD.md
-AGENTS.md
-DESIGN.md
-ANTISLOP.md
+docs*/
+*.doc
+*.docx
+*.pdf
+*.md
+!README.md
 *.md.bak
 
 # ------------------------------------------------------------------------------
