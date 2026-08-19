@@ -23,8 +23,10 @@ class GetFirstAyahByJuzUseCase(private val repository: QuranRepository) {
 }
 
 class SearchQuranUseCase(private val repository: QuranRepository) {
-    suspend operator fun invoke(query: String, surahNumber: Int? = null): List<Ayah> =
-        repository.searchAyahs(query, surahNumber)
+    suspend operator fun invoke(
+        query: String,
+        filter: QuranSearchFilter = QuranSearchFilter()
+    ): List<Ayah> = repository.searchAyahs(query, filter)
 }
 
 class ToggleBookmarkUseCase(private val repository: QuranRepository) {

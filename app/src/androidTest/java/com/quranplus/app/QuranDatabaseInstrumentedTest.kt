@@ -6,6 +6,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.quranplus.app.core.database.QuranDatabase
 import com.quranplus.app.core.database.ReferenceAssetSynchronizer
 import com.quranplus.app.features.quran.data.QuranRepositoryImpl
+import com.quranplus.app.features.quran.domain.QuranSearchField
+import com.quranplus.app.features.quran.domain.QuranSearchFilter
 import com.quranplus.app.features.rag.data.SqliteVecVectorIndex
 import com.quranplus.app.features.rag.domain.VectorRecord
 import kotlinx.coroutines.flow.first
@@ -66,11 +68,40 @@ class QuranDatabaseInstrumentedTest {
             lastReadDao = database.lastReadDao()
         )
 
-        val results = repository.searchAyahs(query = "Allah", surahNumber = 2)
+        val results = repository.searchAyahs(
+            query = "Allah",
+            filter = QuranSearchFilter(surahNumber = 2)
+        )
 
         assertTrue(results.isNotEmpty())
         assertTrue(results.all { it.surahNumber == 2 })
         assertTrue(results.all { it.surahName.isNotBlank() })
+    }
+
+    @Test
+    fun GIVEN_englishFieldFilter_WHEN_repositorySearches_THEN_resultsMatchEnglishSource() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val database = QuranDatabase.getInstance(context)
+        ReferenceAssetSynchronizer(context, database).synchronize()
+        val sourceAyah = database.quranDao().getAyah(1, 1)
+            ?: error("Bundled Al-Faatiha ayah 1 is unavailable")
+        val sourceToken = Regex("[\\p{L}]{4,}")
+            .find(sourceAyah.translationEn)
+            ?.value
+            ?: error("Bundled English translation has no searchable token")
+        val repository = QuranRepositoryImpl(
+            quranDao = database.quranDao(),
+            bookmarkDao = database.bookmarkDao(),
+            lastReadDao = database.lastReadDao()
+        )
+
+        val results = repository.searchAyahs(
+            query = sourceToken,
+            filter = QuranSearchFilter(field = QuranSearchField.ENGLISH)
+        )
+
+        assertTrue(results.any { it.id == sourceAyah.id })
+        assertTrue(results.all { it.translationEn.contains(sourceToken, ignoreCase = true) })
     }
 
     @Test

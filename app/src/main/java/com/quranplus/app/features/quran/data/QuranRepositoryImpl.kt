@@ -10,6 +10,7 @@ import com.quranplus.app.features.quran.domain.Bookmark
 import com.quranplus.app.features.quran.domain.BookmarkSort
 import com.quranplus.app.features.quran.domain.LastRead
 import com.quranplus.app.features.quran.domain.QuranRepository
+import com.quranplus.app.features.quran.domain.QuranSearchFilter
 import com.quranplus.app.features.quran.domain.Surah
 import androidx.sqlite.db.SimpleSQLiteQuery
 import kotlinx.coroutines.flow.Flow
@@ -102,24 +103,21 @@ class QuranRepositoryImpl(
         )
     }
 
-    override suspend fun searchAyahs(query: String, surahNumber: Int?): List<Ayah> {
+    override suspend fun searchAyahs(query: String, filter: QuranSearchFilter): List<Ayah> {
         val cleanQuery = query.trim()
         if (cleanQuery.isBlank()) return emptyList()
-        require(surahNumber == null || surahNumber in 1..114) {
+        require(filter.surahNumber == null || filter.surahNumber in 1..114) {
             "Filter surah tidak valid"
         }
 
-        val ftsExpression = cleanQuery
-            .split(Regex("\\s+"))
-            .filter(String::isNotBlank)
-            .joinToString(" AND ") { token ->
-                "\"${token.replace("\"", "\"\"")}\"*"
-            }
-        val filterClause = if (surahNumber == null) "" else "AND a.surah_id = ?"
-        val queryArgs = if (surahNumber == null) {
+        val selectedSurahNumber = filter.surahNumber
+        val ftsExpression = buildFtsMatchExpression(cleanQuery, filter)
+        if (ftsExpression.isBlank()) return emptyList()
+        val filterClause = if (selectedSurahNumber == null) "" else "AND a.surah_id = ?"
+        val queryArgs = if (selectedSurahNumber == null) {
             arrayOf<Any>(ftsExpression, 50)
         } else {
-            arrayOf<Any>(ftsExpression, surahNumber, 50)
+            arrayOf<Any>(ftsExpression, selectedSurahNumber, 50)
         }
         val results = quranDao.searchAyahsFts(
             SimpleSQLiteQuery(

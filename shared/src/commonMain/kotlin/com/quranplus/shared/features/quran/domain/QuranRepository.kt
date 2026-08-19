@@ -10,7 +10,10 @@ interface QuranRepository {
     fun getAyahsBySurah(surahNumber: Int): Flow<List<Ayah>>
     suspend fun getFirstAyahByPage(page: Int): Ayah?
     suspend fun getFirstAyahByJuz(juz: Int): Ayah?
-    suspend fun searchAyahs(query: String, surahNumber: Int? = null): List<Ayah>
+    suspend fun searchAyahs(
+        query: String,
+        filter: QuranSearchFilter = QuranSearchFilter()
+    ): List<Ayah>
     fun getAllBookmarks(sort: BookmarkSort = BookmarkSort.NEWEST): Flow<List<Bookmark>>
     fun isAyahBookmarked(surahNumber: Int, ayahNumber: Int): Flow<Boolean>
     suspend fun toggleBookmark(

@@ -34,6 +34,19 @@ class MainNavigationSmokeTest {
     }
 
     @Test
+    fun GIVEN_searchScreen_WHEN_specificFilterIsOpened_THEN_sourceAndPhraseOptionsAreDisplayed() {
+        waitForText("Al-Qur'an Al-Karim")
+
+        composeRule.onNodeWithContentDescription("Menu Al-Qur'an").performClick()
+        composeRule.onNodeWithText("Cari ayat").performClick()
+        composeRule.onNodeWithTag("search_filter_specific").performClick()
+
+        waitForText("Pencarian spesifik")
+        composeRule.onNodeWithText("Transliterasi Latin").assertIsDisplayed()
+        composeRule.onNodeWithText("Frasa tepat").assertIsDisplayed()
+    }
+
+    @Test
     fun GIVEN_quranHome_WHEN_tahsinDestinationIsClicked_THEN_tahsinScreenIsDisplayed() {
         waitForText("Al-Qur'an Al-Karim")
 

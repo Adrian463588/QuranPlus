@@ -22,6 +22,7 @@ import com.quranplus.app.features.quran.domain.SearchQuranUseCase
 import com.quranplus.app.features.quran.domain.Surah
 import com.quranplus.app.features.quran.domain.WordByWord
 import com.quranplus.app.features.quran.domain.ToggleBookmarkUseCase
+import com.quranplus.app.features.quran.domain.QuranSearchFilter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -84,8 +85,8 @@ class QuranViewModel(
     private val _searchState = MutableStateFlow<UiState<List<Ayah>>>(UiState.Idle)
     val searchState: StateFlow<UiState<List<Ayah>>> = _searchState.asStateFlow()
 
-    private val _searchSurahFilter = MutableStateFlow<Int?>(null)
-    val searchSurahFilter: StateFlow<Int?> = _searchSurahFilter.asStateFlow()
+    private val _searchFilter = MutableStateFlow(QuranSearchFilter())
+    val searchFilter: StateFlow<QuranSearchFilter> = _searchFilter.asStateFlow()
 
     private var detailJob: Job? = null
     private var wordJob: Job? = null
@@ -203,7 +204,7 @@ class QuranViewModel(
             delay(250)
             _searchState.value = UiState.Loading
             try {
-                val results = searchQuranUseCase(query, _searchSurahFilter.value)
+                val results = searchQuranUseCase(query, _searchFilter.value)
                 _searchState.value = if (results.isEmpty()) UiState.Empty else UiState.Success(results)
             } catch (e: Exception) {
                 _searchState.value = UiState.Error(e.localizedMessage ?: "Pencarian gagal")
@@ -218,7 +219,13 @@ class QuranViewModel(
 
     fun setSearchSurahFilter(surahNumber: Int?) {
         require(surahNumber == null || surahNumber in 1..114)
-        _searchSurahFilter.value = surahNumber
+        _searchFilter.value = _searchFilter.value.copy(surahNumber = surahNumber)
+        if (lastSearchQuery.isNotBlank()) searchQuran(lastSearchQuery)
+    }
+
+    fun setSearchFilter(filter: QuranSearchFilter) {
+        require(filter.surahNumber == null || filter.surahNumber in 1..114)
+        _searchFilter.value = filter
         if (lastSearchQuery.isNotBlank()) searchQuran(lastSearchQuery)
     }
 }
