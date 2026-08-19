@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
@@ -41,10 +43,14 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -58,11 +64,11 @@ import com.quranplus.app.core.ui.theme.getQuranArabicStyle
 import com.quranplus.app.core.utils.TajwidParser
 import com.quranplus.app.features.quran.domain.Ayah
 import com.quranplus.app.features.settings.data.PreferencesManager
-
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.runtime.rememberCoroutineScope
+import com.quranplus.app.features.settings.data.TranslationMode
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+
+private const val TOTAL_SURAHS = 114
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,6 +86,7 @@ fun QuranReaderScreen(
     val showTransliteration by preferencesManager.showTransliteration.collectAsState(initial = true)
     val showTranslation by preferencesManager.showTranslation.collectAsState(initial = true)
     val enableTajwid by preferencesManager.enableTajwid.collectAsState(initial = true)
+    val translationMode by preferencesManager.translationMode.collectAsState(initial = TranslationMode.INDONESIAN)
 
     var showTajwidSheet by remember { mutableStateOf(false) }
     var showFontSlider by remember { mutableStateOf(false) }
@@ -88,13 +95,24 @@ fun QuranReaderScreen(
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
-    LaunchedEffect(surahNumber) {
-        viewModel.loadSurahDetail(surahNumber)
+    // HorizontalPager for swipe between surahs
+    val pagerState = rememberPagerState(
+        initialPage = surahNumber - 1,
+        pageCount = { TOTAL_SURAHS }
+    )
+
+    // Load surah when pager page changes
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.collect { page ->
+            viewModel.loadSurahDetail(page + 1)
+        }
     }
 
+    // Scroll to initial ayah when ayahs load
     LaunchedEffect(ayahsState, initialAyahNumber) {
         if (ayahsState is UiState.Success && initialAyahNumber > 1) {
-            val targetIndex = (initialAyahNumber - 1 + if (surahNumber != 9) 1 else 0).coerceAtLeast(0)
+            val currentSurahNum = pagerState.currentPage + 1
+            val targetIndex = (initialAyahNumber - 1 + if (currentSurahNum != 9) 1 else 0).coerceAtLeast(0)
             listState.animateScrollToItem(targetIndex)
         }
     }
@@ -103,19 +121,36 @@ fun QuranReaderScreen(
     val firstVisibleItemIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
     LaunchedEffect(firstVisibleItemIndex) {
         val currentSurah = surah
+        val currentSurahNum = pagerState.currentPage + 1
         if (currentSurah != null && firstVisibleItemIndex >= 0) {
             val ayahNum = firstVisibleItemIndex + 1
-            viewModel.onAyahVisible(surahNumber, currentSurah.nameLatin, ayahNum)
+            viewModel.onAyahVisible(currentSurahNum, currentSurah.nameLatin, ayahNum)
         }
     }
 
     Scaffold(
         topBar = {
             AppTopBar(
-                title = surah?.nameLatin ?: "Surah $surahNumber",
+                title = surah?.nameLatin ?: "Surah ${pagerState.currentPage + 1}",
                 subtitle = surah?.let { "${it.revelationType.uppercase()} • ${it.ayahCount} Ayat" },
                 onBackClick = onBackClick,
                 actions = {
+                    // Translation mode toggle
+                    IconButton(onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val next = when (translationMode) {
+                            TranslationMode.INDONESIAN -> TranslationMode.ENGLISH
+                            TranslationMode.ENGLISH    -> TranslationMode.BOTH
+                            TranslationMode.BOTH       -> TranslationMode.INDONESIAN
+                        }
+                        scope.launch { preferencesManager.setTranslationMode(next) }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Translate,
+                            contentDescription = "Terjemahan: ${translationMode.label}",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(onClick = { showTajwidSheet = true }) {
                         Icon(
                             imageVector = Icons.Rounded.Palette,
@@ -137,6 +172,25 @@ fun QuranReaderScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Translation mode badge
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.md, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Terjemahan: ${translationMode.label}  •  Geser untuk pindah surah",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+
             // Font Scale Quick Control Bar
             AnimatedVisibility(visible = showFontSlider) {
                 Surface(
@@ -177,51 +231,62 @@ fun QuranReaderScreen(
                 }
             }
 
-            when (val state = ayahsState) {
-                is UiState.Loading -> {
+            // HorizontalPager for swipe between surahs
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                // Show content only for current page (performance)
+                if (kotlin.math.abs(page - pagerState.currentPage) <= 1) {
+                    when (val state = ayahsState) {
+                        is UiState.Loading -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        is UiState.Success -> {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(bottom = Spacing.xxl)
+                            ) {
+                                // Bismillah Header (except At-Tawbah)
+                                if (page + 1 != 9) {
+                                    item { BismillahHeader() }
+                                }
+                                items(
+                                    items = state.data,
+                                    key = { "${it.surahNumber}_${it.ayahNumber}" }
+                                ) { ayah ->
+                                    AyahReaderItem(
+                                        ayah = ayah,
+                                        fontSizeSp = arabicFontSize,
+                                        enableTajwid = enableTajwid,
+                                        showTransliteration = showTransliteration,
+                                        showTranslation = showTranslation,
+                                        translationMode = translationMode,
+                                        onBookmarkClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            viewModel.toggleBookmark(ayah, surah?.nameLatin ?: "Surah ${page + 1}")
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        is UiState.Error -> {
+                            AppEmptyState(
+                                icon = Icons.Rounded.FormatSize,
+                                title = "Gagal Memuat Ayat",
+                                description = state.message
+                            )
+                        }
+                        else -> {}
+                    }
+                } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
-                is UiState.Success -> {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = Spacing.xxl)
-                    ) {
-                        // Bismillah Header (except At-Tawbah)
-                        if (surahNumber != 9) {
-                            item {
-                                BismillahHeader()
-                            }
-                        }
-
-                        items(
-                            items = state.data,
-                            key = { "${it.surahNumber}_${it.ayahNumber}" }
-                        ) { ayah ->
-                            AyahReaderItem(
-                                ayah = ayah,
-                                fontSizeSp = arabicFontSize,
-                                enableTajwid = enableTajwid,
-                                showTransliteration = showTransliteration,
-                                showTranslation = showTranslation,
-                                onBookmarkClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    viewModel.toggleBookmark(ayah, surah?.nameLatin ?: "Surah $surahNumber")
-                                }
-                            )
-                        }
-                    }
-                }
-                is UiState.Error -> {
-                    AppEmptyState(
-                        icon = Icons.Rounded.FormatSize,
-                        title = "Gagal Memuat Ayat",
-                        description = state.message
-                    )
-                }
-                else -> {}
             }
         }
 
@@ -243,7 +308,7 @@ fun BismillahHeader() {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+            text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
             style = getQuranArabicStyle(26f),
             color = MaterialTheme.colorScheme.primary,
             textAlign = TextAlign.Center
@@ -258,6 +323,7 @@ fun AyahReaderItem(
     enableTajwid: Boolean,
     showTransliteration: Boolean,
     showTranslation: Boolean,
+    translationMode: TranslationMode = TranslationMode.INDONESIAN,
     onBookmarkClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -266,7 +332,7 @@ fun AyahReaderItem(
             .fillMaxWidth()
             .padding(horizontal = Spacing.md, vertical = Spacing.md)
     ) {
-        // Top Ayah Metadata Header (Number Badge + Bookmark Button)
+        // Ayah Metadata Header (Number Badge + Bookmark Button)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -286,7 +352,6 @@ fun AyahReaderItem(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-
             IconButton(
                 onClick = onBookmarkClick,
                 modifier = Modifier.size(36.dp)
@@ -301,21 +366,23 @@ fun AyahReaderItem(
 
         Spacer(modifier = Modifier.height(Spacing.sm))
 
-        // Arabic Text (Right-To-Left) with Tajwid Coloring
-        val coloredArabic = remember(ayah.textArabic, ayah.tajwidTags, enableTajwid) {
+        // Arabic Text with Tajwid Coloring (Character-Level Precision)
+        val baseTextColor = MaterialTheme.colorScheme.onSurface
+        val coloredArabic = remember(ayah.textArabic, ayah.tajwidTags, enableTajwid, baseTextColor) {
             TajwidParser.buildColoredAyahText(
                 arabicText = ayah.textArabic,
                 tajwidTags = ayah.tajwidTags,
-                enableTajwid = enableTajwid
+                enableTajwid = enableTajwid,
+                baseTextColor = baseTextColor
             )
         }
-
         Text(
             text = coloredArabic,
             style = getQuranArabicStyle(fontSizeSp),
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.End
         )
+
 
         // Latin Transliteration
         if (showTransliteration && ayah.transliteration.isNotBlank()) {
@@ -328,16 +395,56 @@ fun AyahReaderItem(
             )
         }
 
-        // Indonesian Translation
-        if (showTranslation && ayah.translationId.isNotBlank()) {
-            Spacer(modifier = Modifier.height(Spacing.xs))
-            Text(
-                text = ayah.translationId,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-                lineHeight = 22.sp
-            )
+        // Translation(s) based on selected mode
+        if (showTranslation) {
+            when (translationMode) {
+                TranslationMode.INDONESIAN -> {
+                    if (ayah.translationId.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(Spacing.xs))
+                        Text(
+                            text = ayah.translationId,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            lineHeight = 22.sp
+                        )
+                    }
+                }
+                TranslationMode.ENGLISH -> {
+                    if (ayah.translationEn.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(Spacing.xs))
+                        Text(
+                            text = ayah.translationEn,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            lineHeight = 22.sp
+                        )
+                    }
+                }
+                TranslationMode.BOTH -> {
+                    if (ayah.translationId.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(Spacing.xs))
+                        Text(
+                            text = ayah.translationId,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            lineHeight = 22.sp
+                        )
+                    }
+                    if (ayah.translationEn.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = ayah.translationEn,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.fillMaxWidth(),
+                            lineHeight = 20.sp
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(Spacing.md))

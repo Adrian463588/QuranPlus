@@ -110,7 +110,10 @@ fun TahsinHomeScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(Spacing.md),
+                            contentPadding = PaddingValues(
+                                horizontal = Spacing.md,
+                                vertical = Spacing.sm
+                            ),
                             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                         ) {
                             items(items = state.data, key = { it.id }) { lesson ->
@@ -120,6 +123,7 @@ fun TahsinHomeScreen(
                                 )
                             }
                         }
+
                     }
                 }
                 is UiState.Error -> {
@@ -158,17 +162,19 @@ fun TahsinLessonRow(
             // Arabic Letter Badge
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = lesson.letterArabic.ifBlank { lesson.title.take(1) },
-                    style = getQuranArabicStyle(22f),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    style = getQuranArabicStyle(20f),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    maxLines = 1
                 )
             }
+
 
             Spacer(modifier = Modifier.width(Spacing.md))
 

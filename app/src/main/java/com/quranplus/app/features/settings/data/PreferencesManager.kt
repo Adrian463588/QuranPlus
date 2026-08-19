@@ -13,6 +13,18 @@ import kotlinx.coroutines.flow.map
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "quranplus_settings")
 
+enum class TranslationMode(val id: String, val label: String) {
+    INDONESIAN("id", "Indonesia"),
+    ENGLISH("en", "English"),
+    BOTH("both", "Keduanya");
+
+    companion object {
+        fun fromId(id: String) = entries.firstOrNull { it.id == id } ?: INDONESIAN
+    }
+}
+
+
+
 enum class AiPersona(val id: String, val title: String, val description: String, val defaultPrompt: String) {
     MUFTI(
         id = "mufti",
@@ -68,6 +80,7 @@ class PreferencesManager(private val context: Context) {
         val SELECTED_PERSONA = stringPreferencesKey("selected_persona")
         val CUSTOM_SYSTEM_PROMPT = stringPreferencesKey("custom_system_prompt")
         val SELECTED_MODEL = stringPreferencesKey("selected_model")
+        val TRANSLATION_MODE = stringPreferencesKey("translation_mode")
     }
 
     val isDarkMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -101,6 +114,10 @@ class PreferencesManager(private val context: Context) {
 
     val selectedModel: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[PreferencesKeys.SELECTED_MODEL] ?: "gemma-3-1b-it.litertlm"
+    }
+
+    val translationMode: Flow<TranslationMode> = context.dataStore.data.map { preferences ->
+        TranslationMode.fromId(preferences[PreferencesKeys.TRANSLATION_MODE] ?: TranslationMode.INDONESIAN.id)
     }
 
     suspend fun setDarkMode(enabled: Boolean) {
@@ -148,6 +165,12 @@ class PreferencesManager(private val context: Context) {
     suspend fun setSelectedModel(modelName: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.SELECTED_MODEL] = modelName
+        }
+    }
+
+    suspend fun setTranslationMode(mode: TranslationMode) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.TRANSLATION_MODE] = mode.id
         }
     }
 }
