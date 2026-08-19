@@ -115,6 +115,19 @@ class TajwidParserTest {
     }
 
     @Test
+    fun GIVEN_unknownBracketTag_WHEN_buildColoredAyahText_THEN_noKnownSpanIsRendered() {
+        val annotated = TajwidParser.buildColoredAyahText(
+            arabicText = "بِسْمِ",
+            tajwidTags = "[z[بِسْمِ]"
+        )
+
+        assertTrue(
+            annotated.getStringAnnotations(TajwidParser.TAJWID_ANNOTATION, 0, annotated.length)
+                .isEmpty()
+        )
+    }
+
+    @Test
     fun GIVEN_sourceAndDisplayCharactersDoNotMatch_WHEN_buildColoredAyahText_THEN_colorIsNotFabricated() {
         val annotated = TajwidParser.buildColoredAyahText(
             arabicText = "ت",

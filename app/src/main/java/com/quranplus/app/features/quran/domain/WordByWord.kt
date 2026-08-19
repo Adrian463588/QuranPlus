@@ -8,7 +8,9 @@ data class WordByWord(
     val textArabic: String,
     val transliteration: String?,
     val translationEn: String?,
-    val translationId: String?
+    val translationId: String?,
+    val sourceRevision: String,
+    val sourceSha256: String
 )
 
 interface WordByWordRepository {

@@ -1,6 +1,8 @@
 package com.quranplus.app.features.chatbot.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -342,7 +345,9 @@ fun ModelGateScreen(
                     Spacer(modifier = Modifier.height(Spacing.xs))
 
                     LazyColumn(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("model_catalog"),
                         verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         items(availableModels) { model ->
@@ -388,6 +393,7 @@ private fun blockerLabel(blocker: AiBlocker): String = when (blocker) {
     AiBlocker.INDEX_UNAVAILABLE -> "INDEX_UNAVAILABLE"
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ModelSelectCard(
     model: ModelInfo,
@@ -442,7 +448,22 @@ fun ModelSelectCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    if (model.downloadUrl.startsWith("https://")) {
+                        TextButton(
+                            onClick = { uriHandler.openUri(model.downloadUrl) },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                }
+                            )
+                        ) {
+                            Text("Buka link unduh")
+                        }
+                    }
                     TextButton(
                         onClick = { uriHandler.openUri(model.sourceUrl) },
                         enabled = model.sourceUrl.startsWith("https://"),

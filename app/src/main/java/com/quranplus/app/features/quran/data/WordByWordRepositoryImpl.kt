@@ -20,7 +20,9 @@ class WordByWordRepositoryImpl(
                     textArabic = word.textArabic,
                     transliteration = word.transliteration,
                     translationEn = word.translationEn.takeIf(String::isNotBlank),
-                    translationId = word.translationId.takeIf(String::isNotBlank)
+                    translationId = word.translationId.takeIf(String::isNotBlank),
+                    sourceRevision = word.sourceRevision,
+                    sourceSha256 = word.sourceSha256
                 )
             }
         }

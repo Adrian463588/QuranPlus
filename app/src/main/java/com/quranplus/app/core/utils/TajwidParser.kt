@@ -262,7 +262,7 @@ object TajwidParser {
         if (!tajwidTags.isNullOrBlank() && bracketTagPattern.containsMatchIn(tajwidTags)) {
             val parsed = parseBracketTags(tajwidTags)
             val alignedSpans = alignSpansToDisplay(parsed, arabicText)
-            if (!parsed.malformed && alignedSpans != null) {
+            if (!parsed.malformed && parsed.unknownTags.isEmpty() && alignedSpans != null) {
                 return buildAnnotatedText(
                     text = arabicText,
                     spans = alignedSpans,
@@ -292,6 +292,7 @@ object TajwidParser {
         if (arabicText.isBlank()) return emptyList()
         if (!tajwidTags.isNullOrBlank() && bracketTagPattern.containsMatchIn(tajwidTags)) {
             val parsed = parseBracketTags(tajwidTags)
+            if (parsed.malformed || parsed.unknownTags.isNotEmpty()) return emptyList()
             return alignSpansToDisplay(parsed, arabicText).orEmpty()
         }
         // A missing tag column is an unavailable source, not permission to infer
@@ -615,30 +616,28 @@ object TajwidParser {
 
     // ─── Tagged XML parser ───────────────────────────────────────────────────
     private fun parseTaggedArabic(text: String, defaultColor: Color): AnnotatedString {
+        val tagRegex = Regex("""<tajwid:([a-zA-Z_]+)>(.*?)</tajwid>""")
+        val matches = tagRegex.findAll(text).toList()
+        if (matches.isEmpty()) return plainText(stripTaggedArabic(text), defaultColor)
+
+        val resolved = matches.map { match ->
+            match to runCatching {
+                TajwidType.valueOf(match.groupValues[1].uppercase(Locale.ROOT))
+            }.getOrNull()
+        }
+        if (resolved.any { it.second == null }) {
+            return plainText(stripTaggedArabic(text), defaultColor)
+        }
+
         return buildAnnotatedString {
             var index = 0
-            val tagRegex = Regex("""<tajwid:([a-zA-Z_]+)>(.*?)</tajwid>""")
-            for (match in tagRegex.findAll(text)) {
+            resolved.forEach { (match, type) ->
                 if (match.range.first > index) {
-                    withStyle(SpanStyle(color = defaultColor)) { append(text.substring(index, match.range.first)) }
+                    withStyle(SpanStyle(color = defaultColor)) {
+                        append(text.substring(index, match.range.first))
+                    }
                 }
-                val typeName = match.groupValues[1].uppercase()
-                val t = when {
-                    typeName.contains("GHUNNAH") -> TajwidType.GHUNNAH
-                    typeName.contains("IDGHAM_BILA") || typeName.contains("BILAGHUNNAH") -> TajwidType.IDGHAM_BILAGHUNNAH
-                    typeName.contains("IDGHAM_MIMI") || typeName.contains("MITSLAIN") -> TajwidType.IDGHAM_MIM_MIMI
-                    typeName.contains("IDGHAM") -> TajwidType.IDGHAM_BIGHUNNAH
-                    typeName.contains("IQLAB") -> TajwidType.IQLAB
-                    typeName.contains("IKHFA_SYAFAWI") -> TajwidType.IKHFA_SYAFAWI
-                    typeName.contains("IKHFA") -> TajwidType.IKHFA_HAQIQI
-                    typeName.contains("QALQALAH") -> TajwidType.QALQALAH
-                    typeName.contains("MAD_LAZIM") || typeName.contains("FARQ") -> TajwidType.MAD_LAZIM
-                    typeName.contains("MAD_WAJIB") || typeName.contains("MAD_JAIZ") || typeName.contains("MADDAH") -> TajwidType.MAD_WAJIB_JAIZ
-                    typeName.contains("MAD") -> TajwidType.MAD_TABII
-                    typeName.contains("IZHAR") -> TajwidType.IZHAR_HALQI
-                    else -> null
-                }
-                withStyle(SpanStyle(color = t?.color ?: defaultColor)) { append(match.groupValues[2]) }
+                withStyle(SpanStyle(color = type!!.color)) { append(match.groupValues[2]) }
                 index = match.range.last + 1
             }
             if (index < text.length) {
@@ -646,5 +645,8 @@ object TajwidParser {
             }
         }
     }
+
+    private fun stripTaggedArabic(text: String): String =
+        text.replace(Regex("</?tajwid:[a-zA-Z_]+>"), "")
 
 }

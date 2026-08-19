@@ -27,6 +27,14 @@ class WaqafParserTest {
         assertEquals("صلى", WaqafParser.findRuleBySymbol('ۖ')?.arabicName)
         assertEquals("قلى", WaqafParser.findRuleBySymbol('ۗ')?.arabicName)
         assertEquals("ۛ ۛ", WaqafParser.findRuleBySymbol('ۛ')?.arabicName)
+        assertEquals(
+            WaqafParser.ActionCategory.MANDATORY,
+            WaqafParser.findRuleBySymbol('ۘ')?.actionCategory
+        )
+        assertEquals(
+            WaqafParser.ActionCategory.PREFERRED_STOP,
+            WaqafParser.findRuleBySymbol('ۗ')?.actionCategory
+        )
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -64,5 +72,23 @@ class WaqafParserTest {
 
         assertEquals(1, result.count { it == WaqafParser.AYAH_END_SYM.single() })
         assertEquals("بِسْمِ ۝١ ", result)
+    }
+
+    @Test
+    fun GIVEN_muanaqahMarker_WHEN_annotatingMarkers_THEN_pairIdentityIsPreserved() {
+        val source = AnnotatedString(
+            "ق${WaqafParser.WAQAF_MUANAQAH_SYM}ل${WaqafParser.WAQAF_MUANAQAH_SYM}"
+        )
+
+        val result = WaqafParser.annotateWaqafMarkers(source)
+
+        assertEquals(
+            listOf("muanaqah", "muanaqah"),
+            result.getStringAnnotations(
+                WaqafParser.WAQAF_PAIR_ANNOTATION,
+                0,
+                result.length
+            ).map { it.item }
+        )
     }
 }

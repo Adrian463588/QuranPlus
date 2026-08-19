@@ -43,6 +43,7 @@ import com.quranplus.app.features.quran.presentation.SearchScreen
 import com.quranplus.app.features.quran.presentation.SurahListScreen
 import com.quranplus.app.features.rag.presentation.RagDocumentViewModel
 import com.quranplus.app.features.settings.data.PreferencesManager
+import com.quranplus.app.features.settings.presentation.MoreScreen
 import com.quranplus.app.features.settings.presentation.SettingsScreen
 import com.quranplus.app.features.settings.presentation.SettingsViewModel
 import com.quranplus.app.features.tahsin.presentation.LessonDetailScreen
@@ -240,6 +241,26 @@ fun AppNavHost(
             HadithScreen(viewModel = hadithViewModel)
         }
 
+        composable(AppDestination.MORE.route) {
+            MoreScreen(
+                onNavigateToBookmarks = {
+                    navController.navigateToSecondary(AppDestination.BOOKMARKS)
+                },
+                onNavigateToSettings = {
+                    navController.navigateToSecondary(AppDestination.SETTINGS)
+                },
+                onNavigateToWaqaf = {
+                    navController.navigateToSecondary(AppDestination.WAQAF)
+                },
+                onNavigateToGharib = {
+                    navController.navigateToSecondary(AppDestination.GHARIB)
+                },
+                onNavigateToAudio = {
+                    navController.navigateToSecondary(AppDestination.AUDIO)
+                }
+            )
+        }
+
         // --- 3. Tanya AI (Chatbot RAG) Navigation ---
         composable(AppDestination.CHAT.route) {
             if (isModelReady) {
@@ -367,6 +388,15 @@ private fun NavHostController.navigateToReader(surahNumber: Int, ayahNumber: Int
     require(ayahNumber > 0) { "Nomor ayat tidak valid" }
     navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber") {
         popUpTo(AppDestination.QURAN.route) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+private fun NavHostController.navigateToSecondary(destination: AppDestination) {
+    require(!destination.isPrimary) { "Destination sekunder tidak valid: ${destination.route}" }
+    navigate(destination.route) {
+        popUpTo(AppDestination.MORE.route) { saveState = true }
         launchSingleTop = true
         restoreState = true
     }

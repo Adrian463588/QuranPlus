@@ -111,6 +111,7 @@ import com.quranplus.app.core.ui.theme.TransliterationStyle
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
 import com.quranplus.app.core.utils.TajwidParser
 import com.quranplus.app.core.utils.WaqafParser
+import com.quranplus.app.core.utils.alignQuranWords
 import com.quranplus.app.features.quran.domain.Ayah
 import com.quranplus.app.features.quran.domain.WordByWord
 import com.quranplus.app.features.quran.presentation.components.AyahActionBottomSheet
@@ -212,6 +213,8 @@ fun QuranReaderScreen(
                 title = surah?.nameLatin ?: "Memuat surah",
                 subtitle = surah?.let { "${it.revelationType.uppercase()} • ${it.ayahCount} Ayat" },
                 onBackClick = onBackClick,
+                onTitleClick = onNavigateToQuranRoot,
+                titleContentDescription = "Beranda Quran",
                 actions = {
                     Box {
                         IconButton(onClick = { showReaderMenu = true }) {
@@ -341,6 +344,8 @@ fun QuranReaderScreen(
                                 scope.launch {
                                     preferencesManager.setArabicFontSize((arabicFontSize - 2f).coerceIn(18f, 48f))
                                 }
+                            }, modifier = Modifier.semantics {
+                                contentDescription = "Perkecil ukuran font Arab"
                             }) {
                                 Text("A-", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
@@ -349,6 +354,8 @@ fun QuranReaderScreen(
                                 scope.launch {
                                     preferencesManager.setArabicFontSize((arabicFontSize + 2f).coerceIn(18f, 48f))
                                 }
+                            }, modifier = Modifier.semantics {
+                                contentDescription = "Perbesar ukuran font Arab"
                             }) {
                                 Text("A+", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
@@ -948,7 +955,7 @@ fun AyahReaderItem(
 
 }
 
-private data class WordRenderSlice(
+internal data class WordRenderSlice(
     val word: WordByWord,
     val text: AnnotatedString
 )
@@ -970,12 +977,20 @@ private fun WordByWordAyah(
         buildWordRenderSlices(words, annotatedAyah)
     }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-        ) {
-            slices.forEach { slice ->
+        if (slices == null) {
+            Text(
+                text = "WORD_ALIGNMENT_UNAVAILABLE: data kata tidak sejajar dengan teks Uthmani sumber.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                slices.forEach { slice ->
                 val word = slice.word
                 val selected = word.wordIndex == selectedWordIndex
                 Surface(
@@ -1015,48 +1030,53 @@ private fun WordByWordAyah(
                                         runCatching { TajwidParser.TajwidType.valueOf(annotation.item) }
                                             .getOrNull()
                                             ?.let(onTajwidClick)
-                                    }
+                                }
                             }
                         )
-                        if (selected) {
-                            if (showTransliteration && word.transliteration != null) {
+                        if (showTransliteration) {
+                            if (word.transliteration != null) {
                                 Text(
                                     text = word.transliteration,
                                     style = TransliterationStyle,
                                     color = MaterialTheme.colorScheme.secondary,
                                     textAlign = TextAlign.Center
                                 )
-                            } else if (showTransliteration) {
+                            } else if (selected) {
                                 Text(
-                                    text = "Transliterasi kata belum tersedia dari sumber terverifikasi",
+                                    text = "TRANSLITERATION_UNAVAILABLE: sumber per kata belum tersedia",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.error,
                                     textAlign = TextAlign.Center
                                 )
                             }
-                            if (showTranslation) {
-                                val translations = wordTranslations(word, translationMode)
-                                if (translations.isEmpty()) {
+                        }
+                        if (showTranslation) {
+                            val translations = wordTranslations(word, translationMode)
+                            if (translations.isEmpty() && selected) {
+                                Text(
+                                    text = "TRANSLATION_${translationMode.name}_UNAVAILABLE: sumber belum tersedia",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    textAlign = TextAlign.Center
+                                )
+                            } else {
+                                translations.forEach { (label, value) ->
                                     Text(
-                                        text = "Terjemahan ${translationMode.label} belum tersedia",
+                                        text = "$label: $value",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.error,
+                                        color = if (selected) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
                                         textAlign = TextAlign.Center
                                     )
-                                } else {
-                                    translations.forEach { (label, value) ->
-                                        Text(
-                                            text = "$label: $value",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
                                 }
                             }
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -1074,25 +1094,19 @@ private fun wordTranslations(
     }
 }
 
-private fun buildWordRenderSlices(
+internal fun buildWordRenderSlices(
     words: List<WordByWord>,
     annotatedAyah: AnnotatedString
-): List<WordRenderSlice> {
-    var cursor = 0
+): List<WordRenderSlice>? {
+    val ranges = alignQuranWords(
+        displayText = annotatedAyah.text,
+        sourceWords = words.map { it.wordIndex to it.textArabic }
+    ) ?: return null
+
     return words.mapIndexed { index, word ->
-        val start = annotatedAyah.text.indexOf(word.textArabic, cursor)
-        if (start < 0) {
-            WordRenderSlice(word, AnnotatedString(word.textArabic))
-        } else {
-            val wordEnd = start + word.textArabic.length
-            val nextStart = words.drop(index + 1)
-                .asSequence()
-                .map { next -> annotatedAyah.text.indexOf(next.textArabic, wordEnd) }
-                .firstOrNull { it >= wordEnd }
-            val end = nextStart ?: annotatedAyah.text.length
-            cursor = wordEnd
-            WordRenderSlice(word, annotatedAyah.subSequence(start, end))
-        }
+        val start = ranges[index].start
+        val end = ranges.getOrNull(index + 1)?.start ?: annotatedAyah.text.length
+        WordRenderSlice(word, annotatedAyah.subSequence(start, end))
     }
 }
 
@@ -1159,7 +1173,7 @@ fun DockedMiniPlayerBar(
                         IconButton(
                             onClick = { audioPlayerManager.togglePlayPause() },
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primary)
                         ) {

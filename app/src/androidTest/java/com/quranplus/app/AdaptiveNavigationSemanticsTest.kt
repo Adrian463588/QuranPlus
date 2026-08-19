@@ -27,7 +27,7 @@ class AdaptiveNavigationSemanticsTest {
         composeRule.onNodeWithText("Hadist").assertIsDisplayed()
         composeRule.onNodeWithText("Tanya AI").assertIsDisplayed()
         composeRule.onNodeWithText("Tahsin").assertIsDisplayed()
-        composeRule.onNodeWithText("Bookmark").assertIsDisplayed()
+        composeRule.onNodeWithText("More").assertIsDisplayed()
     }
 
     @Test

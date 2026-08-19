@@ -15,6 +15,7 @@ object WaqafParser {
 
     const val SOURCE_CATALOG_VERIFIED = true
     const val WAQAF_ANNOTATION = "quranplus_waqaf"
+    const val WAQAF_PAIR_ANNOTATION = "quranplus_waqaf_pair"
     const val AYAH_END_ANNOTATION = "quranplus_ayah_end"
 
     const val WAQAF_LA_SYM = "ۙ"
@@ -25,6 +26,15 @@ object WaqafParser {
     const val WAQAF_SAKTAH_SYM = "ۜ"
     const val WAQAF_LAZIM_SYM = "ۘ"
     const val AYAH_END_SYM = "۝"
+    val WAQAF_MARKER_SYMBOLS: Set<Char> = setOf(
+        WAQAF_LA_SYM.single(),
+        WAQAF_JAIZ_SYM.single(),
+        WAQAF_WASHLA_SYM.single(),
+        WAQAF_AWLA_SYM.single(),
+        WAQAF_MUANAQAH_SYM.single(),
+        WAQAF_SAKTAH_SYM.single(),
+        WAQAF_LAZIM_SYM.single()
+    )
 
     data class WaqafRule(
         val symbol: String,
@@ -36,14 +46,16 @@ object WaqafParser {
         val badgeColor: Color,
         val detailedRule: String,
         val exampleAyah: String,
-        val exampleRef: String
+        val exampleRef: String,
+        val pairId: String? = null
     )
 
     data class WaqafAnnotation(
         val start: Int,
         val end: Int,
         val symbol: String,
-        val rule: WaqafRule
+        val rule: WaqafRule,
+        val pairId: String? = rule.pairId
     )
 
     enum class ActionCategory(val label: String, val badgeColor: Color) {
@@ -101,7 +113,8 @@ object WaqafParser {
             badgeColor = QuranColors.BadgeWaqafOptional,
             detailedRule = "Dua tanda berpasangan menjaga kesinambungan makna dengan satu kali berhenti.",
             exampleAyah = "ذَٰلِكَ ٱلْكِتَٰبُ لَا رَيْبَ ۛ فِيهِ ۛ هُدًۭى",
-            exampleRef = "Al-Baqarah 2:2"
+            exampleRef = "Al-Baqarah 2:2",
+            pairId = "muanaqah"
         ),
         WaqafRule(
             symbol = WAQAF_LAZIM_SYM,
@@ -109,7 +122,7 @@ object WaqafParser {
             latinName = "Waqaf Lazim",
             meaning = "Diharuskan berhenti.",
             recommendation = "Berhenti untuk menjaga makna, kemudian lanjutkan dari kata berikutnya.",
-            actionCategory = ActionCategory.PREFERRED_STOP,
+            actionCategory = ActionCategory.MANDATORY,
             badgeColor = QuranColors.BadgeWaqafStop,
             detailedRule = "Tanda mim menunjukkan berhenti yang diperlukan dalam pembacaan standar mushaf.",
             exampleAyah = "وَمِنَ ٱلنَّاسِ مَن يَقُولُ ءَامَنَّا بِٱللَّهِ",
@@ -121,7 +134,7 @@ object WaqafParser {
             latinName = "Waqaf Qila",
             meaning = "Lebih baik berhenti.",
             recommendation = "Utamakan berhenti, lalu lanjutkan tanpa mengulang jika makna tetap tersambung.",
-            actionCategory = ActionCategory.MANDATORY,
+            actionCategory = ActionCategory.PREFERRED_STOP,
             badgeColor = QuranColors.BadgeWaqafStop,
             detailedRule = "Tanda ini menunjukkan berhenti lebih utama daripada menyambung.",
             exampleAyah = "وَلَٰكِن لَّا يَعْلَمُونَ",
@@ -190,6 +203,14 @@ object WaqafParser {
                         index + 1
                     )
                     builder.addStringAnnotation(WAQAF_ANNOTATION, char.toString(), index, index + 1)
+                    rule.pairId?.let { pairId ->
+                        builder.addStringAnnotation(
+                            WAQAF_PAIR_ANNOTATION,
+                            pairId,
+                            index,
+                            index + 1
+                        )
+                    }
                 }
             }
         }
@@ -200,7 +221,7 @@ object WaqafParser {
         text.getStringAnnotations(WAQAF_ANNOTATION, 0, text.length).mapNotNull { annotation ->
             val symbol = annotation.item.singleOrNull()?.toString() ?: return@mapNotNull null
             val rule = findRuleBySymbol(symbol.single()) ?: return@mapNotNull null
-            WaqafAnnotation(annotation.start, annotation.end, symbol, rule)
+            WaqafAnnotation(annotation.start, annotation.end, symbol, rule, rule.pairId)
         }
 
     fun findRuleBySymbol(char: Char): WaqafRule? {

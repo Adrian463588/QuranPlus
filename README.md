@@ -8,7 +8,7 @@ Quran Plus adalah aplikasi Android offline-first berbasis Jetpack Compose, Clean
 - Tajwid dirender memakai `AnnotatedString` dan parser fail-closed untuk tag tidak dikenal/malformed.
 - Katalog Waqaf terverifikasi untuk `لا`, `صلى`, `ج`, `م`, `قلى`, mu‘anaqah, saktah, dan marker akhir ayat yang dirender deterministik dari nomor ayat.
 - Word-by-word Room berisi 77.430 baris untuk 6.236 ayat. Arabic dan English source ditampilkan; transliterasi, root, audio, dan Indonesian per-word tidak ditebak jika mapping/provenance belum valid.
-- Bottom bar compact berisi lima slot: `Al-Qur'an`, `Hadist`, `Tanya AI`, `Tahsin`, dan `Bookmark`. Selected state, semantic role, dan target tap minimum 48dp diuji.
+- Bottom bar compact berisi lima slot: `Al-Qur'an`, `Hadist`, `Tanya AI`, `Tahsin`, dan `More`. Bookmark, pengaturan, waqaf, gharib, dan audio tetap tersedia melalui More.
 - Route Hadist, repository, use case, ViewModel, metadata koleksi, pencarian, citation fields, dan readiness gate sudah tersedia.
 - Model/RAG memakai SAF sebagai source of truth untuk `QuranPlus/models/`, `QuranPlus/rag/source/`, `QuranPlus/rag/index/`, dan `QuranPlus/manifests/`. File memakai `.part`/`.tmp`, SHA-256, dan publish setelah verifikasi.
 - AI tidak menghasilkan jawaban atau embedding ketika prerequisite tidak tersedia.
@@ -23,7 +23,7 @@ Quran Plus adalah aplikasi Android offline-first berbasis Jetpack Compose, Clean
 | Ayat | 6.236 |
 | Word-by-word | 77.430 |
 | English source per-word | 77.430 |
-| Indonesian per-word | 0, fail-closed karena alignment sumber tidak aman |
+| Indonesian per-word | 0, fail-closed karena provenance/lisensi dataset belum lolos |
 | Alignment/sequence failure | 0 |
 | Marker akhir ayat yang dirender | 6.236 |
 
@@ -83,33 +83,27 @@ rtk proxy .\gradlew.bat :app:connectedDebugAndroidTest --no-daemon --console=pla
 Gate terakhir yang lolos:
 
 - compile shared/app dan unit test: pass;
-- lint debug dan debug assembly: pass;
-- 14/14 Android instrumentation tests: pass pada `RRCN3008VYE` / Samsung SM-G988B, Android 13;
+- lint debug dan debug assembly: pass, 0 error (warning existing tetap dilaporkan Gradle/Lint);
+- 15/15 Android instrumentation tests: pass pada `RRCN3008VYE` / Samsung SM-G988B, Android 13;
 - APK debug terbaru di-install dan diluncurkan dengan `adb install -r` pada `RRCN3008VYE`;
 - `QSWSEMRKNFZ9LJRC` tidak terhubung pada acceptance run ini, sehingga tidak diklaim lulus pada APK/commit ini;
 - DB runtime setelah upgrade: 6.236 ayat, 77.430 word rows, 17 hadist collection metadata, 0 hadist text;
 - accessibility tree memverifikasi hamburger, bottom-bar five-slot, selected state, marker `۝`, mu‘anaqah `ۛ`, word selection, dan ModelGate blocker;
-- landscape adaptive navigation dan font-scale 200% smoke pass pada Samsung.
+- APK SHA-256: `EE165FEC511B2AC9B3B8D3397F19B2C6C0D7CE10997B88A68B7AA7DF3C6A1DA1` (245,000,579 bytes).
 
-TalkBack/IME journey, audio, model lokal nyata, corpus hadist distributable, embedding, dan sqlite-vec index tetap release blocker sampai prerequisite tersedia dan diuji.
+Landscape, font-scale 200%, TalkBack/IME journey, audio, model lokal nyata, corpus hadist distributable, embedding, dan sqlite-vec index tetap memerlukan acceptance terpisah/prerequisite nyata; tidak diklaim lulus dari run portrait ini.
 
 ## Preview aktual
 
 Preview utama berikut diambil dari APK debug terbaru memakai `adb exec-out screencap -p` pada Samsung SM-G988B, Android 13, portrait, physical 1440×3200, density override 560. Metadata APK, waktu capture, route, dan responsive smoke tercatat di [art/device-preview-manifest.json](art/device-preview-manifest.json).
 
-| Quran home | Reader Waqaf/Tajwid | Word-by-word selected |
+| Quran home | Reader Waqaf/Tajwid | Word-by-word |
 | --- | --- | --- |
-| ![Quran home](art/device-sm-g988b-final-home.png) | ![Reader Waqaf and Tajwid](art/device-sm-g988b-final-baqara-reader.png) | ![Word by word selected](art/device-sm-g988b-final-word-selected.png) |
+| ![Quran home](art/device-sm-g988b-current-home.png) | ![Reader Waqaf and Tajwid](art/device-sm-g988b-current-reader.png) | ![Word by word](art/device-sm-g988b-current-word.png) |
 
-| Word-by-word Waqaf | Hadist blocked state | AI ModelGate |
+| Hadist blocked state | AI ModelGate |
 | --- | --- | --- |
-| ![Word by word Waqaf](art/device-sm-g988b-final-baqara-word.png) | ![Hadist provenance gate](art/device-sm-g988b-final-hadith.png) | ![AI readiness gate](art/device-sm-g988b-final-ai.png) |
-
-Responsive evidence dari run sebelumnya pada APK yang sama:
-
-| Landscape adaptive navigation | Font scale 200% |
-| --- | --- |
-| ![Landscape adaptive navigation](art/device-sm-g988b-landscape.png) | ![Font scale 200 percent](art/device-sm-g988b-font200.png) |
+| ![Hadist provenance gate](art/device-sm-g988b-current-hadith.png) | ![AI readiness gate](art/device-sm-g988b-current-ai.png) |
 
 Preview adalah smoke evidence, bukan bukti bahwa model, audio, lisensi hadist, atau semua device class sudah release-ready. Screenshot API 35 tidak ditampilkan sebagai acceptance terkini karena device tersebut tidak terhubung pada run ini.
 

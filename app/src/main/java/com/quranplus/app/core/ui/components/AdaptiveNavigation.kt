@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.AutoStories
@@ -61,7 +62,8 @@ enum class AppDestination(
     HADITH("hadith_home", "Hadist", Icons.Rounded.AutoStories),
     CHAT("chat_home", "Tanya AI", Icons.Rounded.AutoAwesome),
     TAHSIN("tahsin_home", "Tahsin", Icons.Rounded.School),
-    BOOKMARKS("bookmarks_home", "Bookmark", Icons.Rounded.Bookmark),
+    MORE("more_home", "More", Icons.Rounded.MoreHoriz),
+    BOOKMARKS("bookmarks_home", "Bookmark", Icons.Rounded.Bookmark, isPrimary = false),
     SETTINGS("settings_home", "Pengaturan", Icons.Rounded.Settings, isPrimary = false),
     WAQAF("waqaf_guide", "Waqaf", Icons.AutoMirrored.Rounded.MenuBook, isPrimary = false),
     GHARIB("gharib_directory", "Gharib", Icons.AutoMirrored.Rounded.MenuBook, isPrimary = false),
@@ -79,6 +81,12 @@ private fun isDestinationSelected(currentRoute: String, dest: AppDestination): B
         AppDestination.CHAT -> currentRoute.startsWith(AppDestination.CHAT.route)
         AppDestination.HADITH -> currentRoute.startsWith(AppDestination.HADITH.route)
         AppDestination.BOOKMARKS -> currentRoute.startsWith(AppDestination.BOOKMARKS.route)
+        AppDestination.MORE -> currentRoute.startsWith(AppDestination.MORE.route) ||
+                currentRoute.startsWith(AppDestination.BOOKMARKS.route) ||
+                currentRoute.startsWith(AppDestination.SETTINGS.route) ||
+                currentRoute.startsWith(AppDestination.WAQAF.route) ||
+                currentRoute.startsWith(AppDestination.GHARIB.route) ||
+                currentRoute.startsWith(AppDestination.AUDIO.route)
         AppDestination.SETTINGS -> currentRoute.startsWith(AppDestination.SETTINGS.route)
         AppDestination.WAQAF -> currentRoute.startsWith(AppDestination.WAQAF.route)
         AppDestination.GHARIB -> currentRoute.startsWith(AppDestination.GHARIB.route)

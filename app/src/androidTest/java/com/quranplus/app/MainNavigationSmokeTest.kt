@@ -7,7 +7,10 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -56,7 +59,12 @@ class MainNavigationSmokeTest {
 
         waitForText("Setup AI On-Device")
         composeRule.onNodeWithText("Pilih Model AI yang Diinginkan:").assertIsDisplayed()
+        composeRule.onNodeWithText("Gemma 4 E2B IT (LiteRT-LM)").assertIsDisplayed()
         composeRule.onNodeWithText("Gemma 3 1B IT").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Buka sumber model").assertCountEquals(2)
+        composeRule.onAllNodesWithText("Buka link unduh").assertCountEquals(2)
+        composeRule.onNodeWithTag("model_catalog").performTouchInput { swipeUp() }
+        composeRule.onNodeWithText("Qwen 2.5 1.5B Instruct").assertIsDisplayed()
         composeRule.onAllNodesWithText("Buka sumber model").assertCountEquals(2)
         composeRule.onNodeWithText("Model diblokir sampai manifest SHA-256 terverifikasi tersedia.")
             .assertIsDisplayed()
@@ -66,7 +74,7 @@ class MainNavigationSmokeTest {
     fun GIVEN_quranHome_WHEN_settingsDestinationIsClicked_THEN_settingsActionsAreDisplayed() {
         waitForText("Al-Qur'an Al-Karim")
 
-        composeRule.onNodeWithContentDescription("Menu Al-Qur'an").performClick()
+        composeRule.onNodeWithText("More").performClick()
         composeRule.onNodeWithText("Pengaturan").performClick()
 
         waitForText("Fitur Tajwid & Murottal")
@@ -77,9 +85,23 @@ class MainNavigationSmokeTest {
     fun GIVEN_quranHome_WHEN_bookmarkDestinationIsClicked_THEN_bookmarkScreenIsDisplayed() {
         waitForText("Al-Qur'an Al-Karim")
 
+        composeRule.onNodeWithText("More").performClick()
         composeRule.onNodeWithText("Bookmark").performClick()
 
         waitForText("Daftar Bookmark")
+    }
+
+    @Test
+    fun GIVEN_reader_WHEN_titleIdentityIsClicked_THEN_quranRootIsDisplayed() {
+        waitForText("Al-Qur'an Al-Karim")
+
+        composeRule.onNodeWithText("Al-Qur'an").performClick()
+        waitForText("Al-Faatiha")
+        composeRule.onNodeWithText("Al-Faatiha").performClick()
+        waitForContentDescription("Beranda Quran")
+        composeRule.onNodeWithContentDescription("Beranda Quran").performClick()
+
+        waitForText("Al-Qur'an Al-Karim")
     }
 
     @Test

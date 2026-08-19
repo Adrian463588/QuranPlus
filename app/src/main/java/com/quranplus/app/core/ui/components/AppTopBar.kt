@@ -1,6 +1,8 @@
 package com.quranplus.app.core.ui.components
 
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -14,6 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,12 +27,19 @@ fun AppTopBar(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     onBackClick: (() -> Unit)? = null,
+    onTitleClick: (() -> Unit)? = null,
+    titleContentDescription: String? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     TopAppBar(
         title = {
             if (subtitle != null) {
-                androidx.compose.foundation.layout.Column {
+                androidx.compose.foundation.layout.Column(
+                    modifier = titleModifier(
+                        onClick = onTitleClick,
+                        contentDescription = titleContentDescription ?: title
+                    )
+                ) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
@@ -49,7 +61,11 @@ fun AppTopBar(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = titleModifier(
+                        onClick = onTitleClick,
+                        contentDescription = titleContentDescription ?: title
+                    )
                 )
             }
         },
@@ -73,3 +89,15 @@ fun AppTopBar(
         modifier = modifier
     )
 }
+
+private fun titleModifier(
+    onClick: (() -> Unit)?,
+    contentDescription: String
+): Modifier = Modifier
+    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+    .then(
+        if (onClick == null) Modifier else Modifier.clickable(onClick = onClick)
+    )
+    .semantics {
+        this.contentDescription = contentDescription
+    }

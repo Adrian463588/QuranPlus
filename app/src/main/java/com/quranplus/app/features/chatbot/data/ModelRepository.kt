@@ -68,14 +68,42 @@ class ModelRepository(
      */
     val availableModelConfigs: List<ModelInfo> = listOf(
         ModelInfo(
+            id = "gemma4-e2b-it-litert-lm",
+            name = "Gemma 4 E2B IT (LiteRT-LM)",
+            filename = "gemma-4-E2B-it.litertlm",
+            sizeDescription = "2.41 GiB",
+            ramRequirement = "RAM minimum 6 GB (katalog sumber)",
+            artifactUrl = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/6b78abd019e61a1ca4cbe3b212d2c9ce8ff38a94/gemma-4-E2B-it.litertlm",
+            sourceUrl = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/tree/6b78abd019e61a1ca4cbe3b212d2c9ce8ff38a94",
+            licenseUrl = "https://ai.google.dev/gemma/terms",
+            sha256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+            isRecommended = true,
+            version = "repository-6b78abd0",
+            revision = "6b78abd019e61a1ca4cbe3b212d2c9ce8ff38a94",
+            abi = "generic-arm64",
+            licenseStatus = "requires_acceptance",
+            sizeBytes = 2_588_147_712L,
+            tokenizerId = "bundled-by-artifact",
+            minimumRamMb = 6144,
+            citation = "LiteRT Community Gemma 4 E2B IT model card"
+        ),
+        ModelInfo(
             id = "gemma3-1b-it",
             name = "Gemma 3 1B IT",
             filename = "gemma3-1b-it.litertlm",
-            sizeDescription = "Artifact belum diverifikasi",
-            ramRequirement = "RAM perangkat harus diverifikasi",
-            sourceUrl = "https://huggingface.co/litert-community/Gemma3-1B-IT",
+            sizeDescription = "556 MiB",
+            ramRequirement = "RAM minimum 4 GB (katalog sumber)",
+            artifactUrl = "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/6d54daa71cfbffba6b2843c08eeb1a27e7430bf0/gemma3-1b-it-int4.litertlm",
+            sourceUrl = "https://huggingface.co/litert-community/Gemma3-1B-IT/tree/6d54daa71cfbffba6b2843c08eeb1a27e7430bf0",
             licenseUrl = "https://ai.google.dev/gemma/terms",
-            licenseStatus = "requires_acceptance"
+            licenseStatus = "requires_acceptance",
+            version = "repository-6d54daa7",
+            revision = "6d54daa71cfbffba6b2843c08eeb1a27e7430bf0",
+            abi = "generic-arm64",
+            sizeBytes = 584_417_280L,
+            tokenizerId = "tokenizer.model@6d54daa7",
+            minimumRamMb = 4096,
+            citation = "LiteRT Community Gemma 3 1B IT model card"
         ),
         ModelInfo(
             id = "qwen2.5-1.5b-instruct",
