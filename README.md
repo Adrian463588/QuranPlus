@@ -51,7 +51,7 @@ Room, FTS5, Media3, SAF, ONNX Runtime, LiteRT-LM adapters
 ```
 
 - `:app` is the Android launcher and owns Android implementations.
-- `:shared` contains the KMM-compatible common contract surface.
+- `:shared` contains the KMM-compatible Quran entities, repository contract, use cases, and shared `UiState`; Android adapters remain in `:app`.
 - Koin provides dependency injection.
 - State uses `StateFlow`; database access stays behind repositories/use cases.
 - Quran search uses FTS5 only. There is no `LIKE` fallback.
@@ -61,9 +61,10 @@ Room, FTS5, Media3, SAF, ONNX Runtime, LiteRT-LM adapters
 ## Data and model requirements
 
 - Bundled Quran asset: Room database with 114 surahs and 6,236 ayahs; the device gate must still validate migration and content at runtime.
-- Hadith manifest: `data/hadith-provenance.json`; corpus status is not distributable until source license, revision, schema, grading, and checksum gates pass.
+- Hadith manifest: `data/hadith-provenance.json`; the local four-book audit is 24,065 records with file SHA-256 values, but corpus status is not distributable until source license, revision, schema, completeness, grading, and checksum gates pass.
+- Hadith audit command: `rtk proxy powershell -NoProfile -Command ".\\scripts\\validate-hadith-reference.ps1 -AsJson"`; it reads the ignored local reference and never copies it into the APK or repository.
 - RAG manifest: `data/rag-provenance.json`; no bundled hadith/knowledge vectors are claimed.
-- Embeddings require a verified `all-MiniLM-L6-v2` ONNX model, matching tokenizer, 384 dimensions, and a real sqlite-vec index. No model is bundled.
+- Embeddings require a verified `all-MiniLM-L6-v2` ONNX model, matching tokenizer SHA-256, 384 dimensions, and a real sqlite-vec index. No model is bundled.
 - LiteRT-LM model files are downloaded on demand only after a manifest provides a 64-character SHA-256. Current configurations intentionally remain blocked until those hashes are approved.
 - User SAF documents are stored privately, hashed, chunked at 512 tokens with 50-token overlap, and remain separate from official Quran/Hadith sources.
 
@@ -76,6 +77,7 @@ rtk proxy .\gradlew.bat :app:lintDebug
 rtk proxy .\gradlew.bat :app:testDebugUnitTest
 rtk proxy .\gradlew.bat :app:assembleDebug
 rtk proxy .\gradlew.bat :app:connectedDebugAndroidTest
+rtk proxy python scripts/build_database.py  # expected fail-closed guard
 ```
 
 Physical acceptance is separate from these gates. The first target is Samsung SM-G988B; Poco evidence is a separate gate. Until install, launch, journey, accessibility, rotation, IME, 200% font, performance, and screenshot evidence are recorded, device acceptance is not claimed.

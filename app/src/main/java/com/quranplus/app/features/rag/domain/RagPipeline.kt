@@ -29,7 +29,10 @@ class RagPipeline {
             citations.forEachIndexed { idx, cite ->
                 contextBuilder.append("[Dalil ${idx + 1}: ${cite.title}]\n")
                 contextBuilder.append("${cite.textSnippet}\n")
-                contextBuilder.append("Sumber: ${cite.reference}\n\n")
+                contextBuilder.append(
+                    "Sumber: ${cite.collection ?: cite.sourceType} / ${cite.identifier}; " +
+                        "referensi: ${cite.reference}; skor: ${cite.score}\n\n"
+                )
             }
             contextBuilder.append("============================================================\n\n")
         }

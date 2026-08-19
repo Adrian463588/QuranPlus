@@ -7,6 +7,7 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 
 class EmbeddingModelUnavailable(message: String) : IllegalStateException(message)
@@ -74,11 +75,32 @@ class OnnxEmbeddingService(
     }
 
     private fun loadVocabulary(): Map<String, Long> {
+        verifyVocabularyHash()
         val result = ConcurrentHashMap<String, Long>()
         context.assets.open("embedding/vocab.txt").bufferedReader().useLines { lines ->
             lines.forEachIndexed { index, token -> result[token.trim()] = index.toLong() }
         }
         return result
+    }
+
+    private fun verifyVocabularyHash() {
+        val expected = context.assets.open(VOCABULARY_HASH_ASSET).bufferedReader().use { it.readText().trim() }
+        if (!expected.matches(SHA256_PATTERN)) {
+            throw EmbeddingModelUnavailable("Embedding tokenizer manifest is invalid")
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+        context.assets.open(VOCABULARY_ASSET).use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        val actual = digest.digest().joinToString("") { "%02x".format(it) }
+        if (!actual.equals(expected, ignoreCase = true)) {
+            throw EmbeddingModelUnavailable("Embedding tokenizer SHA-256 mismatch")
+        }
     }
 
     private fun tokenize(text: String): LongArray {
@@ -174,6 +196,11 @@ class OnnxEmbeddingService(
 
         val dimension = tokenRows.firstOrNull()?.size
             ?: throw EmbeddingModelUnavailable("ONNX output has no embedding rows")
+        if (dimension != EMBEDDING_DIMENSION) {
+            throw EmbeddingModelUnavailable(
+                "ONNX embedding dimension $dimension does not match $EMBEDDING_DIMENSION"
+            )
+        }
         val pooled = FloatArray(dimension)
         var count = 0
         tokenRows.forEachIndexed { index, row ->
@@ -199,6 +226,9 @@ class OnnxEmbeddingService(
         const val CLS_TOKEN = "[CLS]"
         const val SEP_TOKEN = "[SEP]"
         const val UNKNOWN_TOKEN = "[UNK]"
+        const val VOCABULARY_ASSET = "embedding/vocab.txt"
+        const val VOCABULARY_HASH_ASSET = "embedding/vocab.txt.sha256"
+        const val EMBEDDING_DIMENSION = 384
         val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
     }
 }

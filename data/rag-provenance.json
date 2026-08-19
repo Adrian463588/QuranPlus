@@ -19,11 +19,13 @@
     "dimension": 384,
     "max_intra_threads": 2,
     "model_sha256": null,
-    "tokenizer_sha256": null,
+    "tokenizer_sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
     "verified": false
   },
   "index_contract": {
     "engine": "sqlite-vec",
+    "runtime_state": "blocked-until-real-extension-and-index-are-present",
+    "room_scan_fallback": false,
     "chunk_tokens": 512,
     "overlap_tokens": 50,
     "top_k": 5,

@@ -57,7 +57,7 @@ import com.quranplus.app.features.tahsin.domain.TahsinLesson
 fun TahsinHomeScreen(
     viewModel: TahsinViewModel,
     onLessonClick: (Int) -> Unit,
-    onQuizClick: () -> Unit = {}
+    onQuizClick: () -> Unit
 ) {
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val lessonsState by viewModel.lessonsState.collectAsStateWithLifecycle()

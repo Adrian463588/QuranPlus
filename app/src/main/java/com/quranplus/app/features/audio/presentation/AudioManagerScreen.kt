@@ -190,7 +190,14 @@ fun AudioManagerScreen(
                             SurahAudioDownloadRow(
                                 surah = surah,
                                 qari = selectedQari,
-                                storedBytes = audioPlayerManager.getSurahAudioBytes(selectedQari, surah.number)
+                                storedBytes = audioPlayerManager.getSurahAudioBytes(selectedQari, surah.number),
+                                onDownloadClick = {
+                                    Toast.makeText(
+                                        context,
+                                        "Unduhan diblokir sampai URL dan SHA-256 audio terverifikasi tersedia.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             )
                         }
                     }
@@ -220,7 +227,8 @@ fun AudioManagerScreen(
 fun SurahAudioDownloadRow(
     surah: Surah,
     qari: Qari,
-    storedBytes: Long
+    storedBytes: Long,
+    onDownloadClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -270,12 +278,11 @@ fun SurahAudioDownloadRow(
             }
 
             IconButton(
-                onClick = {},
-                enabled = false
+                onClick = onDownloadClick
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Download,
-                    contentDescription = "Unduhan audio diblokir sampai manifest URL dan SHA-256 tersedia",
+                    contentDescription = "Unduh audio ${surah.nameLatin}; manifest URL dan SHA-256 belum tersedia",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

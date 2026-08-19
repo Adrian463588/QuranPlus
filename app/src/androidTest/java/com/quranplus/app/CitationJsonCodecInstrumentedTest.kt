@@ -19,6 +19,10 @@ class CitationJsonCodecInstrumentedTest {
             reference = "QS. Al-Baqarah: 255",
             textSnippet = "اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ",
             score = 0.8125f,
+            collection = "quran",
+            identifier = "2:255",
+            sourceRevision = "quran-reference-rev",
+            deepLinkTarget = "quran://2/255",
             surahNumber = 2,
             ayahNumber = 255
         )

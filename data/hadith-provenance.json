@@ -4,7 +4,9 @@
   "unverified_legacy_assets_removed": true,
   "source": {
     "repository": "https://github.com/AhmedBaset/hadith-json.git",
-    "revision": "70b83d6",
+    "revision": "70b83d6d21995bb32f8d7271cd75501be5a922a7",
+    "nearest_tag": "v1.2.0",
+    "nearest_tag_revision": "ca32fd72aa16eeeb9a819c80bb65c9e78766532d",
     "package_version": "1.3.0",
     "collections": [
       "bukhari",
@@ -12,14 +14,57 @@
       "abu-dawud",
       "tirmidhi"
     ],
-    "license_status": "verify-before-distribution",
-    "record_grade_policy": "unknown-unless-source-record-provides-grade"
+    "license_status": "unverified-isc-package-no-data-license",
+    "record_grade_policy": "unknown-unless-source-record-provides-grade",
+    "schema": "metadata+chapters+hadiths",
+    "validation": {
+      "total_record_count": 24065,
+      "total_chapter_count": 246,
+      "duplicate_global_id_count": 0,
+      "duplicate_book_id_in_book_count": 0,
+      "invalid_chapter_reference_count": 0,
+      "incomplete_record_count": 2382,
+      "empty_english_narrator_count": 2380,
+      "empty_english_text_count": 3,
+      "validated_by": "scripts/validate-hadith-reference.ps1"
+    },
+    "files": [
+      {
+        "collection": "bukhari",
+        "book_id": 1,
+        "record_count": 7277,
+        "chapter_count": 97,
+        "sha256": "9d2e4194786c275f64f627c834711ea0e339a8fe226d5e9569ef962595a562f"
+      },
+      {
+        "collection": "muslim",
+        "book_id": 2,
+        "record_count": 7459,
+        "chapter_count": 57,
+        "sha256": "12e3cbe8e2c83acc787b3e1e644877eff0feab11f1b32493386c60703d9076ae"
+      },
+      {
+        "collection": "abu-dawud",
+        "book_id": 4,
+        "record_count": 5276,
+        "chapter_count": 43,
+        "sha256": "da55afe7f372a803f4c484da2982c440c62a8b3d891d3cc50a687606a56b9884"
+      },
+      {
+        "collection": "tirmidhi",
+        "book_id": 5,
+        "record_count": 4053,
+        "chapter_count": 49,
+        "sha256": "9ba6da92af6b0db9768c67f4c562c24bbbdb7be83509a78c40994c6d93366437"
+      }
+    ]
   },
   "runtime_policy": {
     "bundled_corpus": false,
     "bundled_raw_reference": false,
     "required_before_import": [
-      "source revision and license verified",
+      "source revision is pinned to a reviewed tag or reconciled full commit",
+      "source license and scraped-data permission verified",
       "schema and duplicate identifiers validated",
       "source SHA-256 recorded",
       "record-level grading preserved",

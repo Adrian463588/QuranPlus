@@ -1,5 +1,5 @@
 {
-  "schema_version": "sprint2-1",
+  "schema_version": "sprint2-2",
   "status_policy": "Blocked is explicit and never represented as complete",
   "contract_sources": [
     "local AGENTS.md",
@@ -32,11 +32,19 @@
     "No assistant fallback content",
     "No arbitrary route identifiers or ayah counts",
     "Missing source/model/audio/index produces explicit blocked or error state",
-    "Reference projects, raw archives, cache, and internal markdown are local-only"
+    "Reference projects, raw archives, cache, and internal markdown are local-only",
+    "Legacy manual hadith/RAG database generator is fail-closed",
+    "Tokenizer SHA-256 and 384-dimensional ONNX output are runtime-checked",
+    "Citations preserve collection, identifier, source revision, score, and deep-link target when available"
+  ],
+  "data_provenance_gates": [
+    "scripts/validate-hadith-reference.ps1 validates local reference2 schema, counts, duplicates, chapter references, incomplete fields, and SHA-256",
+    "Hadith corpus remains blocked: source license, record grading, and incomplete records are unresolved",
+    "No reference2 JSON, internal docs, extracted project, archive, or model file is bundled or tracked"
   ],
   "acceptance_gates": {
-    "static": ["shared compile", "app compile", "lint", "unit tests"],
-    "automated": ["Room migration", "FTS5", "surah-filtered search", "search highlighting", "parser", "retrieval", "citation", "downloader", "SAF", "adaptive Compose semantics", "navigation journeys"],
+    "static": ["shared commonMain compile", "app compile", "lint", "unit tests", "fail-closed database builder"],
+    "automated": ["Room migration", "FTS5", "surah-filtered search", "search highlighting", "parser", "retrieval", "citation metadata instrumentation", "downloader", "SAF", "tokenizer hash and embedding dimension contract", "adaptive Compose semantics", "navigation journeys"],
     "physical": ["SM-G988B install/launch/journeys", "Poco separate evidence"],
     "release": ["secret scan", "explicit staged diff", "device PNG preview manifest", "remote SHA verification"]
   }

@@ -14,7 +14,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            // Domain contracts in commonMain remain dependency-free by design.
+            implementation(libs.kotlinx.coroutines.core)
         }
     }
 }

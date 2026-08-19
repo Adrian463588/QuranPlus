@@ -58,10 +58,10 @@ import com.quranplus.app.features.rag.presentation.RagImportState
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    onNavigateToAudioManager: () -> Unit = {},
-    onNavigateToWaqafGuide: () -> Unit = {},
-    onNavigateToGharib: () -> Unit = {},
-    onNavigateToQuiz: () -> Unit = {},
+    onNavigateToAudioManager: () -> Unit,
+    onNavigateToWaqafGuide: () -> Unit,
+    onNavigateToGharib: () -> Unit,
+    onNavigateToQuiz: () -> Unit,
     ragDocumentViewModel: RagDocumentViewModel,
     onRequestRagDocument: () -> Unit
 ) {

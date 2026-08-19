@@ -143,7 +143,11 @@ fun ChatScreen(
                                         content = streamingContent,
                                         isStreaming = true
                                     ),
-                                    onCitationClick = {}
+                                    onCitationClick = { citation ->
+                                        if (citation.surahNumber != null && citation.ayahNumber != null) {
+                                            onNavigateToAyah(citation.surahNumber, citation.ayahNumber)
+                                        }
+                                    }
                                 )
                             } else {
                                 StreamingIndicator()
