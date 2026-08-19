@@ -21,14 +21,14 @@ android {
             useSupportLibrary = true
         }
 
-        buildConfigField("String", "DEFAULT_MODEL_NAME", "\"gemma-3-1b-it.litertlm\"")
         buildConfigField("int", "LLM_TOP_K", "40")
         buildConfigField("float", "LLM_TEMPERATURE", "0.7f")
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

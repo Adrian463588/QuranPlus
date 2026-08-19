@@ -40,13 +40,29 @@ class TahsinViewModel(
     private val _selectedLesson = MutableStateFlow<TahsinLesson?>(null)
     val selectedLesson: StateFlow<TahsinLesson?> = _selectedLesson.asStateFlow()
 
+    private val _selectedLessonError = MutableStateFlow<String?>(null)
+    val selectedLessonError: StateFlow<String?> = _selectedLessonError.asStateFlow()
+
     fun selectCategory(category: TahsinCategory) {
         _selectedCategory.value = category
     }
 
     fun loadLessonDetail(lessonId: Int) {
         viewModelScope.launch {
-            _selectedLesson.value = getTahsinLessonByIdUseCase(lessonId)
+            _selectedLessonError.value = null
+            runCatching { getTahsinLessonByIdUseCase(lessonId) }
+                .onSuccess { lesson ->
+                    _selectedLesson.value = lesson
+                    if (lesson == null) {
+                        _selectedLessonError.value = "Materi Tahsin tidak ditemukan di database."
+                    }
+                }
+                .onFailure { error ->
+                    _selectedLesson.value = null
+                    _selectedLessonError.value = error.localizedMessage
+                        ?.takeIf(String::isNotBlank)
+                        ?: "Materi Tahsin gagal dimuat."
+                }
         }
     }
 

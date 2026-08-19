@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -48,6 +49,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
@@ -328,7 +334,7 @@ fun SettingsScreen(
                         )
                         Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(
-                            text = "Aplikasi tilawah Al-Qur'an tartil, ensiklopedia Gharib, panduan Waqaf, audio murottal multi-qari, dan asisten AI lokal berlandaskan Al-Qur'an & As-Sunnah Ash-Shahihah. Dibuat dengan arsitektur offline-first, tanpa telemetry.",
+                            text = "Aplikasi tilawah Al-Qur'an tartil dengan panduan Tahsin, Waqaf, audio murottal, dan asisten AI lokal. Fitur yang belum memiliki sumber, model, atau asset terverifikasi ditampilkan sebagai diblokir. Dibuat dengan arsitektur offline-first, tanpa telemetry.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
@@ -353,6 +359,11 @@ fun SettingsNavRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
+            .heightIn(min = 48.dp)
+            .semantics {
+                role = Role.Button
+                contentDescription = "$title. $subtitle"
+            }
             .padding(vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -409,6 +420,10 @@ fun SettingsSwitchRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            modifier = Modifier.semantics {
+                contentDescription = title
+                stateDescription = if (checked) "Aktif" else "Nonaktif"
+            },
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                 checkedTrackColor = MaterialTheme.colorScheme.primary

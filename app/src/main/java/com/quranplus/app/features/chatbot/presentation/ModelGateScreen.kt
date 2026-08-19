@@ -232,7 +232,7 @@ fun ModelGateScreen(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                is DownloadState.Downloading -> {
+                is DownloadState.Transferring -> {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

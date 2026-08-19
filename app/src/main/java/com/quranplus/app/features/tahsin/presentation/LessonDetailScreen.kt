@@ -47,9 +47,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quranplus.app.core.audio.AudioPlayerManager
+import com.quranplus.app.core.audio.Qari
 import com.quranplus.app.core.audio.PlaybackState
 import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppSecondaryButton
+import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
@@ -64,8 +66,10 @@ fun LessonDetailScreen(
     onBackClick: () -> Unit
 ) {
     val lesson by viewModel.selectedLesson.collectAsStateWithLifecycle()
+    val lessonError by viewModel.selectedLessonError.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val playbackState = audioPlayerManager?.playbackState?.collectAsStateWithLifecycle()?.value
+    val selectedQari = audioPlayerManager?.selectedQari?.collectAsStateWithLifecycle()?.value
 
     LaunchedEffect(lessonId) {
         viewModel.loadLessonDetail(lessonId)
@@ -79,9 +83,19 @@ fun LessonDetailScreen(
             )
         }
     ) { padding ->
+        val loadError = lessonError
         if (lesson == null) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            if (loadError == null) {
+                Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else {
+                AppEmptyState(
+                    icon = Icons.AutoMirrored.Rounded.MenuBook,
+                    title = "Materi Tidak Tersedia",
+                    description = loadError,
+                    modifier = Modifier.padding(padding)
+                )
             }
         } else {
             val item = lesson!!
@@ -228,6 +242,11 @@ fun LessonDetailScreen(
                                 val isCurrentlyPlaying = playbackState is PlaybackState.Playing &&
                                         playbackState.surahNumber == surahRef.number &&
                                         playbackState.ayahNumber == ayahNum
+                                val hasVerifiedAudio = audioPlayerManager.getAyahAudioUrl(
+                                    qari = selectedQari ?: Qari.MISHARY_ALAFASY,
+                                    surahNumber = surahRef.number,
+                                    ayahNumber = ayahNum
+                                ) != null
 
                                 Spacer(modifier = Modifier.height(Spacing.md))
                                 Row(
@@ -238,7 +257,7 @@ fun LessonDetailScreen(
                                         onClick = {
                                             if (isCurrentlyPlaying) {
                                                 audioPlayerManager.togglePlayPause()
-                                            } else {
+                                            } else if (hasVerifiedAudio) {
                                                 audioPlayerManager.playAyah(
                                                     surahNumber = surahRef.number,
                                                     surahName = surahRef.latinName,
@@ -248,6 +267,7 @@ fun LessonDetailScreen(
                                                 Toast.makeText(context, "Memutar QS. ${surahRef.latinName}:$ayahNum", Toast.LENGTH_SHORT).show()
                                             }
                                         },
+                                        enabled = hasVerifiedAudio || isCurrentlyPlaying,
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Icon(
@@ -256,7 +276,14 @@ fun LessonDetailScreen(
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(Spacing.xs))
-                                        Text(if (isCurrentlyPlaying) "Jeda" else "Dengarkan", fontSize = 13.sp)
+                                        Text(
+                                            text = when {
+                                                isCurrentlyPlaying -> "Jeda"
+                                                hasVerifiedAudio -> "Dengarkan"
+                                                else -> "Audio belum tersedia"
+                                            },
+                                            fontSize = 13.sp
+                                        )
                                     }
 
                                     if (onNavigateToAyah != null) {

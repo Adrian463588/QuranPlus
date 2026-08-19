@@ -20,6 +20,16 @@ class TajwidParserTest {
 
         assertNotNull(annotated)
         assertTrue(annotated.text.isNotEmpty())
+        assertTrue(
+            annotated.getStringAnnotations(TajwidParser.TAJWID_ANNOTATION, 0, annotated.length).isEmpty()
+        )
+    }
+
+    @Test
+    fun GIVEN_plainArabicWithoutSourceTags_WHEN_extractOccurrences_THEN_returnsEmpty() {
+        val occurrences = TajwidParser.extractTajwidOccurrences("إِنَّ اللَّهَ مَعَ الصَّابِرِينَ")
+
+        assertTrue(occurrences.isEmpty())
     }
 
     @Test
@@ -101,5 +111,17 @@ class TajwidParserTest {
         assertTrue(parsed.spans.isEmpty())
         assertEquals(setOf("z"), parsed.unknownTags)
         assertFalse(parsed.malformed)
+    }
+
+    @Test
+    fun GIVEN_sourceAndDisplayCharactersDoNotMatch_WHEN_buildColoredAyahText_THEN_colorIsNotFabricated() {
+        val annotated = TajwidParser.buildColoredAyahText(
+            arabicText = "ت",
+            tajwidTags = "[h[ب]",
+            enableTajwid = true
+        )
+
+        assertEquals("ت", annotated.text)
+        assertTrue(annotated.getStringAnnotations(TajwidParser.TAJWID_ANNOTATION, 0, 1).isEmpty())
     }
 }

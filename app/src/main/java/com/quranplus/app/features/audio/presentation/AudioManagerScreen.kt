@@ -14,10 +14,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -158,6 +160,7 @@ fun AudioManagerScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = Spacing.md),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
@@ -217,7 +220,16 @@ fun AudioManagerScreen(
                         Text(state.message, color = MaterialTheme.colorScheme.error)
                     }
                 }
-                is UiState.Blocked, UiState.Idle -> Unit
+                is UiState.Blocked -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Unduhan audio diblokir: ${state.reason}", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                is UiState.Idle -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Daftar surah belum siap.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         }
     }

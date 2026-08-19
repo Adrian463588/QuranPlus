@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +57,7 @@ fun SearchScreen(
     onAyahClick: (Int, Int) -> Unit,
     onBackClick: () -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     var filterMenuExpanded by remember { mutableStateOf(false) }
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
     val surahListState by viewModel.surahListState.collectAsStateWithLifecycle()

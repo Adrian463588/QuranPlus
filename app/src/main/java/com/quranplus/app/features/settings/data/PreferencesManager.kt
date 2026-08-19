@@ -113,7 +113,7 @@ class PreferencesManager(private val context: Context) {
     }
 
     val selectedModel: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.SELECTED_MODEL] ?: "gemma-3-1b-it.litertlm"
+        preferences[PreferencesKeys.SELECTED_MODEL].orEmpty()
     }
 
     val translationMode: Flow<TranslationMode> = context.dataStore.data.map { preferences ->

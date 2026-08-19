@@ -121,8 +121,8 @@ fun TahsinHomeScreen(
                     if (state.data.isEmpty()) {
                         AppEmptyState(
                             icon = Icons.Rounded.School,
-                            title = "Materi Sedang Disiapkan",
-                            description = "Data materi ${selectedCategory.title} akan segera dimuat."
+                            title = "Materi Belum Tersedia",
+                            description = "Database belum memiliki materi terverifikasi untuk ${selectedCategory.title}."
                         )
                     } else {
                         LazyColumn(
@@ -149,7 +149,27 @@ fun TahsinHomeScreen(
                         description = state.message
                     )
                 }
-                else -> {}
+                is UiState.Empty -> {
+                    AppEmptyState(
+                        icon = Icons.Rounded.School,
+                        title = "Materi Belum Tersedia",
+                        description = "Tidak ada materi Tahsin valid pada kategori ini."
+                    )
+                }
+                is UiState.Blocked -> {
+                    AppEmptyState(
+                        icon = Icons.Rounded.School,
+                        title = "Materi Diblokir",
+                        description = state.reason
+                    )
+                }
+                is UiState.Idle -> {
+                    AppEmptyState(
+                        icon = Icons.Rounded.School,
+                        title = "Menyiapkan Materi",
+                        description = "Status database Tahsin belum tersedia."
+                    )
+                }
             }
         }
     }

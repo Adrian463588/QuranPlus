@@ -19,8 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -64,8 +64,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -171,14 +173,18 @@ fun QuranReaderScreen(
     }
 
     // HorizontalPager for swipe between surahs
+    var restoredPage by rememberSaveable(surahNumber) {
+        mutableIntStateOf((surahNumber - 1).coerceIn(0, TOTAL_SURAHS - 1))
+    }
     val pagerState = rememberPagerState(
-        initialPage = surahNumber - 1,
+        initialPage = restoredPage,
         pageCount = { TOTAL_SURAHS }
     )
 
     // Load surah when pager page changes
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { page ->
+            restoredPage = page
             viewModel.loadSurahDetail(page + 1)
         }
     }
@@ -320,7 +326,10 @@ fun QuranReaderScreen(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
-                val pageListState = rememberLazyListState()
+                val pageListState = rememberSaveable(
+                    page,
+                    saver = LazyListState.Saver
+                ) { LazyListState() }
 
                 LaunchedEffect(page, pageListState, ayahsState, initialAyahNumber) {
                     if (page != pagerState.currentPage || ayahsState !is UiState.Success) return@LaunchedEffect
@@ -422,11 +431,60 @@ fun QuranReaderScreen(
                                 description = state.message
                             )
                         }
-                        else -> {}
+                        is UiState.Empty -> {
+                            AppEmptyState(
+                                icon = Icons.Rounded.FormatSize,
+                                title = "Ayat Belum Tersedia",
+                                description = "Database belum memiliki ayat untuk surah ini."
+                            )
+                        }
+                        is UiState.Blocked -> {
+                            AppEmptyState(
+                                icon = Icons.Rounded.FormatSize,
+                                title = "Reader Diblokir",
+                                description = state.reason
+                            )
+                        }
+                        is UiState.Idle -> {
+                            AppEmptyState(
+                                icon = Icons.Rounded.FormatSize,
+                                title = "Reader Belum Siap",
+                                description = "Posisi bacaan belum dapat dimuat dari database."
+                            )
+                        }
                     }
                 } else {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    when (val state = ayahsState) {
+                        is UiState.Loading -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        is UiState.Error -> AppEmptyState(
+                            icon = Icons.Rounded.FormatSize,
+                            title = "Gagal Memuat Reader",
+                            description = state.message
+                        )
+                        is UiState.Empty -> AppEmptyState(
+                            icon = Icons.Rounded.FormatSize,
+                            title = "Ayat Belum Tersedia",
+                            description = "Database belum memiliki ayat untuk target ini."
+                        )
+                        is UiState.Blocked -> AppEmptyState(
+                            icon = Icons.Rounded.FormatSize,
+                            title = "Reader Diblokir",
+                            description = state.reason
+                        )
+                        is UiState.Idle -> AppEmptyState(
+                            icon = Icons.Rounded.FormatSize,
+                            title = "Reader Belum Siap",
+                            description = "Surah belum dapat dipulihkan dari database."
+                        )
+                        is UiState.Success -> AppEmptyState(
+                            icon = Icons.Rounded.FormatSize,
+                            title = "Surah Tidak Tersedia",
+                            description = "Target surah tidak cocok dengan data yang dimuat."
+                        )
                     }
                 }
             }
@@ -685,7 +743,7 @@ fun AyahReaderItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = onBookmarkClick,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = if (ayah.isBookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
@@ -696,7 +754,7 @@ fun AyahReaderItem(
 
                 IconButton(
                     onClick = onAyahClick,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.MoreVert,

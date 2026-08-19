@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,7 +76,7 @@ fun ChatScreen(
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val selectedPersona by preferencesManager.selectedPersona.collectAsStateWithLifecycle(initialValue = AiPersona.USTADZ)
 
-    var inputPrompt by remember { mutableStateOf("") }
+    var inputPrompt by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
 
     // Auto-scroll on new message
@@ -124,11 +125,11 @@ fun ChatScreen(
                     items(items = messages, key = { it.id }) { message ->
                         ChatBubbleItem(
                             message = message,
-                            onCitationClick = { citation ->
-                                if (citation.surahNumber != null && citation.ayahNumber != null) {
-                                    onNavigateToAyah(citation.surahNumber, citation.ayahNumber)
+                                onCitationClick = { citation ->
+                                    citation.quranTarget()?.let { (surahNumber, ayahNumber) ->
+                                        onNavigateToAyah(surahNumber, ayahNumber)
+                                    }
                                 }
-                            }
                         )
                     }
 
@@ -144,8 +145,8 @@ fun ChatScreen(
                                         isStreaming = true
                                     ),
                                     onCitationClick = { citation ->
-                                        if (citation.surahNumber != null && citation.ayahNumber != null) {
-                                            onNavigateToAyah(citation.surahNumber, citation.ayahNumber)
+                                        citation.quranTarget()?.let { (surahNumber, ayahNumber) ->
+                                            onNavigateToAyah(surahNumber, ayahNumber)
                                         }
                                     }
                                 )
@@ -306,7 +307,7 @@ fun ChatBubbleItem(
                     message.citations.forEach { cite ->
                         CitationChip(
                             citation = cite,
-                            onClick = { onCitationClick(cite) }
+                            onClick = cite.quranTarget()?.let { { onCitationClick(cite) } }
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                     }
@@ -337,7 +338,7 @@ fun ChatBubbleItem(
 @Composable
 fun CitationChip(
     citation: RetrievedCitation,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -345,7 +346,7 @@ fun CitationChip(
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.extraSmall)
             .background(MaterialTheme.colorScheme.surface)
-            .clickable(onClick = onClick)
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
             .heightIn(min = 48.dp)
             .padding(horizontal = Spacing.sm, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -358,10 +359,19 @@ fun CitationChip(
         )
         Spacer(modifier = Modifier.width(Spacing.xs))
         Text(
-            text = citation.title,
+            text = if (onClick != null) citation.title else "${citation.title} (sumber belum dapat dibuka)",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Medium
         )
+    }
+}
+
+private fun RetrievedCitation.quranTarget(): Pair<Int, Int>? {
+    if (!sourceType.equals("quran", ignoreCase = true)) return null
+    val surah = surahNumber ?: return null
+    val ayah = ayahNumber ?: return null
+    return (surah to ayah).takeIf { (surahNumber, ayahNumber) ->
+        surahNumber in 1..114 && ayahNumber > 0
     }
 }

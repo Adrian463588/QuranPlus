@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
@@ -46,6 +47,26 @@ import com.quranplus.app.core.utils.WaqafParser
 fun WaqafGuideScreen(
     onBackClick: () -> Unit
 ) {
+    if (!WaqafParser.SOURCE_CATALOG_VERIFIED) {
+        Scaffold(
+            topBar = {
+                AppTopBar(
+                    title = "Panduan Waqaf & Ibtida'",
+                    subtitle = "Menunggu katalog sumber terverifikasi",
+                    onBackClick = onBackClick
+                )
+            }
+        ) { padding ->
+            AppEmptyState(
+                icon = Icons.Rounded.Info,
+                title = "Panduan Waqaf diblokir",
+                description = "Katalog aturan dan contoh ayat belum memiliki provenance yang direview. Tidak ada penjelasan pengganti yang ditampilkan.",
+                modifier = Modifier.padding(padding)
+            )
+        }
+        return
+    }
+
     val waqafRules = WaqafParser.ALL_WAQAF_RULES
 
     Scaffold(

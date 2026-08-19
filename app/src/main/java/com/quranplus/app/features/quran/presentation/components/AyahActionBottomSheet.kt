@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -55,6 +56,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -69,6 +71,7 @@ import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
 import com.quranplus.app.core.utils.TajwidParser
 import com.quranplus.app.features.quran.domain.Ayah
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,9 +89,17 @@ fun AyahActionBottomSheet(
     var noteText by remember { mutableStateOf("") }
     var showTafsirSection by remember { mutableStateOf(false) }
     var showTajwidSection by remember { mutableStateOf(false) }
+    val selectedQari by audioPlayerManager.selectedQari.collectAsStateWithLifecycle()
+    val audioAvailable = remember(ayah.surahNumber, ayah.ayahNumber, selectedQari) {
+        audioPlayerManager.getAyahAudioUrl(
+            selectedQari,
+            ayah.surahNumber,
+            ayah.ayahNumber
+        ) != null
+    }
 
-    val tajwidOccurrences = remember(ayah.textArabic) {
-        TajwidParser.extractTajwidOccurrences(ayah.textArabic)
+    val tajwidOccurrences = remember(ayah.textArabic, ayah.tajwidTags) {
+        TajwidParser.extractTajwidOccurrences(ayah.textArabic, ayah.tajwidTags)
     }
 
     ModalBottomSheet(
@@ -141,7 +152,11 @@ fun AyahActionBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = TajwidParser.buildColoredAyahText(ayah.textArabic, enableTajwid = true),
+                    text = TajwidParser.buildColoredAyahText(
+                        arabicText = ayah.textArabic,
+                        tajwidTags = ayah.tajwidTags,
+                        enableTajwid = true
+                    ),
                     style = getQuranArabicStyle(22f),
                     textAlign = TextAlign.End,
                     modifier = Modifier.padding(Spacing.md)
@@ -155,8 +170,13 @@ fun AyahActionBottomSheet(
             // 1. Play Audio Ayah
             ActionItemRow(
                 icon = Icons.Rounded.PlayArrow,
-                title = "Putar Audio Murottal",
-                subtitle = "Dengarkan pelafalan qari pilihan untuk ayat ini",
+                title = if (audioAvailable) "Putar Audio Murottal" else "Audio Murottal belum tersedia",
+                subtitle = if (audioAvailable) {
+                    "Dengarkan pelafalan qari pilihan untuk ayat ini"
+                } else {
+                    "Asset audio dan checksum terverifikasi belum tersedia"
+                },
+                enabled = audioAvailable,
                 onClick = {
                     audioPlayerManager.playAyah(
                         surahNumber = ayah.surahNumber,
@@ -172,8 +192,13 @@ fun AyahActionBottomSheet(
             // 2. Repeat Ayah Mode
             ActionItemRow(
                 icon = Icons.Rounded.Repeat,
-                title = "Ulangi Pemutaran Ayat (Muraja'ah)",
-                subtitle = "Setel pengulangan otomatis 1x, 2x, 3x, 5x, atau loop tak terbatas",
+                title = if (audioAvailable) "Ulangi Pemutaran Ayat (Muraja'ah)" else "Pengulangan audio belum tersedia",
+                subtitle = if (audioAvailable) {
+                    "Setel pengulangan otomatis 1x, 2x, 3x, 5x, atau loop tak terbatas"
+                } else {
+                    "Pengulangan aktif setelah asset audio terverifikasi tersedia"
+                },
+                enabled = audioAvailable,
                 onClick = {
                     audioPlayerManager.setRepeatMode(AudioRepeatMode.THREE_TIMES)
                     audioPlayerManager.playAyah(
@@ -386,12 +411,15 @@ private fun ActionItemRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .alpha(if (enabled) 1f else 0.6f)
+            .clickable(enabled = enabled, onClick = onClick)
+            .heightIn(min = 48.dp)
             .padding(vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -437,6 +465,7 @@ private fun ActionExpandableHeader(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
+            .heightIn(min = 48.dp)
             .padding(vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {

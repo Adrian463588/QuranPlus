@@ -280,9 +280,9 @@ object TajwidParser {
             return parseTaggedArabic(arabicText, baseTextColor)
         }
 
-        // Two-letter inter-character scanner
-        val spans = detectTajwidSpans(arabicText)
-        return buildAnnotatedText(arabicText, spans, baseTextColor)
+        // Tajwid is only trustworthy when it comes from an explicit source tag.
+        // Do not infer a rule from Arabic glyphs or harakat in the display text.
+        return plainText(arabicText, baseTextColor)
     }
 
     /**
@@ -294,7 +294,9 @@ object TajwidParser {
             val parsed = parseBracketTags(tajwidTags)
             return alignSpansToDisplay(parsed, arabicText).orEmpty()
         }
-        return detectTajwidSpans(arabicText)
+        // A missing tag column is an unavailable source, not permission to infer
+        // a rule from the rendered Arabic glyphs.
+        return emptyList()
     }
 
     /**
@@ -403,6 +405,11 @@ object TajwidParser {
         parsed: TaggedTextResult,
         displayText: String
     ): List<TajwidSpan>? {
+        if (displayText.startsWith(parsed.text)) {
+            return parsed.spans.map { span ->
+                span.copy(snippet = displayText.substring(span.start, span.end))
+            }
+        }
         val sourceToDisplay = alignSourceToDisplay(parsed.text, displayText) ?: return null
         return parsed.spans.mapNotNull { span ->
             val start = sourceToDisplay[span.start.coerceIn(0, parsed.text.length)]
@@ -441,26 +448,25 @@ object TajwidParser {
                         source[sourceIndex],
                         display[displayIndex]
                     )
-                    val candidate = costs[index(sourceIndex + 1, displayIndex + 1)] +
-                        if (equivalent) 0 else REPLACEMENT_COST
-                    if (candidate < bestCost) {
-                        bestCost = candidate
-                        bestOperation = if (equivalent) OPERATION_MATCH else OPERATION_REPLACE
+                    if (equivalent) {
+                        val candidate = costs[index(sourceIndex + 1, displayIndex + 1)]
+                        if (candidate < bestCost) {
+                            bestCost = candidate
+                            bestOperation = OPERATION_MATCH
+                        }
                     }
                 }
 
-                if (sourceIndex < sourceLength) {
-                    val candidate = costs[index(sourceIndex + 1, displayIndex)] +
-                        if (isOptionalSourceCharacter(source[sourceIndex])) 0 else GAP_COST
+                if (sourceIndex < sourceLength && isOptionalSourceCharacter(source[sourceIndex])) {
+                    val candidate = costs[index(sourceIndex + 1, displayIndex)]
                     if (candidate < bestCost) {
                         bestCost = candidate
                         bestOperation = OPERATION_DELETE_SOURCE
                     }
                 }
 
-                if (displayIndex < displayLength) {
-                    val candidate = costs[index(sourceIndex, displayIndex + 1)] +
-                        if (isOptionalDisplayCharacter(display[displayIndex])) 0 else GAP_COST
+                if (displayIndex < displayLength && isOptionalDisplayCharacter(display[displayIndex])) {
+                    val candidate = costs[index(sourceIndex, displayIndex + 1)]
                     if (candidate < bestCost) {
                         bestCost = candidate
                         bestOperation = OPERATION_INSERT_DISPLAY
@@ -481,7 +487,7 @@ object TajwidParser {
         sourceBoundaries[0] = 0
         while (sourceIndex < sourceLength || displayIndex < displayLength) {
             when (operations[index(sourceIndex, displayIndex)]) {
-                OPERATION_MATCH, OPERATION_REPLACE -> {
+                OPERATION_MATCH -> {
                     sourceIndex++
                     displayIndex++
                     sourceBoundaries[sourceIndex] = displayIndex
@@ -511,11 +517,8 @@ object TajwidParser {
 
     private const val OPERATION_NONE: Byte = 0
     private const val OPERATION_MATCH: Byte = 1
-    private const val OPERATION_REPLACE: Byte = 2
-    private const val OPERATION_DELETE_SOURCE: Byte = 3
-    private const val OPERATION_INSERT_DISPLAY: Byte = 4
-    private const val GAP_COST = 3
-    private const val REPLACEMENT_COST = 3
+    private const val OPERATION_DELETE_SOURCE: Byte = 2
+    private const val OPERATION_INSERT_DISPLAY: Byte = 3
     private const val MAX_ALIGNMENT_COST = 24
     private val DISPLAY_ONLY_MARKS = setOf('\u06DF', '\u06E0', '\u06E2', '\u06ED', '\u200C')
 
@@ -553,189 +556,4 @@ object TajwidParser {
         }
     }
 
-    // ─── Two-Letter Inter-Character Heuristic Scanner ─────────────────────────
-    private fun detectTajwidSpans(text: String): List<TajwidSpan> {
-        val spans = mutableListOf<TajwidSpan>()
-        val len = text.length
-        var i = 0
-
-        while (i < len) {
-            val c = text[i]
-
-            // 1. Dagger Alif (ٰ), Small Waw (ۥ), Small Ya (ۦ) -> Mad Tabi'i
-            if (c == DAGGER_ALIF || c == SMALL_WAW || c == SMALL_YA) {
-                val start = if (i > 0 && isArabicLetter(text[i - 1])) i - 1 else i
-                spans.add(TajwidSpan(start, i + 1, TajwidType.MAD_TABII, text.substring(start, i + 1)))
-                i++
-                continue
-            }
-
-            // 2. Maddah Above (ٓ or ۤ) -> Mad Wajib / Jaiz (4-5 Harakat)
-            if (c == MADDAH || c == SMALL_MADDAH) {
-                val start = if (i > 0 && isArabicLetter(text[i - 1])) i - 1 else i
-                val end = findDiacriticEnd(text, i + 1)
-                spans.add(TajwidSpan(start, end, TajwidType.MAD_WAJIB_JAIZ, text.substring(start, end)))
-                i = end
-                continue
-            }
-
-            // 3. Alif-Madda (آ) -> Mad
-            if (c == ALIF_MADDA) {
-                val end = findDiacriticEnd(text, i + 1)
-                spans.add(TajwidSpan(i, end, TajwidType.MAD_WAJIB_JAIZ, text.substring(i, end)))
-                i = end
-                continue
-            }
-
-            // 4. Small Meem Iqlab marker (ۢ or ۭ)
-            if (c == SMALL_HIGH_MEEM || c == SMALL_LOW_MEEM) {
-                val start = if (i > 0 && isArabicLetter(text[i - 1])) i - 1 else i
-                val nextLetterIdx = findNextArabicLetter(text, i + 1)
-                val end = if (nextLetterIdx != -1) findDiacriticEnd(text, nextLetterIdx + 1) else i + 1
-                spans.add(TajwidSpan(start, end, TajwidType.IQLAB, text.substring(start, end)))
-                i = if (nextLetterIdx != -1) end else i + 1
-                continue
-            }
-
-            if (isArabicLetter(c)) {
-                val diacriticEnd = findDiacriticEnd(text, i + 1)
-                val diacritics = text.substring(i + 1, diacriticEnd)
-
-                // ── Rule 1: Ghunnah Musyaddadah ── (Nun/Mim with Shadda: نّ or مّ)
-                if ((c == NUN || c == MIM) && diacritics.contains(SHADDA)) {
-                    spans.add(TajwidSpan(i, diacriticEnd, TajwidType.GHUNNAH, text.substring(i, diacriticEnd)))
-                    i = diacriticEnd
-                    continue
-                }
-
-                // ── Rule 2: Qalqalah ── (ق ط ب ج د) with Sukun
-                if (c in QALQALAH_LETTERS && (diacritics.contains(SUKUN) || diacritics.contains(QURANIC_SUKUN))) {
-                    spans.add(TajwidSpan(i, diacriticEnd, TajwidType.QALQALAH, text.substring(i, diacriticEnd)))
-                    i = diacriticEnd
-                    continue
-                }
-
-                // ── Rule 3: Mim Sukun Rules (Idgham Mimi & Ikhfa Syafawi) ──
-                val isMimSukun = c == MIM && (diacritics.contains(SUKUN) || diacritics.contains(QURANIC_SUKUN) || (diacritics.isEmpty() && i + 1 < len && text[i + 1] == ' '))
-                if (isMimSukun) {
-                    val nextLetterIdx = findNextArabicLetter(text, diacriticEnd)
-                    if (nextLetterIdx != -1) {
-                        val nextLetter = text[nextLetterIdx]
-                        val nextDiacriticEnd = findDiacriticEnd(text, nextLetterIdx + 1)
-                        if (nextLetter == MIM) {
-                            // Idgham Mitslain / Mimi -> Color BOTH Mims
-                            spans.add(TajwidSpan(i, nextDiacriticEnd, TajwidType.IDGHAM_MIM_MIMI, text.substring(i, nextDiacriticEnd)))
-                            i = nextDiacriticEnd
-                            continue
-                        } else if (nextLetter == BA) {
-                            // Ikhfa Syafawi -> Color BOTH Mim and Ba
-                            spans.add(TajwidSpan(i, nextDiacriticEnd, TajwidType.IKHFA_SYAFAWI, text.substring(i, nextDiacriticEnd)))
-                            i = nextDiacriticEnd
-                            continue
-                        }
-                    }
-                }
-
-                // ── Rule 4: Nun Sukun / Tanwin Rules (Inter-Character Two-Letter Pairing) ──
-                val isNunSukun = c == NUN && (diacritics.contains(SUKUN) || diacritics.contains(QURANIC_SUKUN) || (diacritics.isEmpty() && i + 1 < len && text[i + 1] == ' '))
-                val hasTanwin = diacritics.any { it == FATHATAN || it == DAMMATAN || it == KASRATAN }
-
-                if (isNunSukun || hasTanwin) {
-                    val nextLetterIdx = findNextArabicLetter(text, diacriticEnd)
-                    if (nextLetterIdx != -1) {
-                        val nextLetter = text[nextLetterIdx]
-                        val nextDiacriticEnd = findDiacriticEnd(text, nextLetterIdx + 1)
-
-                        when {
-                            // Iqlab: Nun/Tanwin + Ba -> Color BOTH
-                            nextLetter == BA -> {
-                                spans.add(TajwidSpan(i, nextDiacriticEnd, TajwidType.IQLAB, text.substring(i, nextDiacriticEnd)))
-                                i = nextDiacriticEnd
-                                continue
-                            }
-                            // Idgham Bighunnah: Nun/Tanwin + (ي ن م و) -> Color BOTH
-                            nextLetter in IDGHAM_BIGHUNNAH_LETTERS -> {
-                                spans.add(TajwidSpan(i, nextDiacriticEnd, TajwidType.IDGHAM_BIGHUNNAH, text.substring(i, nextDiacriticEnd)))
-                                i = nextDiacriticEnd
-                                continue
-                            }
-                            // Idgham Bilaghunnah: Nun/Tanwin + (ل ر) -> Color BOTH
-                            nextLetter in IDGHAM_BILAGHUNNAH_LETTERS -> {
-                                spans.add(TajwidSpan(i, nextDiacriticEnd, TajwidType.IDGHAM_BILAGHUNNAH, text.substring(i, nextDiacriticEnd)))
-                                i = nextDiacriticEnd
-                                continue
-                            }
-                            // Ikhfa Haqiqi: Nun/Tanwin + 15 Ikhfa letters -> Color BOTH
-                            nextLetter in IKHFA_LETTERS -> {
-                                spans.add(TajwidSpan(i, nextDiacriticEnd, TajwidType.IKHFA_HAQIQI, text.substring(i, nextDiacriticEnd)))
-                                i = nextDiacriticEnd
-                                continue
-                            }
-                        }
-                    }
-                }
-
-                // ── Rule 5: Natural Mad (Alif after Fatha, Waw after Damma, Ya after Kasra) ──
-                val prevLetterIdx = findPrevArabicLetter(text, i)
-                if (prevLetterIdx != -1) {
-                    val prevDiacritics = text.substring(prevLetterIdx + 1, i)
-                    val isAlifMad = (c == ALIF || c == ALIF_MAQSURA) && prevDiacritics.contains(FATHA) && !diacritics.contains(SHADDA) && !diacritics.contains(SUKUN)
-                    val isWawMad = c == WAW && prevDiacritics.contains(DAMMA) && (diacritics.contains(SUKUN) || diacritics.contains(QURANIC_SUKUN) || diacritics.isEmpty())
-                    val isYaMad = (c == YA || c == ALIF_MAQSURA) && prevDiacritics.contains(KASRA) && (diacritics.contains(SUKUN) || diacritics.contains(QURANIC_SUKUN) || diacritics.isEmpty())
-
-                    if (isAlifMad || isWawMad || isYaMad) {
-                        spans.add(TajwidSpan(prevLetterIdx, diacriticEnd, TajwidType.MAD_TABII, text.substring(prevLetterIdx, diacriticEnd)))
-                        i = diacriticEnd
-                        continue
-                    }
-                }
-
-                i = diacriticEnd
-                continue
-            }
-
-            i++
-        }
-
-        return spans
-    }
-
-    // ─── Helper Functions ─────────────────────────────────────────────────────
-
-    private fun isArabicLetter(c: Char): Boolean =
-        c.code in 0x0621..0x064A || c == ALIF_WASLA || c == ALIF_MAQSURA || c == ALIF_MADDA
-
-    private fun isDiacritic(c: Char): Boolean =
-        c.code in 0x064B..0x065F || c == DAGGER_ALIF || c == MADDAH || c == SMALL_MADDAH ||
-        c == QURANIC_SUKUN || c == SMALL_HIGH_MEEM || c == SMALL_LOW_MEEM || c == SMALL_WAW || c == SMALL_YA
-
-    private fun findDiacriticEnd(text: String, from: Int): Int {
-        var idx = from
-        while (idx < text.length && isDiacritic(text[idx])) {
-            idx++
-        }
-        return idx
-    }
-
-    private fun findNextArabicLetter(text: String, from: Int): Int {
-        var idx = from
-        while (idx < text.length) {
-            val c = text[idx]
-            if (isArabicLetter(c)) return idx
-            // Stop at verse marker / punctuation
-            if (c == '\n' || c == 'ۖ' || c == 'ۗ' || c == 'ۚ' || c == 'ۛ' || c == 'ۜ' || c == '۝' || c == 'ۘ' || c == 'ۙ') return -1
-            idx++
-        }
-        return -1
-    }
-
-    private fun findPrevArabicLetter(text: String, before: Int): Int {
-        var idx = before - 1
-        while (idx >= 0) {
-            if (isArabicLetter(text[idx])) return idx
-            if (text[idx] == ' ' || text[idx] == '\n') return -1
-            idx--
-        }
-        return -1
-    }
 }

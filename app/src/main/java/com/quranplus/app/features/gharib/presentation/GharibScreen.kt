@@ -382,29 +382,30 @@ fun GharibCardItem(
             Spacer(modifier = Modifier.height(Spacing.sm))
 
             // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    OutlinedButton(
-                        onClick = { onPlayAudio?.invoke() },
-                        enabled = onPlayAudio != null
-                    ) {
-                        Icon(imageVector = Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (onPlayAudio != null) "Putar Audio" else "Audio belum tersedia")
-                    }
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                OutlinedButton(
+                    onClick = { onPlayAudio?.invoke() },
+                    enabled = onPlayAudio != null,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(imageVector = Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(if (onPlayAudio != null) "Putar Audio" else "Audio belum tersedia")
+                }
 
-                    if (reading.ruleType == GharibType.AYAT_SAJDAH) {
-                        OutlinedButton(onClick = onShowSajdahDialog) {
-                            Text("Doa Sujud ۩")
-                        }
+                if (reading.ruleType == GharibType.AYAT_SAJDAH) {
+                    OutlinedButton(
+                        onClick = onShowSajdahDialog,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Doa Sujud ۩")
                     }
                 }
 
-                AppPrimaryButton(onClick = onNavigate) {
+                AppPrimaryButton(
+                    onClick = onNavigate,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Icon(imageVector = Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Buka Ayat")

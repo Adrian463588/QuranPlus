@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -17,7 +18,7 @@ import java.util.concurrent.TimeUnit
 sealed interface DownloadState {
     data object Idle : DownloadState
     data class Queued(val file: File) : DownloadState
-    data class Downloading(
+    data class Transferring(
         val bytesDownloaded: Long,
         val totalBytes: Long,
         val progressPercentage: Int,
@@ -58,6 +59,11 @@ class ResumableDownloader(
         emit(DownloadState.Idle)
         if (!expectedSha256.matches(SHA256_PATTERN)) {
             emit(DownloadState.Failed("Manifest SHA-256 model tidak valid atau belum tersedia"))
+            return@flow
+        }
+        val parsedUrl = url.toHttpUrlOrNull()
+        if (parsedUrl?.scheme != "https" || parsedUrl.host.isBlank()) {
+            emit(DownloadState.Failed("URL unduhan harus HTTPS dan memiliki host yang valid"))
             return@flow
         }
         emit(DownloadState.Queued(targetDestination))
@@ -128,7 +134,7 @@ class ResumableDownloader(
                                 } else {
                                     0
                                 }
-                                emit(DownloadState.Downloading(downloaded, totalBytes, progress, speed))
+                                emit(DownloadState.Transferring(downloaded, totalBytes, progress, speed))
                                 lastReport = now
                                 bytesSinceReport = 0L
                             }

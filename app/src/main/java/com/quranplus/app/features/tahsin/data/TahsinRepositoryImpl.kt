@@ -29,7 +29,9 @@ class TahsinRepositoryImpl(
     }
 
     private fun TahsinLessonEntity.toDomain(): TahsinLesson {
-        val cat = runCatching { TahsinCategory.valueOf(category) }.getOrDefault(TahsinCategory.MAKHARIJ)
+        val cat = runCatching { TahsinCategory.valueOf(category) }.getOrElse {
+            throw IllegalStateException("Kategori Tahsin tidak dikenal: $category", it)
+        }
         return TahsinLesson(
             id = id,
             category = cat,

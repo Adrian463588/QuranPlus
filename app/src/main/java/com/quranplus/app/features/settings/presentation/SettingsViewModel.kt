@@ -35,7 +35,7 @@ class SettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AiPersona.CUSTOM.defaultPrompt)
 
     val selectedModel: StateFlow<String> = preferencesManager.selectedModel
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "gemma-3-1b-it.litertlm")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
     fun setDarkMode(enabled: Boolean) {
         viewModelScope.launch { preferencesManager.setDarkMode(enabled) }
