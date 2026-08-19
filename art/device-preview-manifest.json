@@ -1,16 +1,18 @@
 {
-  "schema_version": "device-preview-manifest-5",
+  "schema_version": "device-preview-manifest-6",
   "build_variant": "debug",
   "current_apk": {
     "path": "app/build/outputs/apk/debug/app-debug.apk",
-    "source_commit_sha": "0936ee6203ccfbbc08834e9710336ae92722ebaa",
-    "sha256": "0E8E86BA4B38F4F04D8BFBACBFE93EAA7E4101495A6B8EBDC5F70276AA9A2B79"
+    "source_commit_sha": "01e1949246c7272f6683d45c3e200b7005f1de16",
+    "sha256": "EE165FEC511B2AC9B3B8D3397F19B2C6C0D7CE10997B88A68B7AA7DF3C6A1DA1",
+    "size_bytes": 245000579
   },
   "capture_command": "adb -s <serial> exec-out screencap -p",
   "screens": [
     {
-      "path": "art/device-sm-g988b-final-home.png",
+      "path": "art/device-sm-g988b-current-home.png",
       "route": "quran_home",
+      "device_serial": "RRCN3008VYE",
       "device_model": "SM-G988B",
       "android_api": 33,
       "window_class": "compact",
@@ -18,12 +20,13 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-19T23:53:41+07:00",
-      "sha256": "67C61B02994564E4E4740D4C8291CE8A11D9220F5C221111812209DACC4C9514"
+      "captured_at": "2026-08-20T00:57:53+07:00",
+      "sha256": "38653C96AF75A5B3C2387312DFDD46C92F0E421A49806F36665E59BF4ED8B958"
     },
     {
-      "path": "art/device-sm-g988b-final-baqara-reader.png",
-      "route": "quran_reader/2",
+      "path": "art/device-sm-g988b-current-reader.png",
+      "route": "quran_reader/1",
+      "device_serial": "RRCN3008VYE",
       "device_model": "SM-G988B",
       "android_api": 33,
       "window_class": "compact",
@@ -31,12 +34,13 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-19T23:58:51+07:00",
-      "sha256": "82078356371C6385E073228CDAB24BBE6CA3D3CF8CAF077E66982AC2533179FC"
+      "captured_at": "2026-08-20T01:05:23+07:00",
+      "sha256": "D53507E2F659E564A093576A60086A0EC57C16CFFEAAAD352DB3D23F8D74490D"
     },
     {
-      "path": "art/device-sm-g988b-final-word-selected.png",
-      "route": "quran_reader/1?word_by_word=selected",
+      "path": "art/device-sm-g988b-current-word.png",
+      "route": "quran_reader/1?word_by_word=true",
+      "device_serial": "RRCN3008VYE",
       "device_model": "SM-G988B",
       "android_api": 33,
       "window_class": "compact",
@@ -44,25 +48,13 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-19T23:55:01+07:00",
-      "sha256": "B594D05E5241576835E021453F3B6EFE2C3C721B82AC2FE5AA06537241E5A8FA"
+      "captured_at": "2026-08-20T01:01:57+07:00",
+      "sha256": "BFB0CFC685F10E3129C851FC2031BF55E5427DD1E083BF55EA78264B9C6F1436"
     },
     {
-      "path": "art/device-sm-g988b-final-baqara-word.png",
-      "route": "quran_reader/2?word_by_word=true",
-      "device_model": "SM-G988B",
-      "android_api": 33,
-      "window_class": "compact",
-      "resolution_px": "1440x3200",
-      "density": "560 override",
-      "font_scale": 1.0,
-      "orientation": "portrait",
-      "captured_at": "2026-08-19T23:59:15+07:00",
-      "sha256": "90E97CC8E5F15BE80DC9E3937ADC40D2832278DAD3322C1C0B537584B96A75BF"
-    },
-    {
-      "path": "art/device-sm-g988b-final-hadith.png",
+      "path": "art/device-sm-g988b-current-hadith.png",
       "route": "hadith_home",
+      "device_serial": "RRCN3008VYE",
       "device_model": "SM-G988B",
       "android_api": 33,
       "window_class": "compact",
@@ -70,12 +62,13 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-19T23:56:57+07:00",
-      "sha256": "1549D0755BB57CF76BD7663406EE2907049B4B283B312D32ADB0B24EAC8E7FE15"
+      "captured_at": "2026-08-20T01:02:24+07:00",
+      "sha256": "062B24141D0EA0F6BAC95F95112206584F8333C625FCF9896D65D1F89B1C56BF"
     },
     {
-      "path": "art/device-sm-g988b-final-ai.png",
+      "path": "art/device-sm-g988b-current-ai.png",
       "route": "chat_home",
+      "device_serial": "RRCN3008VYE",
       "device_model": "SM-G988B",
       "android_api": 33,
       "window_class": "compact",
@@ -83,58 +76,18 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-19T23:55:21+07:00",
-      "sha256": "BC95E55776337DFCCE3AD56C5822F518BFDFBD9D557EF9710BDCC3BB17EE155E"
-    },
-    {
-      "path": "art/device-sm-g988b-landscape.png",
-      "route": "chat_home",
-      "device_model": "SM-G988B",
-      "android_api": 33,
-      "window_class": "medium",
-      "resolution_px": "3200x1440",
-      "density": "560 override",
-      "font_scale": 1.0,
-      "orientation": "landscape",
-      "captured_at": "2026-08-19T21:19:54+07:00",
-      "sha256": "47C8F8556CC1DECD303633A0D3C3CBD0168E4FA910CA4C8BD6EE286110064EFD"
-    },
-    {
-      "path": "art/device-sm-g988b-font200.png",
-      "route": "quran_home",
-      "device_model": "SM-G988B",
-      "android_api": 33,
-      "window_class": "compact",
-      "resolution_px": "1440x3200",
-      "density": "560 override",
-      "font_scale": 2.0,
-      "orientation": "portrait",
-      "captured_at": "2026-08-19T21:32:41+07:00",
-      "sha256": "B74D105BD3865353CDA9E076180FEC767EF3F5CEC3445179E79F936FF459A0AB"
-    },
-    {
-      "path": "art/device-qswse-mark-sprint2-compact.png",
-      "route": "quran_home",
-      "device_serial": "QSWSEMRKNFZ9LJRC",
-      "device_model": "2412DPC0AG",
-      "android_api": 35,
-      "window_class": "compact",
-      "resolution_px": "1220x2712",
-      "font_scale": 1.0,
-      "orientation": "portrait",
-      "captured_at": "2026-08-19T21:52:13+07:00",
-      "sha256": "BA13481EFE5C2C308C6518D35C49E5666B76F018EA26176D525ADD5D582FBE4C"
+      "captured_at": "2026-08-20T01:02:40+07:00",
+      "sha256": "39996AC4C2EE80994B8926946D3064AE481CF05ADBE8CB2E6BC75F066B9C04A2"
     }
   ],
-  "acceptance_scope": "Debug APK install/launch and 14/14 instrumentation on RRCN3008VYE (Samsung SM-G988B, API 33); current portrait reader, word-by-word Waqaf, Hadist gate, ModelGate, hamburger root navigation, database upgrade synchronization, plus prior Samsung landscape and font-scale 200 percent smoke.",
+  "acceptance_scope": "Debug APK install/launch and 15/15 instrumentation tests on RRCN3008VYE (Samsung SM-G988B, API 33); current portrait Quran home, reader Tajwid/Waqaf, word-by-word, Hadist gate, ModelGate, and five-slot navigation.",
   "not_proven": [
-    "TalkBack and IME journeys",
-    "All untested width classes and foldable layouts",
+    "QSWSEMRKNFZ9LJRC was not connected for this acceptance run",
+    "Landscape, font scale 200 percent, TalkBack, and IME journeys in this current capture",
     "Verified audio assets and playback",
     "Hadith distribution license, grading, completeness, and bundled text",
     "Local LLM, tokenizer, ONNX embedding asset, corpus, and sqlite-vec index",
-    "Production-signed release artifact",
-    "Current connected acceptance on QSWSEMRKNFZ9LJRC / 2412DPC0AG API 35"
+    "Production-signed release artifact"
   ],
   "repository_scope": "Internal docs, reference projects, raw model/index files, archives, credentials, and local instruction Markdown are excluded from GitHub."
 }
