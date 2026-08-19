@@ -27,9 +27,9 @@
 |:---:|:---:|:---:|
 | ![Gharib](docs/screenshot_gharib_encyclopedia.png) | ![Isymam](docs/screenshot_gharib_isymam.png) | ![Waqaf Guide](docs/screenshot_waqaf_guide.png) |
 
-| Offline Murottal Manager | Settings & Tilawah Preferences | On-Device AI ModelGate |
+| Offline Murottal Manager | Settings & Tilawah Preferences | Tahsin Lesson & Audio Pronunciation |
 |:---:|:---:|:---:|
-| ![Audio Manager](docs/screenshot_audio_manager.png) | ![Settings](docs/screenshot_settings.png) | ![AI ModelGate](docs/preview_chat.png) |
+| ![Audio Manager](docs/screenshot_audio_manager.png) | ![Settings](docs/screenshot_settings.png) | ![Tahsin Lesson Detail](docs/screenshot_lesson_detail.png) |
 
 ---
 

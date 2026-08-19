@@ -222,6 +222,10 @@ fun AppNavHost(
             LessonDetailScreen(
                 lessonId = lessonId,
                 viewModel = tahsinViewModel,
+                audioPlayerManager = audioPlayerManager,
+                onNavigateToAyah = { surahNumber, ayahNumber ->
+                    navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
+                },
                 onBackClick = { navController.popBackStack() }
             )
         }

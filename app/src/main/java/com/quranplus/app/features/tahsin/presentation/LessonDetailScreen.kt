@@ -1,6 +1,8 @@
 package com.quranplus.app.features.tahsin.presentation
 
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,13 +17,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,25 +39,33 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import com.quranplus.app.core.audio.AudioPlayerManager
+import com.quranplus.app.core.audio.PlaybackState
 import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppSecondaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
+import com.quranplus.app.core.utils.SurahMapper
 
 @Composable
 fun LessonDetailScreen(
     lessonId: Int,
     viewModel: TahsinViewModel,
+    audioPlayerManager: AudioPlayerManager? = null,
+    onNavigateToAyah: ((Int, Int) -> Unit)? = null,
     onBackClick: () -> Unit
 ) {
     val lesson by viewModel.selectedLesson.collectAsState()
+    val context = LocalContext.current
+    val playbackState = audioPlayerManager?.playbackState?.collectAsState()?.value
 
     LaunchedEffect(lessonId) {
         viewModel.loadLessonDetail(lessonId)
@@ -69,6 +85,8 @@ fun LessonDetailScreen(
             }
         } else {
             val item = lesson!!
+            val parsedRef = SurahMapper.parseAyahReference(item.exampleAyahRef)
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -176,12 +194,24 @@ fun LessonDetailScreen(
                         shape = MaterialTheme.shapes.medium
                     ) {
                         Column(modifier = Modifier.padding(Spacing.md)) {
-                            Text(
-                                text = "Contoh Ayat Al-Qur'an (${item.exampleAyahRef}):",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Contoh Ayat Al-Qur'an:",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                Text(
+                                    text = item.exampleAyahRef.substringBefore("(").trim(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                             Spacer(modifier = Modifier.height(Spacing.sm))
                             Text(
                                 text = item.exampleAyahText,
@@ -189,6 +219,60 @@ fun LessonDetailScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 textAlign = TextAlign.End
                             )
+
+                            // Interactive Audio & Navigation Bar for Example Ayah
+                            if (parsedRef != null && audioPlayerManager != null) {
+                                val (surahRef, ayahNum) = parsedRef
+                                val isCurrentlyPlaying = playbackState is PlaybackState.Playing &&
+                                        playbackState.surahNumber == surahRef.number &&
+                                        playbackState.ayahNumber == ayahNum
+
+                                Spacer(modifier = Modifier.height(Spacing.md))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                                ) {
+                                    FilledTonalButton(
+                                        onClick = {
+                                            if (isCurrentlyPlaying) {
+                                                audioPlayerManager.togglePlayPause()
+                                            } else {
+                                                audioPlayerManager.playAyah(
+                                                    surahNumber = surahRef.number,
+                                                    surahName = surahRef.latinName,
+                                                    ayahNumber = ayahNum,
+                                                    totalAyahsInSurah = surahRef.ayahCount
+                                                )
+                                                Toast.makeText(context, "Memutar QS. ${surahRef.latinName}:$ayahNum", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isCurrentlyPlaying) Icons.Rounded.Pause else Icons.AutoMirrored.Rounded.VolumeUp,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(Spacing.xs))
+                                        Text(if (isCurrentlyPlaying) "Jeda" else "Dengarkan", fontSize = 13.sp)
+                                    }
+
+                                    if (onNavigateToAyah != null) {
+                                        OutlinedButton(
+                                            onClick = { onNavigateToAyah(surahRef.number, ayahNum) },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Rounded.MenuBook,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(Spacing.xs))
+                                            Text("Lihat Surah", fontSize = 13.sp)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
