@@ -78,11 +78,20 @@ interface WordByWordDao {
     @Query("SELECT COUNT(*) FROM word_by_word")
     suspend fun count(): Int
 
+    @Query(
+        "SELECT COUNT(*) FROM word_by_word " +
+            "WHERE transliteration IS NOT NULL AND length(trim(transliteration)) > 0"
+    )
+    suspend fun countWithTransliteration(): Int
+
     @Query("SELECT COUNT(*) FROM word_by_word WHERE source_revision = :sourceRevision")
     suspend fun countBySourceRevision(sourceRevision: String): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(words: List<WordByWordEntity>)
+
+    @Query("DELETE FROM word_by_word")
+    suspend fun clear()
 }
 
 @Dao

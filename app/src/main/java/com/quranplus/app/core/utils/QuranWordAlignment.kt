@@ -37,8 +37,8 @@ private fun findNextWordRange(
     sourceWord: String
 ): Pair<Int, Int>? {
     var candidateStart = cursor
-    val target = normalizeWord(sourceWord)
-    if (target.isEmpty()) return null
+    val targetParts = sourceWord.trim().split(Regex("\\s+")).map(::normalizeWord)
+    if (targetParts.isEmpty() || targetParts.any(String::isEmpty)) return null
 
     while (candidateStart < displayText.length && isSeparator(displayText, candidateStart)) {
         candidateStart++
@@ -46,12 +46,18 @@ private fun findNextWordRange(
     if (!isAlignmentGap(displayText, cursor, candidateStart)) return null
 
     var candidateEnd = candidateStart
-    val candidate = StringBuilder()
-    while (candidateEnd < displayText.length && !isSeparator(displayText, candidateEnd)) {
-        normalizeWordChar(displayText[candidateEnd])?.let(candidate::append)
-        candidateEnd++
+    targetParts.forEach { targetPart ->
+        while (candidateEnd < displayText.length && isSeparator(displayText, candidateEnd)) {
+            candidateEnd++
+        }
+        val candidate = StringBuilder()
+        while (candidateEnd < displayText.length && !isSeparator(displayText, candidateEnd)) {
+            normalizeWordChar(displayText[candidateEnd])?.let(candidate::append)
+            candidateEnd++
+        }
+        if (candidate.toString() != targetPart) return null
     }
-    return (candidateStart to candidateEnd).takeIf { candidate.toString() == target }
+    return candidateStart to candidateEnd
 }
 
 private fun normalizeWord(value: String): String = buildString(value.length) {

@@ -17,7 +17,7 @@ class ReferenceAssetSynchronizer(
     private val context: Context,
     private val database: QuranDatabase
 ) {
-    private val wordByWordRevision = "wordbyword.db:source-gated-v4"
+    private val wordByWordRevision = "islamic.app:v1-words"
 
     suspend fun synchronize() = withContext(Dispatchers.IO) {
         val temporaryAsset = copyAssetToCache()
@@ -46,6 +46,8 @@ class ReferenceAssetSynchronizer(
         ) return
         val targetCount = database.wordByWordDao().countBySourceRevision(wordByWordRevision)
         if (targetCount >= sourceCount) return
+
+        database.wordByWordDao().clear()
 
         val batch = ArrayList<WordByWordEntity>(BATCH_SIZE)
         source.rawQuery(

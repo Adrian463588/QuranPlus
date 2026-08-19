@@ -52,6 +52,17 @@ class WordByWordAlignmentTest {
         assertEquals("هُدًۭى ۝١", slices!!.single().text.text)
     }
 
+    @Test
+    fun GIVEN_verifiedCompositeSourceWord_WHEN_aligningAyah_THEN_keepsItsFullArabicRange() {
+        val slices = buildWordRenderSlices(
+            words = listOf(word(1, "إِلْ يَاسِينَ")),
+            annotatedAyah = AnnotatedString("إِلْ يَاسِينَ ۝١")
+        )
+
+        assertNotNull(slices)
+        assertEquals("إِلْ يَاسِينَ ۝١", slices!!.single().text.text)
+    }
+
     private fun word(index: Int, text: String) = WordByWord(
         id = index.toLong(),
         surahNumber = 2,

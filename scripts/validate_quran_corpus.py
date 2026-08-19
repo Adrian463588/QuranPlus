@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 EXPECTED_AYAHS = 6236
-EXPECTED_WORDS = 77430
+EXPECTED_WORDS = 77429
 KNOWN_TAGS = set("hsl npmqocfwi audbg".replace(" ", ""))
 WAQAF_MARKERS = {
     "ۘ": "م",
@@ -164,14 +164,18 @@ def align_word_rows(display_text: str, words: list[str]) -> bool:
         return False
     cursor = skip_known_bismillah_prefix(display_text)
     for source_word in words:
-        while cursor < len(display_text) and is_word_separator_at(display_text, cursor):
-            cursor += 1
-        candidate_end = cursor
-        while candidate_end < len(display_text) and not is_word_separator_at(display_text, candidate_end):
-            candidate_end += 1
-        if normalize_word(display_text[cursor:candidate_end]) != normalize_word(source_word):
+        source_parts = source_word.split()
+        if not source_parts:
             return False
-        cursor = candidate_end
+        for source_part in source_parts:
+            while cursor < len(display_text) and is_word_separator_at(display_text, cursor):
+                cursor += 1
+            candidate_end = cursor
+            while candidate_end < len(display_text) and not is_word_separator_at(display_text, candidate_end):
+                candidate_end += 1
+            if normalize_word(display_text[cursor:candidate_end]) != normalize_word(source_part):
+                return False
+            cursor = candidate_end
     return is_alignment_gap(display_text[cursor:])
 
 

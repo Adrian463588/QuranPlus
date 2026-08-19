@@ -5,7 +5,7 @@ Quran Plus adalah aplikasi Android offline-first berbasis Jetpack Compose, Clean
 ## Status implementasi
 
 - Quran: 114 surah, 6.236 ayat, tajwid `AnnotatedString`, waqaf, marker akhir ayat, pencarian FTS5, bookmark, dan reader responsive.
-- Word-by-word: 77.430 baris untuk 6.236 ayat. Arabic dan English tersedia dari sumber; transliterasi per kata dan Indonesia tidak dibuat jika sumbernya tidak tersedia.
+- Word-by-word: 77.429 unit sumber untuk 6.236 ayat. Arabic, transliterasi Latin, dan makna English tersedia per kata dari [Islamic.app Word API](https://docs.islamic.app/api-reference/words), yang mendokumentasikan sumber Quran.com API v4. Unit komposit seperti `إِلْ يَاسِينَ` tetap ditampilkan sebagai satu makna sumber; transliterasi tidak dipotong secara heuristik. Terjemahan Indonesia belum dibundel karena sumber berlisensinya belum diverifikasi.
 - Tahsin: 54 materi Room-backed tentang makharij, sifat huruf, hukum tajwid, mad, dan waqaf. Contoh ayat diperbarui oleh `scripts/refresh_tahsin.py` dari teks Quran yang ada di database.
 - Hadist: menu, pencarian, dan importer JSON untuk koleksi di `docs/HadistReference/reference2/db/by_book`. Teks tidak dibundel dari folder referensi internal; pengguna mengimpor file melalui Settings agar sumbernya tetap berada di storage pengguna. Record tanpa Arabic atau English text dilewati dan hasil import tidak diklaim sebagai corpus lengkap.
 - RAG: index sqlite-vec memakai embedding nyata untuk Quran, Hadist yang diimpor, dan dokumen pengguna. Chunking memakai 512 kata dengan overlap 50; retrieval default top-k 5.

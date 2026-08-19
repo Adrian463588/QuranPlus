@@ -328,7 +328,11 @@ fun QuranReaderScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "Terjemahan: ${wordTranslationMode.label}  •  ${if (isWordByWordMode) "Kata Per Kata" else "Baris Ayat"}",
+                        text = if (isWordByWordMode) {
+                            "Kata Per Kata  •  ${wordTranslationMode.label}  •  Transliterasi"
+                        } else {
+                            "Terjemahan: ${wordTranslationMode.label}  •  Baris Ayat"
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -1008,6 +1012,18 @@ private fun WordByWordAyah(
                 slices.forEach { slice ->
                 val word = slice.word
                 val selected = word.wordIndex == selectedWordIndex
+                val transliteration = word.transliteration?.takeIf(String::isNotBlank)
+                val translations = if (showTranslation) {
+                    wordTranslations(word, translationMode)
+                } else {
+                    emptyList()
+                }
+                val wordDetails = buildList {
+                    add("Kata ${word.wordIndex}")
+                    add("Arab: ${word.textArabic}")
+                    transliteration?.let { add("Transliterasi: $it") }
+                    translations.forEach { (label, value) -> add("$label: $value") }
+                }.joinToString(". ")
                 Surface(
                     color = if (selected) {
                         MaterialTheme.colorScheme.primaryContainer
@@ -1017,8 +1033,9 @@ private fun WordByWordAyah(
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier
                         .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .widthIn(max = 180.dp)
                         .semantics {
-                            contentDescription = "Kata ${word.wordIndex}: ${word.translationEn ?: "Terjemahan belum tersedia"}"
+                            contentDescription = wordDetails
                             this.selected = selected
                         }
                 ) {
@@ -1049,13 +1066,16 @@ private fun WordByWordAyah(
                             }
                         )
                         if (showTransliteration) {
-                            if (word.transliteration != null) {
-                                Text(
-                                    text = word.transliteration,
-                                    style = TransliterationStyle,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    textAlign = TextAlign.Center
-                                )
+                            if (transliteration != null) {
+                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                    Text(
+                                        text = transliteration,
+                                        style = TransliterationStyle,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
                             } else if (selected) {
                                 Text(
                                     text = "TRANSLITERATION_UNAVAILABLE: sumber per kata belum tersedia",
@@ -1066,7 +1086,6 @@ private fun WordByWordAyah(
                             }
                         }
                         if (showTranslation) {
-                            val translations = wordTranslations(word, translationMode)
                             if (translations.isEmpty() && selected) {
                                 Text(
                                     text = "TRANSLATION_${translationMode.name}_UNAVAILABLE: sumber belum tersedia",
@@ -1076,16 +1095,19 @@ private fun WordByWordAyah(
                                 )
                             } else {
                                 translations.forEach { (label, value) ->
-                                    Text(
-                                        text = "$label: $value",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (selected) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        },
-                                        textAlign = TextAlign.Center
-                                    )
+                                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                        Text(
+                                            text = "$label: $value",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (selected) {
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
                                 }
                             }
                         }
