@@ -15,6 +15,7 @@ import com.quranplus.app.features.chatbot.domain.GetChatHistoryUseCase
 import com.quranplus.app.features.chatbot.domain.SaveChatMessageUseCase
 import com.quranplus.app.features.chatbot.presentation.ChatViewModel
 import com.quranplus.app.features.hadith.data.HadithRepositoryImpl
+import com.quranplus.app.features.hadith.data.HadithReferenceImporter
 import com.quranplus.app.features.hadith.domain.GetHadithCollectionsUseCase
 import com.quranplus.app.features.hadith.domain.HadithRepository
 import com.quranplus.app.features.hadith.domain.SearchHadithUseCase
@@ -42,6 +43,7 @@ import com.quranplus.app.features.rag.data.EmbeddingService
 import com.quranplus.app.features.rag.data.OnnxEmbeddingService
 import com.quranplus.app.features.rag.data.VectorRetrieverImpl
 import com.quranplus.app.features.rag.data.SqliteVecVectorIndex
+import com.quranplus.app.features.rag.data.RagCorpusIndexer
 import com.quranplus.app.features.rag.domain.IndexCorpusUseCase
 import com.quranplus.app.features.rag.domain.RagPipeline
 import com.quranplus.app.features.rag.domain.VectorIndex
@@ -85,15 +87,17 @@ val appModule = module {
     single { com.quranplus.app.core.audio.AudioPlayerManager(androidContext()) }
     single { ResumableDownloader(androidContext()) }
     single { ModelDownloadScheduler(androidContext()) }
-    single<EmbeddingService> { OnnxEmbeddingService(androidContext()) }
-    single<VectorIndex> { SqliteVecVectorIndex(androidContext()) }
+    single<EmbeddingService> { OnnxEmbeddingService(androidContext(), get()) }
+    single<VectorIndex> { SqliteVecVectorIndex(get()) }
     single<VectorRetriever> { VectorRetrieverImpl(get()) }
+    single { RagCorpusIndexer(get(), get(), get()) }
     single { RagPipeline() }
     single { ModelRepository(androidContext(), get()) }
     single { AiReadinessChecker(get(), get(), get()) }
     single { LiteRtLmRunner(androidContext(), get()) }
     single { SafAssetStore(androidContext(), get()) }
-    single { SafDocumentImporter(androidContext(), get()) }
+    single { SafDocumentImporter(androidContext(), get(), get()) }
+    single { HadithReferenceImporter(androidContext(), get()) }
 
     // Repositories
     single<QuranRepository> { QuranRepositoryImpl(get(), get(), get()) }
@@ -144,5 +148,5 @@ val appModule = module {
     viewModel { TahsinViewModel(get(), get(), get()) }
     viewModel { QuizViewModel(get(), get()) }
     viewModel { SettingsViewModel(get()) }
-    viewModel { RagDocumentViewModel(get(), get()) }
+    viewModel { RagDocumentViewModel(get(), get(), get(), get()) }
 }

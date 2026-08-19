@@ -1,5 +1,9 @@
-# Tahsin and Tajwid Structured Curriculum Data
-# Based on Matn Al-Jazariyyah, Tuhfatul Athfal, and standard Indonesian Islamic Tajwid methodology.
+# Tahsin and Tajwid Structured Curriculum Data.
+#
+# The lesson structure follows the beginner scope in the reviewed online
+# materials listed in data/tahsin-sources.json. Quran examples are never typed
+# into the seed by hand: scripts/refresh_tahsin.py resolves each reference
+# against the bundled Quran database before publishing the seed and Room asset.
 
 TAHSIN_LESSONS = [
     # =========================================================================

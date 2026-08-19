@@ -5,6 +5,8 @@ import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.quranplus.app.core.database.QuranDatabase
+import com.quranplus.app.core.database.entity.KnowledgeChunkEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -44,7 +46,8 @@ sealed interface SafImportResult {
 /** SAF importer with strict UTF-8/schema checks and durable SAF storage. */
 class SafDocumentImporter(
     private val context: Context,
-    private val assetStore: SafAssetStore
+    private val assetStore: SafAssetStore,
+    private val database: QuranDatabase
 ) {
 
     private val resolver = context.contentResolver
@@ -114,7 +117,7 @@ class SafDocumentImporter(
                 mimeType = mimeType,
                 format = format,
                 sha256 = sha256,
-                sourceType = "user_document",
+                sourceType = source.sourceType,
                 collection = source.collection,
                 identifier = source.identifier,
                 persistedUri = uri.toString(),
@@ -125,6 +128,16 @@ class SafDocumentImporter(
                 text = metadataJson(metadata),
                 relativeDirectory = "manifests",
                 filename = "$sha256.json"
+            )
+            database.knowledgeChunkDao().insertChunks(
+                chunks.map { chunk ->
+                    KnowledgeChunkEntity(
+                        sourceType = source.sourceType,
+                        sourceId = "$sha256#${chunk.index}",
+                        title = displayName,
+                        textContent = chunk.text
+                    )
+                }
             )
             SafImportResult.StoredAwaitingEmbedding(metadata)
         } finally {
@@ -159,15 +172,53 @@ class SafDocumentImporter(
     private data class ValidatedSource(
         val identifier: String,
         val collection: String?,
+        val sourceType: String,
         val text: String
     )
 
     private fun validateSource(format: SafDocumentFormat, text: String, sha256: String): ValidatedSource? {
         if (text.isBlank()) return null
         if (format != SafDocumentFormat.JSON) {
-            return ValidatedSource(identifier = sha256, collection = null, text = text)
+            return ValidatedSource(
+                identifier = sha256,
+                collection = null,
+                sourceType = "user_document",
+                text = text
+            )
         }
         val json = runCatching { JSONObject(text) }.getOrNull() ?: return null
+        val hadiths = json.optJSONArray("hadiths")
+        if (hadiths != null) {
+            val metadata = json.optJSONObject("metadata")
+            val collection = metadata?.optJSONObject("english")?.optString("title")
+                ?.takeIf(String::isNotBlank)
+            val content = buildString {
+                for (index in 0 until hadiths.length()) {
+                    val record = hadiths.optJSONObject(index) ?: continue
+                    val english = record.optJSONObject("english")
+                    val arabic = record.optString("arabic")
+                    val narrator = english?.optString("narrator").orEmpty()
+                    val translation = english?.optString("text").orEmpty()
+                    if (arabic.isBlank() && translation.isBlank()) continue
+                    append("Hadith ")
+                    append(record.optString("idInBook", record.optString("id")))
+                    append('\n')
+                    append(arabic)
+                    append('\n')
+                    append(narrator)
+                    append('\n')
+                    append(translation)
+                    append("\n\n")
+                }
+            }.trim()
+            if (content.isBlank()) return null
+            return ValidatedSource(
+                identifier = collection ?: sha256,
+                collection = collection,
+                sourceType = "hadith",
+                text = content
+            )
+        }
         val sourceType = json.optString("source_type")
         val identifier = json.optString("identifier")
         val content = json.optString("text")
@@ -175,6 +226,7 @@ class SafDocumentImporter(
         return ValidatedSource(
             identifier = identifier,
             collection = json.optString("collection").takeIf(String::isNotBlank),
+            sourceType = sourceType,
             text = content
         )
     }

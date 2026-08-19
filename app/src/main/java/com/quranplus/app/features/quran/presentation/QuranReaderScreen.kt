@@ -142,7 +142,7 @@ fun QuranReaderScreen(
     val showTransliteration by preferencesManager.showTransliteration.collectAsStateWithLifecycle(initialValue = true)
     val showTranslation by preferencesManager.showTranslation.collectAsStateWithLifecycle(initialValue = true)
     val enableTajwid by preferencesManager.enableTajwid.collectAsStateWithLifecycle(initialValue = true)
-    val translationMode by preferencesManager.translationMode.collectAsStateWithLifecycle(initialValue = TranslationMode.INDONESIAN)
+    val translationMode by preferencesManager.translationMode.collectAsStateWithLifecycle(initialValue = TranslationMode.ENGLISH)
     val view = LocalView.current
     val activity = view.context as? Activity
 
@@ -155,6 +155,21 @@ fun QuranReaderScreen(
     var selectedAyahForAction by remember { mutableStateOf<Ayah?>(null) }
     var selectedWaqafRule by remember { mutableStateOf<WaqafParser.WaqafRule?>(null) }
     var selectedTajwidRule by remember { mutableStateOf<TajwidParser.TajwidType?>(null) }
+
+    val hasWordIndonesianTranslation = ((wordByWordState as? UiState.Success<Map<Int, List<WordByWord>>>)
+        ?.data
+        ?.values
+        ?.any { words -> words.any { it.translationId != null } }
+        == true)
+    val wordTranslationMode = if (
+        isWordByWordMode &&
+        translationMode == TranslationMode.INDONESIAN &&
+        !hasWordIndonesianTranslation
+    ) {
+        TranslationMode.ENGLISH
+    } else {
+        translationMode
+    }
 
     val sheetState = rememberModalBottomSheetState()
     val navigationSheetState = rememberModalBottomSheetState()
@@ -313,7 +328,7 @@ fun QuranReaderScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "Terjemahan: ${translationMode.label}  •  ${if (isWordByWordMode) "Kata Per Kata" else "Baris Ayat"}",
+                        text = "Terjemahan: ${wordTranslationMode.label}  •  ${if (isWordByWordMode) "Kata Per Kata" else "Baris Ayat"}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -444,7 +459,7 @@ fun QuranReaderScreen(
                                                 enableTajwid = enableTajwid,
                                                 showTransliteration = showTransliteration,
                                                 showTranslation = showTranslation,
-                                                translationMode = translationMode,
+                                                translationMode = wordTranslationMode,
                                                 isWordByWordMode = isWordByWordMode,
                                                 wordByWord = (wordByWordState as? UiState.Success<Map<Int, List<WordByWord>>>)
                                                     ?.data?.get(ayah.ayahNumber).orEmpty(),
@@ -755,7 +770,7 @@ fun AyahReaderItem(
     onWaqafClick: (WaqafParser.WaqafRule) -> Unit,
     onTajwidClick: (TajwidParser.TajwidType) -> Unit,
     modifier: Modifier = Modifier,
-    translationMode: TranslationMode = TranslationMode.INDONESIAN,
+    translationMode: TranslationMode = TranslationMode.ENGLISH,
     isWordByWordMode: Boolean = false,
     wordByWord: List<WordByWord> = emptyList()
 ) {
@@ -1086,11 +1101,13 @@ private fun wordTranslations(
     word: WordByWord,
     mode: TranslationMode
 ): List<Pair<String, String>> = when (mode) {
-    TranslationMode.INDONESIAN -> word.translationId?.let { listOf("Indonesia" to it) }.orEmpty()
+    TranslationMode.INDONESIAN -> word.translationId?.let { listOf("Indonesia" to it) }
+        ?: word.translationEn?.let { listOf("English (source)" to it) }
+        .orEmpty()
     TranslationMode.ENGLISH -> word.translationEn?.let { listOf("English" to it) }.orEmpty()
     TranslationMode.BOTH -> buildList {
         word.translationId?.let { add("Indonesia" to it) }
-        word.translationEn?.let { add("English" to it) }
+        word.translationEn?.let { add("English (source)" to it) }
     }
 }
 

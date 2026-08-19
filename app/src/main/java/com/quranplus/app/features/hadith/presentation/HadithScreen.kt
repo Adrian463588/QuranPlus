@@ -32,10 +32,10 @@ fun HadithScreen(viewModel: HadithViewModel) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val blockedCollectionCount = collections.count { it.sourceManifest?.bundleAllowed != true }
+    val catalogCollectionCount = collections.size
 
     androidx.compose.material3.Scaffold(
-        topBar = { AppTopBar(title = "Hadist", subtitle = "Sumber lokal terverifikasi") }
+        topBar = { AppTopBar(title = "Hadist", subtitle = "Arab + terjemahan English") }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -60,10 +60,10 @@ fun HadithScreen(viewModel: HadithViewModel) {
                 HadithUiState.Empty -> AppEmptyState(
                     icon = Icons.AutoMirrored.Rounded.MenuBook,
                     title = "Hadist belum tersedia",
-                    description = if (blockedCollectionCount > 0) {
-                        "$blockedCollectionCount koleksi sumber terdeteksi, tetapi belum dapat dibundle sebelum lisensi, grading, kelengkapan, dan checksum terverifikasi. Tidak ada data rekaan yang ditampilkan."
+                    description = if (catalogCollectionCount > 0) {
+                        "$catalogCollectionCount koleksi tersedia sebagai katalog. Impor file JSON hadist dari folder referensi untuk membaca isinya."
                     } else {
-                        "Katalog sumber hadist belum tersedia. Tidak ada data rekaan yang ditampilkan."
+                        "Belum ada riwayat hadist. Impor file JSON dari folder referensi."
                     }
                 )
                 is HadithUiState.Error -> AppEmptyState(

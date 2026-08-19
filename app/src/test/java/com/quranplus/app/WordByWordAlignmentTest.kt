@@ -60,8 +60,6 @@ class WordByWordAlignmentTest {
         textArabic = text,
         transliteration = null,
         translationEn = "source",
-        translationId = null,
-        sourceRevision = "test-source",
-        sourceSha256 = "0".repeat(64)
+        translationId = null
     )
 }

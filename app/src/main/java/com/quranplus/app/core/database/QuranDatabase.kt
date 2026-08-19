@@ -1,6 +1,7 @@
 package com.quranplus.app.core.database
 
 import android.content.Context
+import android.os.Build
 import androidx.room.Database
 import androidx.room.migration.Migration
 import androidx.room.Room
@@ -9,6 +10,10 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.zip.ZipFile
 import com.quranplus.app.core.database.dao.BookmarkDao
 import com.quranplus.app.core.database.dao.ChatDao
 import com.quranplus.app.core.database.dao.HadithDao
@@ -63,6 +68,7 @@ abstract class QuranDatabase : RoomDatabase() {
 
     companion object {
         private const val DB_NAME = "quranplus.db"
+        private const val SQLITE_VEC_LIBRARY = "libvec0.so"
 
         @Volatile
         private var INSTANCE: QuranDatabase? = null
@@ -75,6 +81,11 @@ abstract class QuranDatabase : RoomDatabase() {
 
         private fun buildDatabase(context: Context): QuranDatabase {
             copyPrepackagedAsset(context)
+            val driver = BundledSQLiteDriver()
+            materializeSqliteVecExtension(context)
+                ?.let { extension ->
+                    driver.addExtension(extension.absolutePath, "sqlite3_vec_init")
+                }
             val builder = Room.databaseBuilder(
                 context.applicationContext,
                 QuranDatabase::class.java,
@@ -82,7 +93,7 @@ abstract class QuranDatabase : RoomDatabase() {
             )
 
             return builder
-                .setDriver(BundledSQLiteDriver())
+                .setDriver(driver)
                 .addMigrations(MIGRATION_1_2)
                 .addMigrations(MIGRATION_2_3)
                 .addMigrations(MIGRATION_3_4)
@@ -93,6 +104,48 @@ abstract class QuranDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_8_9)
                 .addCallback(FTS_CALLBACK)
                 .build()
+        }
+
+        private fun materializeSqliteVecExtension(context: Context): File? {
+            val nativeLibrary = File(context.applicationInfo.nativeLibraryDir, SQLITE_VEC_LIBRARY)
+            if (nativeLibrary.isFile) return nativeLibrary
+
+            val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: return null
+            val extensionDirectory = File(context.codeCacheDir, "sqlite-extensions")
+            if (!extensionDirectory.exists() && !extensionDirectory.mkdirs()) return null
+
+            val target = File(extensionDirectory, SQLITE_VEC_LIBRARY)
+            if (target.isFile) return target
+
+            return runCatching {
+                ZipFile(context.applicationInfo.sourceDir).use { archive ->
+                    val entry = archive.getEntry("lib/$abi/$SQLITE_VEC_LIBRARY")
+                        ?: return@runCatching null
+                    val temporary = File(extensionDirectory, "$SQLITE_VEC_LIBRARY.part")
+                    try {
+                        archive.getInputStream(entry).use { input ->
+                            temporary.outputStream().use { output -> input.copyTo(output) }
+                        }
+                        try {
+                            Files.move(
+                                temporary.toPath(),
+                                target.toPath(),
+                                StandardCopyOption.ATOMIC_MOVE,
+                                StandardCopyOption.REPLACE_EXISTING
+                            )
+                        } catch (_: AtomicMoveNotSupportedException) {
+                            Files.move(
+                                temporary.toPath(),
+                                target.toPath(),
+                                StandardCopyOption.REPLACE_EXISTING
+                            )
+                        }
+                    } finally {
+                        temporary.delete()
+                    }
+                    target.takeIf(File::isFile)
+                }
+            }.getOrNull()
         }
 
         private fun copyPrepackagedAsset(context: Context) {

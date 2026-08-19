@@ -4,8 +4,6 @@ import com.quranplus.app.features.rag.domain.RetrievedCitation
 import com.quranplus.app.features.rag.domain.VectorIndex
 import com.quranplus.app.features.rag.domain.VectorRetriever
 
-class VectorIndexUnavailable(message: String) : IllegalStateException(message)
-
 class VectorRetrieverImpl(
     private val vectorIndex: VectorIndex
 ) : VectorRetriever {
@@ -23,11 +21,25 @@ class VectorRetrieverImpl(
 
         if (!vectorIndex.isReady()) {
             throw VectorIndexUnavailable(
-                "sqlite-vec index unavailable; Room chunk scan is intentionally disabled"
+                "sqlite-vec index belum tersedia"
             )
         }
-        throw VectorIndexUnavailable(
-            "sqlite-vec retrieval contract is not available for this asset"
-        )
+        return vectorIndex.search(queryEmbedding, k)
+            .mapNotNull { match ->
+                val score = (1f - match.distance).coerceIn(-1f, 1f)
+                if (score < minScore) return@mapNotNull null
+                RetrievedCitation(
+                    sourceId = match.sourceId,
+                    sourceType = match.sourceType,
+                    title = match.title,
+                    reference = match.reference,
+                    textSnippet = match.text,
+                    score = score,
+                    collection = match.collectionId.takeIf(String::isNotBlank),
+                    identifier = match.identifier,
+                    surahNumber = match.surahNumber,
+                    ayahNumber = match.ayahNumber
+                )
+            }
     }
 }

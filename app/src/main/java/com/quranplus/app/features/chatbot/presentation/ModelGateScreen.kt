@@ -101,7 +101,7 @@ fun ModelGateScreen(
                 )
                 Spacer(modifier = Modifier.height(Spacing.xs))
                 Text(
-                    text = "ModelGate diblokir: ${aiReadiness.blockers.joinToString(", ") { blockerLabel(it) }}. Katalog, embedding, dan index harus memiliki provenance serta SHA-256 yang direview.",
+                    text = "ModelGate diblokir: ${aiReadiness.blockers.joinToString(", ") { blockerLabel(it) }}. Unduh asset yang dibutuhkan lalu bangun index RAG.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -158,7 +158,7 @@ fun ModelGateScreen(
             Spacer(modifier = Modifier.height(Spacing.xs))
 
             Text(
-                text = "Inferensi dirancang berjalan di perangkat setelah model, tokenizer, corpus, dan indeks terverifikasi. Unduhan awal tetap membutuhkan jaringan.",
+                text = "Inferensi berjalan di perangkat setelah model, embedder, dan index RAG tersedia. Unduhan awal membutuhkan jaringan.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -297,18 +297,28 @@ fun ModelGateScreen(
                 is DownloadState.Verifying -> {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(Spacing.sm))
-                    Text("Memverifikasi SHA-256 sebelum model diaktifkan")
+                    Text("Memverifikasi file sebelum asset diaktifkan")
                 }
                 is DownloadState.Completed -> {
                     Text(
-                        text = "Model siap digunakan!",
+                        text = if (selectedModel.role == ModelAssetRole.EMBEDDING) {
+                            "Embedder siap digunakan"
+                        } else {
+                            "Model siap digunakan"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(Spacing.md))
                     AppPrimaryButton(onClick = onModelReady) {
-                        Text("Mulai Tanya AI")
+                        Text(
+                            if (selectedModel.role == ModelAssetRole.EMBEDDING) {
+                                "Periksa kesiapan AI"
+                            } else {
+                                "Mulai Tanya AI"
+                            }
+                        )
                     }
                 }
                 is DownloadState.ChecksumError -> {
@@ -386,7 +396,11 @@ fun ModelGateScreen(
                                 items = embeddingModels,
                                 key = { model -> model.id }
                             ) { model ->
-                                ModelCatalogCard(model = model)
+                                ModelCatalogCard(
+                                    model = model,
+                                    isSelected = model.id == selectedModel.id,
+                                    onClick = { selectedModel = model }
+                                )
                             }
                         }
                     }
@@ -400,7 +414,7 @@ fun ModelGateScreen(
                     ) {
                         Icon(imageVector = Icons.Rounded.CloudDownload, contentDescription = null)
                         Spacer(modifier = Modifier.width(Spacing.sm))
-                        Text("Unduh Model (${selectedModel.sizeDescription})")
+                        Text("Unduh Asset (${selectedModel.sizeDescription})")
                     }
                     if (!selectedModel.isDownloadable) {
                         Spacer(modifier = Modifier.height(Spacing.xs))
@@ -478,7 +492,7 @@ fun ModelSelectCard(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Ukuran: ${model.sizeDescription} • ${model.ramRequirement}",
+                    text = "Ukuran: ${model.sizeDescription}",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -492,11 +506,7 @@ fun ModelSelectCard(
                     }
                 )
                 Text(
-                    text = if (model.isDownloadable) {
-                        "Manifest lengkap; unduhan melewati gate aplikasi."
-                    } else {
-                        model.downloadBlocker
-                    },
+                    text = if (model.isDownloadable) "Siap diunduh dan diverifikasi." else model.downloadBlocker,
                     style = MaterialTheme.typography.labelSmall,
                     color = if (model.isDownloadable) {
                         MaterialTheme.colorScheme.primary
@@ -534,20 +544,6 @@ fun ModelSelectCard(
                     ) {
                         Text("Buka sumber model")
                     }
-                    TextButton(
-                        onClick = { uriHandler.openUri(model.licenseUrl) },
-                        enabled = model.licenseUrl.startsWith("https://"),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = if (isSelected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.primary
-                            }
-                        )
-                    ) {
-                        Text("Buka lisensi")
-                    }
                 }
             }
         }
@@ -555,12 +551,17 @@ fun ModelSelectCard(
 }
 
 @Composable
-fun ModelCatalogCard(model: ModelInfo, modifier: Modifier = Modifier) {
+fun ModelCatalogCard(
+    model: ModelInfo,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     ModelSelectCard(
         model = model,
-        isSelected = false,
-        onClick = {},
+        isSelected = isSelected,
+        onClick = onClick,
         modifier = modifier,
-        isInteractive = false
+        isInteractive = true
     )
 }

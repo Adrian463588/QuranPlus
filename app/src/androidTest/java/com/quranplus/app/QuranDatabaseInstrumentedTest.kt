@@ -6,6 +6,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.quranplus.app.core.database.QuranDatabase
 import com.quranplus.app.core.database.ReferenceAssetSynchronizer
 import com.quranplus.app.features.quran.data.QuranRepositoryImpl
+import com.quranplus.app.features.rag.data.SqliteVecVectorIndex
+import com.quranplus.app.features.rag.domain.VectorRecord
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -64,5 +66,36 @@ class QuranDatabaseInstrumentedTest {
         assertTrue(results.isNotEmpty())
         assertTrue(results.all { it.surahNumber == 2 })
         assertTrue(results.all { it.surahName.isNotBlank() })
+    }
+
+    @Test
+    fun GIVEN_bundledSqliteVecExtension_WHEN_indexChecksReadiness_THEN_vec0IsAvailable() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val database = QuranDatabase.getInstance(context)
+        assertTrue("sqlite-vec index is not ready", SqliteVecVectorIndex(database).isReady())
+    }
+
+    @Test
+    fun GIVEN_verifiedVectorIndex_WHEN_replacingAndSearching_THEN_returnsNearestCitation() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val index = SqliteVecVectorIndex(QuranDatabase.getInstance(context))
+        val embedding = FloatArray(384).apply { this[0] = 1f }
+        val record = VectorRecord(
+            sourceId = "test-quran-1",
+            sourceType = "quran",
+            collectionId = "quran",
+            chunkIndex = 0,
+            text = "Alhamdulillah",
+            embedding = embedding,
+            title = "Al-Fatihah",
+            reference = "QS. Al-Fatihah:1"
+        )
+
+        assertEquals(1, index.replace(listOf(record)))
+        val matches = index.search(embedding, k = 1)
+
+        assertEquals(1, matches.size)
+        assertEquals(record.sourceId, matches.single().sourceId)
+        assertEquals(record.reference, matches.single().reference)
     }
 }

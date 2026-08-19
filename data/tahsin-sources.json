@@ -1,0 +1,19 @@
+{
+  "title": "Quran Plus Tahsin",
+  "scope": "Makharij, sifat, hukum tajwid, mad, dan waqaf untuk pembelajaran pemula",
+  "sources": [
+    {
+      "title": "Tajweed For Beginners",
+      "url": "https://dua.org.za/content/tajweed-beginners-1"
+    },
+    {
+      "title": "Simplified Makhaarij & Tajweed Rules",
+      "url": "https://resources.safarpublications.org/2016/11/24/simplified-makhaarij-tajweed-rules/"
+    },
+    {
+      "title": "Quran Foundation Tajweed content API",
+      "url": "https://api-docs.quran.com/docs/content_apis_versioned/4.0.0/quran-verses-uthmani-tajweed/"
+    }
+  ],
+  "quran_examples": "Resolved from the bundled Quran database by scripts/refresh_tahsin.py"
+}

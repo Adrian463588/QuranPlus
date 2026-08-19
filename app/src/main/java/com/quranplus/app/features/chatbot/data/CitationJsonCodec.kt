@@ -20,7 +20,6 @@ object CitationJsonCodec {
                     .put("score", citation.score.toDouble())
                     .put("collection", citation.collection)
                     .put("identifier", citation.identifier)
-                    .put("source_revision", citation.sourceRevision)
                     .put("deep_link_target", citation.deepLinkTarget)
                     .put("surah_number", citation.surahNumber)
                     .put("ayah_number", citation.ayahNumber)
@@ -46,7 +45,6 @@ object CitationJsonCodec {
                         collection = item.optionalString("collection"),
                         identifier = item.optString("identifier").takeIf(String::isNotBlank)
                             ?: item.getString("source_id"),
-                        sourceRevision = item.optionalString("source_revision"),
                         deepLinkTarget = item.optionalString("deep_link_target"),
                         surahNumber = item.optionalInt("surah_number"),
                         ayahNumber = item.optionalInt("ayah_number")

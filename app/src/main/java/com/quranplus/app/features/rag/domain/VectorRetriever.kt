@@ -9,7 +9,6 @@ data class RetrievedCitation(
     val score: Float,
     val collection: String? = null,
     val identifier: String = sourceId,
-    val sourceRevision: String? = null,
     val deepLinkTarget: String? = null,
     val surahNumber: Int? = null,
     val ayahNumber: Int? = null

@@ -19,7 +19,7 @@ enum class TranslationMode(val id: String, val label: String) {
     BOTH("both", "Keduanya");
 
     companion object {
-        fun fromId(id: String) = entries.firstOrNull { it.id == id } ?: INDONESIAN
+        fun fromId(id: String) = entries.firstOrNull { it.id == id } ?: ENGLISH
     }
 }
 
@@ -118,7 +118,7 @@ class PreferencesManager(private val context: Context) {
     }
 
     val translationMode: Flow<TranslationMode> = context.dataStore.data.map { preferences ->
-        TranslationMode.fromId(preferences[PreferencesKeys.TRANSLATION_MODE] ?: TranslationMode.INDONESIAN.id)
+        TranslationMode.fromId(preferences[PreferencesKeys.TRANSLATION_MODE] ?: TranslationMode.ENGLISH.id)
     }
 
     val safRootUri: Flow<String?> = context.dataStore.data.map { preferences ->

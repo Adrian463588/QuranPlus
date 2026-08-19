@@ -4,8 +4,7 @@ data class HadithCollection(
     val id: String,
     val title: String,
     val count: Int,
-    val titleArabic: String = "",
-    val sourceManifest: HadithSourceManifest? = null
+    val titleArabic: String = ""
 )
 
 data class HadithChapter(
@@ -16,20 +15,6 @@ data class HadithChapter(
     val titleEnglish: String
 )
 
-data class HadithSourceManifest(
-    val collectionId: String,
-    val titleArabic: String,
-    val titleEnglish: String,
-    val sourceRevision: String,
-    val sourceSha256: String,
-    val licenseStatus: String,
-    val gradeStatus: String,
-    val recordCount: Int,
-    val chapterCount: Int,
-    val isComplete: Boolean,
-    val bundleAllowed: Boolean
-)
-
 data class HadithRecord(
     val id: Long,
     val collectionId: String,
@@ -38,13 +23,7 @@ data class HadithRecord(
     val textArabic: String,
     val translationEn: String,
     val reference: String,
-    val chapterId: String?,
-    val sourceRevision: String,
-    val sourceSha256: String,
-    val licenseStatus: String,
-    val grade: String?,
-    val language: String,
-    val isComplete: Boolean
+    val chapterId: String?
 )
 
 interface HadithRepository {

@@ -59,7 +59,6 @@ class MainNavigationSmokeTest {
 
         waitForText("Setup AI On-Device")
         composeRule.onNodeWithText("Pilih Model AI yang Diinginkan:").assertIsDisplayed()
-        composeRule.onNodeWithText("Gemma 4 E2B IT (LiteRT-LM)").assertIsDisplayed()
         composeRule.onNodeWithTag("model_catalog")
             .performScrollToNode(hasText("Gemma 3 1B IT"))
         composeRule.onNodeWithText("Gemma 3 1B IT").assertIsDisplayed()
@@ -75,7 +74,7 @@ class MainNavigationSmokeTest {
             .performScrollToNode(hasText("Qwen 2.5 1.5B Instruct"))
         composeRule.onNodeWithText("Qwen 2.5 1.5B Instruct").assertIsDisplayed()
         composeRule.onNodeWithText(
-            "Status model terpilih: Status lisensi belum diverifikasi atau belum diterima."
+            "Siap diunduh dan diverifikasi."
         )
             .assertIsDisplayed()
     }

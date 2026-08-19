@@ -12,10 +12,7 @@ import com.quranplus.app.features.settings.data.PreferencesManager
 import kotlinx.coroutines.flow.collect
 import java.io.File
 
-/**
- * Background model transfer. It accepts only a complete, reviewed manifest;
- * an arbitrary URL can never become an active model through this worker.
- */
+/** Background transfer for a pinned chatbot or embedding asset. */
 class ModelDownloadWorker(
     appContext: Context,
     workerParams: WorkerParameters
@@ -28,6 +25,14 @@ class ModelDownloadWorker(
         val assetStore = SafAssetStore(applicationContext, preferences)
         val repository = ModelRepository(applicationContext, assetStore)
         val target = repository.getModelFile(model.filename)
+        if (repository.isModelReady(model)) {
+            return runCatching {
+                repository.persistVerifiedModel(model)
+                Result.success(workDataOf(KEY_FILENAME to target.name))
+            }.getOrElse {
+                failure("Asset siap secara lokal, tetapi belum tersimpan ke Folder SAF. Pilih folder SAF lalu coba lagi.")
+            }
+        }
         var terminalState: DownloadState = DownloadState.Idle
 
         ResumableDownloader(applicationContext)
@@ -57,7 +62,7 @@ class ModelDownloadWorker(
                 }
                 Result.success(workDataOf(KEY_FILENAME to state.file.name))
             }.getOrElse {
-                failure("Model tidak dipublikasikan ke SAF: ${it.localizedMessage}")
+                failure("Model tidak dipublikasikan ke SAF. Pilih folder SAF lalu coba lagi.")
             }
             is DownloadState.Paused -> {
                 if (runAttemptCount < MAX_RETRIES) {
@@ -77,23 +82,17 @@ class ModelDownloadWorker(
             id = inputData.getString(KEY_ID).orEmpty(),
             name = inputData.getString(KEY_NAME).orEmpty(),
             filename = inputData.getString(KEY_FILENAME).orEmpty(),
-            sizeDescription = inputData.getString(KEY_SIZE_DESCRIPTION).orEmpty(),
-            ramRequirement = inputData.getString(KEY_RAM_REQUIREMENT).orEmpty(),
             artifactUrl = inputData.getString(KEY_URL).orEmpty(),
             sourceUrl = inputData.getString(KEY_SOURCE_URL).orEmpty(),
-            licenseUrl = inputData.getString(KEY_LICENSE_URL).orEmpty(),
             sha256 = inputData.getString(KEY_SHA256),
-            version = inputData.getString(KEY_VERSION).orEmpty(),
-            revision = inputData.getString(KEY_REVISION).orEmpty(),
-            abi = inputData.getString(KEY_ABI).orEmpty(),
-            licenseStatus = inputData.getString(KEY_LICENSE_STATUS).orEmpty(),
             sizeBytes = inputData.getLong(KEY_SIZE_BYTES, -1L).takeIf { it >= 0L },
             format = inputData.getString(KEY_FORMAT).orEmpty(),
             runtime = inputData.getString(KEY_RUNTIME).orEmpty(),
-            tokenizerId = inputData.getString(KEY_TOKENIZER_ID).orEmpty(),
-            tokenizerSha256 = inputData.getString(KEY_TOKENIZER_SHA256),
-            minimumRamMb = inputData.getInt(KEY_MINIMUM_RAM_MB, -1).takeIf { it > 0 },
-            citation = inputData.getString(KEY_CITATION).orEmpty()
+            role = inputData.getString(KEY_ROLE)?.let { role ->
+                runCatching { ModelAssetRole.valueOf(role) }.getOrNull()
+            } ?: ModelAssetRole.CHATBOT,
+            embeddingDimension = inputData.getInt(KEY_EMBEDDING_DIMENSION, -1)
+                .takeIf { it > 0 }
         )
         return model.takeIf {
             it.id.isNotBlank() &&
@@ -117,23 +116,14 @@ class ModelDownloadWorker(
         const val KEY_ID = "model_id"
         const val KEY_NAME = "model_name"
         const val KEY_FILENAME = "model_filename"
-        const val KEY_SIZE_DESCRIPTION = "model_size_description"
-        const val KEY_RAM_REQUIREMENT = "model_ram_requirement"
         const val KEY_URL = "model_url"
         const val KEY_SOURCE_URL = "model_source_url"
-        const val KEY_LICENSE_URL = "model_license_url"
         const val KEY_SHA256 = "model_sha256"
-        const val KEY_VERSION = "model_version"
-        const val KEY_REVISION = "model_revision"
-        const val KEY_ABI = "model_abi"
-        const val KEY_LICENSE_STATUS = "model_license_status"
         const val KEY_SIZE_BYTES = "model_size_bytes"
         const val KEY_FORMAT = "model_format"
         const val KEY_RUNTIME = "model_runtime"
-        const val KEY_TOKENIZER_ID = "model_tokenizer_id"
-        const val KEY_TOKENIZER_SHA256 = "model_tokenizer_sha256"
-        const val KEY_MINIMUM_RAM_MB = "model_minimum_ram_mb"
-        const val KEY_CITATION = "model_citation"
+        const val KEY_ROLE = "model_role"
+        const val KEY_EMBEDDING_DIMENSION = "model_embedding_dimension"
         const val KEY_STAGE = "stage"
         const val KEY_REASON = "reason"
         const val KEY_BYTES_DOWNLOADED = "bytes_downloaded"

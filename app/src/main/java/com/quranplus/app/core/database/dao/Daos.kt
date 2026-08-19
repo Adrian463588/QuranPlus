@@ -28,6 +28,9 @@ interface QuranDao {
     @Query("SELECT * FROM surahs ORDER BY number ASC")
     fun getAllSurahs(): Flow<List<SurahEntity>>
 
+    @Query("SELECT * FROM surahs ORDER BY number ASC")
+    suspend fun getAllSurahsOnce(): List<SurahEntity>
+
     @Query("SELECT * FROM surahs WHERE number = :surahNumber LIMIT 1")
     suspend fun getSurahByNumber(surahNumber: Int): SurahEntity?
 
@@ -42,6 +45,9 @@ interface QuranDao {
 
     @Query("SELECT * FROM ayahs WHERE surah_id = :surahNumber AND ayah_number = :ayahNumber LIMIT 1")
     suspend fun getAyah(surahNumber: Int, ayahNumber: Int): AyahEntity?
+
+    @Query("SELECT * FROM ayahs ORDER BY surah_id ASC, ayah_number ASC")
+    suspend fun getAllAyahs(): List<AyahEntity>
 
     @RawQuery(observedEntities = [AyahEntity::class])
     suspend fun searchAyahsFts(query: SupportSQLiteQuery): List<AyahEntity>
@@ -153,8 +159,8 @@ interface HadithDao {
     @Query("SELECT * FROM hadiths WHERE collection_id = :collectionId AND hadith_number = :number LIMIT 1")
     suspend fun getHadithByNumber(collectionId: String, number: Int): HadithEntity?
 
-    @Query("SELECT * FROM hadiths LIMIT :limit")
-    suspend fun getAllHadiths(limit: Int = 100): List<HadithEntity>
+    @Query("SELECT * FROM hadiths ORDER BY collection_id ASC, hadith_number ASC")
+    suspend fun getAllHadiths(): List<HadithEntity>
 
     @Query("SELECT collection_id FROM hadiths GROUP BY collection_id ORDER BY collection_id ASC")
     fun getCollectionIds(): Flow<List<String>>

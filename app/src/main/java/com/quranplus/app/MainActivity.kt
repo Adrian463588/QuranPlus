@@ -73,6 +73,16 @@ class MainActivity : ComponentActivity() {
             )
         }
     }
+    private val openRagDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            ragDocumentViewModel.importDocument(
+                it,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
+    }
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,6 +102,11 @@ class MainActivity : ComponentActivity() {
                     ragDocumentViewModel = ragDocumentViewModel,
                     onRequestRagDocument = {
                         openStorageTreeLauncher.launch(null)
+                    },
+                    onRequestRagDocumentFile = {
+                        openRagDocumentLauncher.launch(
+                            arrayOf("text/plain", "text/markdown", "application/json", "application/pdf")
+                        )
                     }
                 )
             }
@@ -106,7 +121,8 @@ fun AppMain(
     modelRepository: ModelRepository,
     audioPlayerManager: AudioPlayerManager,
     ragDocumentViewModel: RagDocumentViewModel,
-    onRequestRagDocument: () -> Unit
+    onRequestRagDocument: () -> Unit,
+    onRequestRagDocumentFile: () -> Unit
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -147,7 +163,8 @@ fun AppMain(
             modelRepository = modelRepository,
             audioPlayerManager = audioPlayerManager,
             ragDocumentViewModel = ragDocumentViewModel,
-            onRequestRagDocument = onRequestRagDocument
+            onRequestRagDocument = onRequestRagDocument,
+            onRequestRagDocumentFile = onRequestRagDocumentFile
         )
     }
 }
@@ -166,7 +183,8 @@ fun AppNavHost(
     modelRepository: ModelRepository,
     audioPlayerManager: AudioPlayerManager,
     ragDocumentViewModel: RagDocumentViewModel,
-    onRequestRagDocument: () -> Unit
+    onRequestRagDocument: () -> Unit,
+    onRequestRagDocumentFile: () -> Unit
 ) {
     val isModelReady by chatViewModel.isModelReady.collectAsStateWithLifecycle()
 
@@ -366,7 +384,8 @@ fun AppNavHost(
                 onNavigateToGharib = { navController.navigate("gharib_directory") },
                 onNavigateToQuiz = { navController.navigate("tahsin_quiz") },
                 ragDocumentViewModel = ragDocumentViewModel,
-                onRequestRagDocument = onRequestRagDocument
+                onRequestRagDocument = onRequestRagDocument,
+                onRequestRagDocumentFile = onRequestRagDocumentFile
             )
         }
     }

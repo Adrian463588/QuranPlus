@@ -70,7 +70,8 @@ fun SettingsScreen(
     onNavigateToGharib: () -> Unit,
     onNavigateToQuiz: () -> Unit,
     ragDocumentViewModel: RagDocumentViewModel,
-    onRequestRagDocument: () -> Unit
+    onRequestRagDocument: () -> Unit,
+    onRequestRagDocumentFile: () -> Unit
 ) {
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     val arabicFontSize by viewModel.arabicFontSize.collectAsStateWithLifecycle()
@@ -154,6 +155,24 @@ fun SettingsScreen(
                             onClick = onRequestRagDocument
                         )
 
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = Spacing.xs))
+
+                        SettingsNavRow(
+                            icon = Icons.Rounded.Psychology,
+                            title = "Bangun index RAG",
+                            subtitle = "Embedding Quran, Hadist, dan dokumen yang sudah diimpor",
+                            onClick = ragDocumentViewModel::buildIndex
+                        )
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = Spacing.xs))
+
+                        SettingsNavRow(
+                            icon = Icons.Rounded.AutoStories,
+                            title = "Impor dokumen RAG",
+                            subtitle = "TXT, Markdown, atau JSON Hadist dari penyimpanan perangkat",
+                            onClick = onRequestRagDocumentFile
+                        )
+
                         when (val state = ragImportState) {
                             RagImportState.Idle -> Text(
                                 text = "Pilih folder untuk mempertahankan asset setelah data aplikasi dihapus.",
@@ -179,8 +198,32 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = Spacing.sm)
                             )
+                            RagImportState.Indexing -> Text(
+                                text = "Membuat embedding Quran, Hadist, dan dokumen...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
+                            is RagImportState.Indexed -> Text(
+                                text = "Index RAG aktif untuk ${state.count} potongan sumber.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
+                            is RagImportState.IndexBlocked -> Text(
+                                text = "Index RAG belum aktif: ${state.reason}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
                             is RagImportState.StoredAwaitingEmbedding -> Text(
                                 text = "Tersimpan ${state.metadata.displayName}; menunggu model embedding terverifikasi sebelum indexing.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
+                            is RagImportState.HadithImported -> Text(
+                                text = "Hadist ${state.title} diimpor: ${state.count} riwayat. Bangun index RAG untuk memakainya.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(top = Spacing.sm)

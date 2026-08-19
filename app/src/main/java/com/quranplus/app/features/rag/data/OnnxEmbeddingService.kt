@@ -4,6 +4,8 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
+import com.quranplus.app.features.chatbot.data.ModelAssetRole
+import com.quranplus.app.features.chatbot.data.ModelRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -22,7 +24,8 @@ interface EmbeddingService {
  * No zero-vector or synthetic hash fallback is allowed.
  */
 class OnnxEmbeddingService(
-    private val context: Context
+    private val context: Context,
+    private val modelRepository: ModelRepository
 ) : EmbeddingService {
 
     private val environment by lazy { OrtEnvironment.getEnvironment() }
@@ -70,13 +73,11 @@ class OnnxEmbeddingService(
     }
 
     private fun findModel(): File? {
-        val candidates = listOf(File(context.filesDir, "models/all-MiniLM-L6-v2.onnx"))
-        return candidates.firstOrNull { candidate ->
-            val digestFile = File(candidate.parentFile, "${candidate.name}.sha256")
-            candidate.isFile && digestFile.isFile &&
-                digestFile.readText().trim().matches(SHA256_PATTERN) &&
-                calculateSha256(candidate).equals(digestFile.readText().trim(), ignoreCase = true)
-        }
+        val config = modelRepository.availableModelConfigs.firstOrNull {
+            it.role == ModelAssetRole.EMBEDDING && it.id == "all-minilm-l6-v2-onnx"
+        } ?: return null
+        return modelRepository.getModelFile(config.filename)
+            .takeIf { modelRepository.isModelReady(config) }
     }
 
     private fun loadVocabulary(): Map<String, Long> {
@@ -168,19 +169,6 @@ class OnnxEmbeddingService(
     private fun isAsciiPunctuation(character: Char): Boolean {
         val code = character.code
         return code in 33..47 || code in 58..64 || code in 91..96 || code in 123..126
-    }
-
-    private fun calculateSha256(file: File): String {
-        val digest = java.security.MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (true) {
-                val read = input.read(buffer)
-                if (read < 0) break
-                digest.update(buffer, 0, read)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun poolOutput(value: Any, attentionMask: LongArray): FloatArray {
