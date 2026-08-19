@@ -4,6 +4,7 @@ import androidx.compose.ui.text.AnnotatedString
 import com.quranplus.app.core.utils.WaqafParser
 import com.quranplus.app.features.quran.domain.WordByWord
 import com.quranplus.app.features.quran.presentation.buildWordRenderSlices
+import com.quranplus.app.features.quran.presentation.extractAyahEndMarker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -27,8 +28,9 @@ class WordByWordAlignmentTest {
 
         assertNotNull(slices)
         assertEquals(3, slices!!.size)
-        assertEquals(1, slices.joinToString("") { it.text.text }.count { it == '۝' })
+        assertEquals(0, slices.joinToString("") { it.text.text }.count { it == '۝' })
         assertEquals(WaqafParser.WAQAF_MUANAQAH_SYM, slices[1].text.text.substringAfter("ٱلْكِتَٰبُ").trim())
+        assertEquals("۝٢", extractAyahEndMarker(text)?.text?.trim())
     }
 
     @Test
@@ -49,7 +51,8 @@ class WordByWordAlignmentTest {
         )
 
         assertNotNull(slices)
-        assertEquals("هُدًۭى ۝١", slices!!.single().text.text)
+        assertEquals("هُدًۭى", slices!!.single().text.text)
+        assertEquals("۝١", extractAyahEndMarker(AnnotatedString("هُدًۭى ۝١"))?.text?.trim())
     }
 
     @Test
@@ -60,7 +63,7 @@ class WordByWordAlignmentTest {
         )
 
         assertNotNull(slices)
-        assertEquals("إِلْ يَاسِينَ ۝١", slices!!.single().text.text)
+        assertEquals("إِلْ يَاسِينَ", slices!!.single().text.text)
     }
 
     private fun word(index: Int, text: String) = WordByWord(

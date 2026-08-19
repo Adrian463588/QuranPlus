@@ -995,6 +995,9 @@ private fun WordByWordAyah(
     val slices = remember(words, annotatedAyah) {
         buildWordRenderSlices(words, annotatedAyah)
     }
+    val ayahEndMarker = remember(annotatedAyah) {
+        extractAyahEndMarker(annotatedAyah)
+    }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         if (slices == null) {
             Text(
@@ -1114,6 +1117,20 @@ private fun WordByWordAyah(
                     }
                 }
             }
+            ayahEndMarker?.let { marker ->
+                Text(
+                    text = marker,
+                    style = getQuranArabicStyle(fontSizeSp).copy(
+                        textAlign = TextAlign.End
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
+                        .semantics {
+                            contentDescription = "Penanda akhir ayat"
+                        }
+                )
+            }
             }
         }
     }
@@ -1141,12 +1158,42 @@ internal fun buildWordRenderSlices(
         displayText = annotatedAyah.text,
         sourceWords = words.map { it.wordIndex to it.textArabic }
     ) ?: return null
+    val ayahEndMarkerStart = findAyahEndMarkerStart(annotatedAyah)
 
     return words.mapIndexed { index, word ->
         val start = ranges[index].start
-        val end = ranges.getOrNull(index + 1)?.start ?: annotatedAyah.text.length
+        val end = ranges.getOrNull(index + 1)?.start
+            ?: ayahEndMarkerStart?.let { markerStart ->
+                annotatedAyah.text
+                    .substring(0, markerStart)
+                    .trimEnd()
+                    .length
+            }
+            ?: annotatedAyah.text.length
         WordRenderSlice(word, annotatedAyah.subSequence(start, end))
     }
+}
+
+internal fun extractAyahEndMarker(annotatedAyah: AnnotatedString): AnnotatedString? {
+    val markerStart = findAyahEndMarkerStart(annotatedAyah) ?: return null
+    val markerEnd = annotatedAyah.text.trimEnd().length
+    return annotatedAyah.subSequence(markerStart, markerEnd)
+}
+
+private fun findAyahEndMarkerStart(annotatedAyah: AnnotatedString): Int? {
+    val annotatedStart = annotatedAyah
+        .getStringAnnotations(
+            WaqafParser.AYAH_END_ANNOTATION,
+            0,
+            annotatedAyah.length
+        )
+        .firstOrNull()
+        ?.start
+    if (annotatedStart != null) return annotatedStart
+
+    return annotatedAyah.text
+        .indexOf(WaqafParser.AYAH_END_SYM)
+        .takeIf { it >= 0 }
 }
 
 @Composable

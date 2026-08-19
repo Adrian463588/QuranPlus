@@ -1,5 +1,6 @@
 package com.quranplus.app
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -86,10 +87,9 @@ class MainNavigationSmokeTest {
         composeRule.onNodeWithTag("model_catalog")
             .performScrollToNode(hasText("Qwen 2.5 1.5B Instruct"))
         composeRule.onNodeWithText("Qwen 2.5 1.5B Instruct").assertIsDisplayed()
-        composeRule.onNodeWithText(
+        composeRule.onAllNodesWithText(
             "Siap diunduh dan diverifikasi."
-        )
-            .assertIsDisplayed()
+        ).assertCountEquals(2)
     }
 
     @Test
