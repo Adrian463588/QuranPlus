@@ -14,6 +14,7 @@ class EmbeddingModelUnavailable(message: String) : IllegalStateException(message
 
 interface EmbeddingService {
     suspend fun embed(text: String): FloatArray
+    suspend fun isReady(): Boolean = false
 }
 
 /**
@@ -48,6 +49,10 @@ class OnnxEmbeddingService(
                 }
             }
         }
+    }
+
+    override suspend fun isReady(): Boolean = withContext(Dispatchers.IO) {
+        findModel() != null && runCatching { verifyVocabularyHash() }.isSuccess
     }
 
     private fun createSession(): OrtSession {
@@ -218,7 +223,7 @@ class OnnxEmbeddingService(
     }
 
     private companion object {
-        const val MAX_SEQUENCE_LENGTH = 128
+        const val MAX_SEQUENCE_LENGTH = 512
         const val PAD_ID = 0L
         const val CLS_ID = 101L
         const val SEP_ID = 102L

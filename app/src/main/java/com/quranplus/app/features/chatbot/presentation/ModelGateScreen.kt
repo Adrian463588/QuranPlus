@@ -47,14 +47,19 @@ import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.features.chatbot.data.ModelInfo
 import com.quranplus.app.features.chatbot.data.ModelRepository
+import com.quranplus.app.features.chatbot.data.AiBlocker
+import com.quranplus.app.features.chatbot.data.AiReadiness
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun ModelGateScreen(
     viewModel: ChatViewModel,
     modelRepository: ModelRepository,
-    onModelReady: () -> Unit
+    onModelReady: () -> Unit,
+    readiness: StateFlow<AiReadiness>
 ) {
     val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
+    val aiReadiness by readiness.collectAsStateWithLifecycle()
     val availableModels = remember { modelRepository.availableModelConfigs }
 
     if (availableModels.isEmpty()) {
@@ -84,7 +89,7 @@ fun ModelGateScreen(
                 )
                 Spacer(modifier = Modifier.height(Spacing.xs))
                 Text(
-                    text = "ModelGate diblokir sampai katalog berisi URL, lisensi, ukuran, dan SHA-256 yang telah direview.",
+                    text = "ModelGate diblokir: ${aiReadiness.blockers.joinToString(", ") { blockerLabel(it) }}. Katalog, embedding, dan index harus memiliki provenance serta SHA-256 yang direview.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -372,6 +377,12 @@ fun ModelGateScreen(
             Spacer(modifier = Modifier.height(Spacing.lg))
         }
     }
+}
+
+private fun blockerLabel(blocker: AiBlocker): String = when (blocker) {
+    AiBlocker.MODEL_UNAVAILABLE -> "MODEL_UNAVAILABLE"
+    AiBlocker.EMBEDDER_UNAVAILABLE -> "EMBEDDER_UNAVAILABLE"
+    AiBlocker.INDEX_UNAVAILABLE -> "INDEX_UNAVAILABLE"
 }
 
 @Composable

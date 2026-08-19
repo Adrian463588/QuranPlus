@@ -1,116 +1,121 @@
 # Quran Plus
 
-Android Quran reader built with Jetpack Compose, Clean Architecture, MVVM, and a small KMM `:shared` boundary.
+Quran Plus adalah aplikasi Android offline-first berbasis Jetpack Compose, Clean Architecture, MVVM, Room, FTS5, dan Koin. Status di bawah ini adalah status berbasis bukti; fitur tanpa sumber, checksum, model, index, atau acceptance device tetap ditampilkan sebagai `blocked`.
 
-Sprint 2 is under implementation and acceptance. This repository does not claim release completeness: any feature without verified source, model, index, audio asset, automated test, or physical-device evidence remains `partial` or `blocked`.
+## Yang sudah diperbaiki
 
-## Current scope
+- Reader Quran minimal dengan back, judul/subjudul yang aman, dan satu hamburger menu.
+- Tajwid dirender memakai `AnnotatedString` dan parser fail-closed untuk tag tidak dikenal/malformed.
+- Katalog Waqaf terverifikasi untuk `لا`, `صلى`, `ج`, `م`, `قلى`, mu‘anaqah, saktah, dan marker akhir ayat yang dirender deterministik dari nomor ayat.
+- Word-by-word Room berisi 77.430 baris untuk 6.236 ayat. Arabic dan English source ditampilkan; transliterasi, root, audio, dan Indonesian per-word tidak ditebak jika mapping/provenance belum valid.
+- Bottom bar compact berisi lima slot: `Al-Qur'an`, `Hadist`, `Tanya AI`, `Tahsin`, dan `Bookmark`. Selected state, semantic role, dan target tap minimum 48dp diuji.
+- Route Hadist, repository, use case, ViewModel, metadata koleksi, pencarian, citation fields, dan readiness gate sudah tersedia.
+- Model/RAG memakai SAF sebagai source of truth untuk `QuranPlus/models/`, `QuranPlus/rag/source/`, `QuranPlus/rag/index/`, dan `QuranPlus/manifests/`. File memakai `.part`/`.tmp`, SHA-256, dan publish setelah verifikasi.
+- AI tidak menghasilkan jawaban atau embedding ketika prerequisite tidak tersedia.
 
-- Quran reader with Arabic text, translation, transliteration, Tajwid annotation, Waqaf parsing, search, bookmarks, notes, and exact last-read ayah state.
-- Quran search uses FTS5 with Arabic/Latin/translation queries, an optional surah filter, and result highlighting; it has no `LIKE` fallback.
-- Tahsin lessons backed by Room and exact Quran links.
-- Material 3 adaptive navigation plus Quran list/detail panes for compact, medium, and expanded window classes.
-- Local RAG pipeline contracts with fail-closed model, embedding, citation, and source states.
-- SAF import validation for UTF-8 TXT, Markdown, and schema-validated JSON. PDF is rejected until a verified text extractor exists.
+## Bukti data Quran
 
-Hadith and thematic RAG records without a pinned source, license, grading, checksum, and compatible embedding index are not bundled. The previous unverified hadith/knowledge assets were removed from the APK path. A missing prerequisite produces an explicit blocked/error state; it never produces synthetic text, scores, vectors, confidence, or assistant replies.
+`python scripts/validate_quran_corpus.py app/src/main/assets/databases/quranplus.db` menghasilkan:
 
-## Sprint 2 traceability
+| Check | Hasil |
+| --- | ---: |
+| Surah | 114 |
+| Ayat | 6.236 |
+| Word-by-word | 77.430 |
+| English source per-word | 77.430 |
+| Indonesian per-word | 0, fail-closed karena alignment sumber tidak aman |
+| Alignment/sequence failure | 0 |
+| Marker akhir ayat yang dirender | 6.236 |
 
-Status is intentionally evidence-based. `blocked` is not treated as `complete`.
+Teks sumber tidak menyimpan glyph `۝` di setiap baris; reader menambahkan `۝` dan digit Arab dari `ayah_number`, sehingga marker tidak diambil dari data rekaan.
 
-| ID | Status |
-| --- | --- |
-| F-01 | Partial: reader, exact ayah last-read with juz/page, page/juz navigation, immersive mode, and adaptive list/detail; landscape/accessibility/device matrix pending |
-| F-02 | Partial: verified text, translation/transliteration, and 18–48sp font controls; word-level provenance pending |
-| F-03 | Partial: ayah action wiring; verified audio asset gate pending |
-| F-04 | Partial: 15-rule parser/annotation; corpus parity review pending |
-| F-05 | Partial: token detail action is not released until granular source mapping is verified |
-| F-06 | Partial: legend/catalog UI; source test pending |
-| F-07 | Partial: Waqaf parser/UI; corpus evidence pending |
-| F-08 | Partial: guidance UI; source attribution pending |
-| F-09 | Blocked: Gharib record review and lineage pending |
-| F-10 | Blocked: Media3 playback remains unavailable without a verified audio manifest/checksums |
-| F-11 | Partial: resumable/checksum state machine; verified asset and worker tests pending |
-| F-12 | Blocked: verified Room question bank pending |
-| F-13 | Blocked: verified ONNX corpus/vector index/LiteRT model pending |
-| F-14 | Partial: citation persistence and Quran deep-link codec/instrumentation pass; Hadith citations remain non-clickable until a valid target route exists |
-| F-15 | Partial: persona DataStore restoration; device evidence pending |
-| F-16 | Partial: Room lessons; source audit and device evidence pending |
+## Hadist dan RAG
 
-Machine-readable contracts and provenance manifests are in `specs/` and `data/`. Internal project instructions, reference documents, screenshots used only for design review, archives, and extracted reference projects stay local and are excluded by `.gitignore`; they are not distribution assets.
+Reference lokal terdeteksi sebagai 17 koleksi dan 50.884 record. Audit terakhir menemukan 3.567 record tidak lengkap, tanpa duplicate ID atau invalid chapter reference. Lisensi dan record-level grading belum diverifikasi, sehingga `bundle_allowed=false`: database aplikasi hanya memuat metadata provenance 17 koleksi dan **0 teks hadist**. Tidak ada terjemahan Indonesia yang dibuat oleh aplikasi.
 
-## Architecture
+AI tetap `MODEL_UNAVAILABLE`, `EMBEDDER_UNAVAILABLE`, dan `INDEX_UNAVAILABLE` sampai manifest model, tokenizer, corpus, embedding ONNX 384-dimensi, dan sqlite-vec index nyata lolos checksum/provenance. Chunk contract adalah 512 token, overlap 50, dan top-k 5; tidak ada fallback scan Room yang menyamar sebagai vector retrieval.
 
-```text
-Compose screens + ViewModels
-        |
-Domain entities, use cases, repository contracts
-        |
-Room, FTS5, Media3, SAF, ONNX Runtime, LiteRT-LM adapters
-```
-
-- `:app` is the Android launcher and owns Android implementations.
-- `:shared` contains the KMM-compatible Quran entities, repository contract, use cases, and shared `UiState`; Android adapters remain in `:app`.
-- Koin provides dependency injection.
-- State uses `StateFlow`; database access stays behind repositories/use cases.
-- Quran search uses FTS5 only. There is no `LIKE` fallback.
-- Model and downloader gates require verified SHA-256 and atomic `.tmp` replacement.
-- RTK, CAVEMAN, and PONYTAIL are authoring guidance only, never runtime dependencies.
-
-## Data and model requirements
-
-- Bundled Quran asset: Room database with 114 surahs and 6,236 ayahs; the device gate must still validate migration and content at runtime.
-- Hadith manifest: `data/hadith-provenance.json`; the local four-book audit is 24,065 records with file SHA-256 values, but corpus status is not distributable until source license, revision, schema, completeness, grading, and checksum gates pass.
-- Hadith audit command: `rtk proxy powershell -NoProfile -Command ".\\scripts\\validate-hadith-reference.ps1 -AsJson"`; it reads the ignored local reference and never copies it into the APK or repository.
-- RAG manifest: `data/rag-provenance.json`; no bundled hadith/knowledge vectors are claimed.
-- Embeddings require a verified `all-MiniLM-L6-v2` ONNX model, matching tokenizer SHA-256, 384 dimensions, and a real sqlite-vec index. No model is bundled.
-- LiteRT-LM model files are downloaded on demand only after a manifest provides a 64-character SHA-256. Current configurations intentionally remain blocked until those hashes are approved.
-- User SAF documents are stored privately, hashed, chunked at 512 tokens with 50-token overlap, and remain separate from official Quran/Hadith sources.
-
-## Build and verification
+Audit Hadist yang mengembalikan exit code 2 adalah guard yang diharapkan selama lisensi/kelengkapan belum lolos:
 
 ```powershell
-rtk proxy .\gradlew.bat :shared:compileDebugKotlinAndroid
-rtk proxy .\gradlew.bat :app:compileDebugKotlin
-rtk proxy .\gradlew.bat :app:lintDebug
-rtk proxy .\gradlew.bat :app:testDebugUnitTest
-rtk proxy .\gradlew.bat :app:assembleDebug
-rtk proxy .\gradlew.bat :app:assembleRelease
-rtk proxy .\gradlew.bat :app:connectedDebugAndroidTest
-rtk proxy python scripts/build_database.py  # expected fail-closed guard
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-hadith-reference.ps1 -AsJson
 ```
 
-Physical acceptance is separate from these gates. The current debug APK was installed and launched on Samsung SM-G988B (Android 13), `MainActivity` was resumed, the UI hierarchy was dumped, and the fatal-log check was clean. The latest connected instrumentation run completed 12/12 on SM-G988B. The Poco run is a separate gate and was blocked by `INSTALL_FAILED_USER_RESTRICTED`; it is not claimed as accepted. Accessibility, rotation, IME, 200% font, performance, audio, and RAG acceptance remain unproven.
+Manifest ringkas yang boleh masuk repository berada di [data/hadith-provenance.json](data/hadith-provenance.json). Raw reference, model weights, credential, dan dokumen internal tidak masuk APK atau GitHub.
 
-## Preview evidence
+## SAF dan model
 
-The current adaptive previews were captured from the final debug APK with `adb exec-out screencap -p` on a Samsung `SM-G988B` (Android 13, 100% font scale). Compact is physical-device evidence; medium and expanded use reversible `wm size` overrides on the same device. The exact APK SHA, source commit, window class, and capture metadata are recorded in the [preview manifest](art/device-preview-manifest.json). They are smoke evidence, not proof of landscape, foldable, accessibility, performance, audio, or RAG release gates.
+Pengguna memilih folder melalui `ACTION_OPEN_DOCUMENT_TREE`. Aplikasi menyimpan persistable URI permission, membuat struktur berikut, memindai manifest saat relink, dan meminta relink bila permission hilang:
 
-| Quran home | Reader | Ayah actions |
+```text
+QuranPlus/
+├── models/
+├── rag/source/
+├── rag/index/
+└── manifests/
+```
+
+Working cache internal boleh dibuat ulang setelah uninstall; model dan source RAG yang sudah dipublish tetap berada di folder SAF pengguna. Download memakai WorkManager, network constraint, resume/checksum, retry terbatas, dan tidak melakukan retry otomatis untuk kegagalan konfigurasi/storage.
+
+## Arsitektur
+
+```text
+Compose UI + ViewModel
+        ↓
+Use case + domain contracts
+        ↓
+Room/FTS5 + SAF + ONNX/LiteRT adapters + sqlite-vec gate
+```
+
+`shared/commonMain` memuat kontrak KMM yang dibutuhkan; implementasi Android berada di `app`. RTK, CAVEMAN, dan PONYTAIL hanya authoring guidance sesuai `AGENTS.md`, bukan dependency runtime.
+
+## Build dan test
+
+```powershell
+rtk proxy .\gradlew.bat :shared:compileDebugKotlinAndroid --no-daemon --console=plain
+rtk proxy .\gradlew.bat :app:compileDebugKotlin --no-daemon --console=plain
+rtk proxy .\gradlew.bat :app:testDebugUnitTest --no-daemon --console=plain
+rtk proxy .\gradlew.bat :app:lintDebug --no-daemon --console=plain
+rtk proxy .\gradlew.bat :app:assembleDebug --no-daemon --console=plain
+rtk proxy .\gradlew.bat :app:connectedDebugAndroidTest --no-daemon --console=plain
+```
+
+Gate terakhir yang lolos:
+
+- compile shared/app dan unit test: pass;
+- lint debug dan debug assembly: pass;
+- 13/13 Android instrumentation tests: pass pada Samsung SM-G988B, Android 13;
+- 13/13 Android instrumentation tests: pass pada device `2412DPC0AG`, Android 15;
+- APK debug terbaru di-install dan diluncurkan dengan `adb install -r` pada `RRCN3008VYE` dan `QSWSEMRKNFZ9LJRC`;
+- DB runtime setelah upgrade: 6.236 ayat, 77.430 word rows, 17 hadist collection metadata, 0 hadist text;
+- accessibility tree memverifikasi hamburger, bottom-bar five-slot, selected state, marker `۝`, mu‘anaqah `ۛ`, word selection, dan ModelGate blocker;
+- landscape adaptive navigation dan font-scale 200% smoke pass pada Samsung.
+
+TalkBack/IME journey, audio, model lokal nyata, corpus hadist distributable, embedding, dan sqlite-vec index tetap release blocker sampai prerequisite tersedia dan diuji.
+
+## Preview aktual
+
+Preview utama berikut diambil dari APK debug terbaru memakai `adb exec-out screencap -p` pada Samsung SM-G988B, Android 13, portrait, physical 1440×3200, density override 560. Metadata APK, waktu capture, route, dan responsive smoke tercatat di [art/device-preview-manifest.json](art/device-preview-manifest.json).
+
+| Quran home | Reader Waqaf/Tajwid | Word-by-word selected |
 | --- | --- | --- |
-| ![Quran home](art/device-sm-g988b-current-compact.png) | ![Quran reader](art/device-sm-g988b-current-reader.png) | ![Ayah actions](art/device-sm-g988b-current-ayah-actions.png) |
+| ![Quran home](art/device-sm-g988b-sprint2-compact.png) | ![Reader Waqaf and Tajwid](art/device-sm-g988b-reader-waqaf.png) | ![Word by word selected](art/device-sm-g988b-word-selected.png) |
 
-| Compact | Medium adaptive pane | Expanded adaptive pane |
+| Hadist blocked state | AI ModelGate |
+| --- | --- |
+| ![Hadist provenance gate](art/device-sm-g988b-hadith.png) | ![AI readiness gate](art/device-sm-g988b-ai-gate.png) |
+
+Responsive/device evidence:
+
+| Landscape adaptive navigation | Font scale 200% | Device smoke API 35 |
 | --- | --- | --- |
-| ![Compact Quran home](art/device-sm-g988b-current-compact.png) | ![Medium Quran list and detail](art/device-sm-g988b-current-medium.png) | ![Expanded Quran list and detail](art/device-sm-g988b-current-expanded.png) |
+| ![Landscape adaptive navigation](art/device-sm-g988b-landscape.png) | ![Font scale 200 percent](art/device-sm-g988b-font200.png) | ![API 35 device smoke](art/device-qswse-mark-sprint2-compact.png) |
 
-| Historical bookmarks | Historical search | Historical chat model gate |
-| --- | --- | --- |
-| ![Bookmarks](art/device-sm-g988b-bookmarks.png) | ![Search](art/device-sm-g988b-search.png) | ![Chat model gate](art/device-sm-g988b-chat-gate.png) |
+Preview adalah smoke evidence, bukan bukti bahwa model, audio, lisensi hadist, atau semua device class sudah release-ready.
 
-| Historical Tahsin | Historical quiz blocked state | Historical settings |
-| --- | --- | --- |
-| ![Tahsin](art/device-sm-g988b-tahsin.png) | ![Quiz blocked state](art/device-sm-g988b-quiz.png) | ![Settings](art/device-sm-g988b-settings.png) |
+## Security
 
-Machine-readable capture details: [`art/device-preview-manifest.json`](art/device-preview-manifest.json).
-
-## Security and contribution rules
-
-- Never restore or stage internal `docs*` directories, reference projects, archives, cache, model weights, secrets, or local instruction Markdown.
-- Review `git diff --cached`, run secret scans, and stage an explicit allowlist. Do not use blind `git add .` in this data-heavy repository.
-- Do not claim feature completion from browser previews, fake executors, static screenshots, or compile-only evidence.
-- Source/license review is required before distributing Quran translations, hadith, audio, fonts, model files, or derived indexes.
-- Release builds enable R8/resource shrinking, the manifest disables backup extraction, and audio/model download paths fail closed unless HTTPS, checksum, and provenance checks pass.
-
-License and third-party attribution remain a release gate until verified source manifests are complete.
+- Jangan stage `docs*`, reference project, raw model/embedding/index, archive, credential, atau local instruction Markdown.
+- Review `git diff --cached`, jalankan `git diff --cached --check` dan secret scan sebelum commit/push.
+- Jangan mengklaim completion dari screenshot, browser shell, mock executor, compile-only, atau data fabricated.
+- Source/license review wajib dilakukan sebelum mendistribusikan Quran translation, hadist, audio, font, model, atau derived index.

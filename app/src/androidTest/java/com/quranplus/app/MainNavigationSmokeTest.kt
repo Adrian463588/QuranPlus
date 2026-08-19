@@ -21,7 +21,8 @@ class MainNavigationSmokeTest {
     fun GIVEN_quranHome_WHEN_searchActionIsClicked_THEN_searchScreenIsDisplayed() {
         waitForText("Al-Qur'an Al-Karim")
 
-        composeRule.onNodeWithContentDescription("Cari Ayat").performClick()
+        composeRule.onNodeWithContentDescription("Menu Al-Qur'an").performClick()
+        composeRule.onNodeWithText("Cari ayat").performClick()
 
         waitForText("Pencarian FTS5 Cepat")
         composeRule.onNodeWithText("Filter").assertIsDisplayed()
@@ -37,6 +38,15 @@ class MainNavigationSmokeTest {
     }
 
     @Test
+    fun GIVEN_quranHome_WHEN_hadithDestinationIsClicked_THEN_hadithScreenIsDisplayed() {
+        waitForText("Al-Qur'an Al-Karim")
+
+        composeRule.onNodeWithText("Hadist").performClick()
+
+        waitForText("Hadist")
+    }
+
+    @Test
     fun GIVEN_quranHome_WHEN_chatDestinationIsClicked_THEN_modelGateIsDisplayed() {
         waitForText("Al-Qur'an Al-Karim")
 
@@ -44,7 +54,7 @@ class MainNavigationSmokeTest {
 
         waitForText("Setup AI On-Device")
         composeRule.onNodeWithText("Model lokal belum tersedia").assertIsDisplayed()
-        composeRule.onNodeWithText("ModelGate diblokir sampai katalog berisi URL, lisensi, ukuran, dan SHA-256 yang telah direview.")
+        composeRule.onNodeWithText("ModelGate diblokir: MODEL_UNAVAILABLE, EMBEDDER_UNAVAILABLE, INDEX_UNAVAILABLE. Katalog, embedding, dan index harus memiliki provenance serta SHA-256 yang direview.")
             .assertIsDisplayed()
     }
 
@@ -52,10 +62,11 @@ class MainNavigationSmokeTest {
     fun GIVEN_quranHome_WHEN_settingsDestinationIsClicked_THEN_settingsActionsAreDisplayed() {
         waitForText("Al-Qur'an Al-Karim")
 
+        composeRule.onNodeWithContentDescription("Menu Al-Qur'an").performClick()
         composeRule.onNodeWithText("Pengaturan").performClick()
 
         waitForText("Fitur Tajwid & Murottal")
-        composeRule.onNodeWithText("Impor Dokumen RAG").assertIsDisplayed()
+        composeRule.onNodeWithText("Folder Model & RAG (SAF)").assertIsDisplayed()
     }
 
     @Test

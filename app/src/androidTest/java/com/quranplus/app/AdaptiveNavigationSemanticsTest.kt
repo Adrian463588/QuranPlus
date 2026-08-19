@@ -24,8 +24,10 @@ class AdaptiveNavigationSemanticsTest {
         render(WindowWidthSizeClass.Compact)
 
         composeRule.onNodeWithText("Al-Qur'an").assertIsDisplayed()
+        composeRule.onNodeWithText("Hadist").assertIsDisplayed()
         composeRule.onNodeWithText("Tanya AI").assertIsDisplayed()
-        composeRule.onNodeWithText("Pengaturan").assertIsDisplayed()
+        composeRule.onNodeWithText("Tahsin").assertIsDisplayed()
+        composeRule.onNodeWithText("Bookmark").assertIsDisplayed()
     }
 
     @Test

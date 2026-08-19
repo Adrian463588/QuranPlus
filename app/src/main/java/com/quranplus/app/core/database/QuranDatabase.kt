@@ -16,35 +16,43 @@ import com.quranplus.app.core.database.dao.KnowledgeChunkDao
 import com.quranplus.app.core.database.dao.LastReadDao
 import com.quranplus.app.core.database.dao.QuranDao
 import com.quranplus.app.core.database.dao.TahsinDao
+import com.quranplus.app.core.database.dao.WordByWordDao
 import com.quranplus.app.core.database.entity.AyahEntity
 import com.quranplus.app.core.database.entity.BookmarkEntity
 import com.quranplus.app.core.database.entity.ChatMessageEntity
 import com.quranplus.app.core.database.entity.HadithEntity
+import com.quranplus.app.core.database.entity.HadithCollectionEntity
+import com.quranplus.app.core.database.entity.HadithChapterEntity
 import com.quranplus.app.core.database.entity.KnowledgeChunkEntity
 import com.quranplus.app.core.database.entity.LastReadEntity
 import com.quranplus.app.core.database.entity.SurahEntity
 import com.quranplus.app.core.database.entity.TahsinLessonEntity
 import com.quranplus.app.core.database.entity.QuizAttemptEntity
 import com.quranplus.app.core.database.entity.QuizQuestionEntity
+import com.quranplus.app.core.database.entity.WordByWordEntity
 
 @Database(
     entities = [
         SurahEntity::class,
         AyahEntity::class,
+        WordByWordEntity::class,
         BookmarkEntity::class,
         LastReadEntity::class,
         TahsinLessonEntity::class,
         HadithEntity::class,
+        HadithCollectionEntity::class,
+        HadithChapterEntity::class,
         KnowledgeChunkEntity::class,
         ChatMessageEntity::class,
         QuizQuestionEntity::class,
         QuizAttemptEntity::class
     ],
-    version = 5,
+    version = 8,
     exportSchema = false
 )
 abstract class QuranDatabase : RoomDatabase() {
     abstract fun quranDao(): QuranDao
+    abstract fun wordByWordDao(): WordByWordDao
     abstract fun bookmarkDao(): BookmarkDao
     abstract fun lastReadDao(): LastReadDao
     abstract fun tahsinDao(): TahsinDao
@@ -79,6 +87,9 @@ abstract class QuranDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_2_3)
                 .addMigrations(MIGRATION_3_4)
                 .addMigrations(MIGRATION_4_5)
+                .addMigrations(MIGRATION_5_6)
+                .addMigrations(MIGRATION_6_7)
+                .addMigrations(MIGRATION_7_8)
                 .addCallback(FTS_CALLBACK)
                 .build()
         }
@@ -159,6 +170,80 @@ abstract class QuranDatabase : RoomDatabase() {
             override fun migrate(database: SQLiteConnection) {
                 database.executeSql("ALTER TABLE last_read ADD COLUMN juz INTEGER NOT NULL DEFAULT 1")
                 database.executeSql("ALTER TABLE last_read ADD COLUMN page INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SQLiteConnection) {
+                database.executeSql(
+                    """
+                    CREATE TABLE IF NOT EXISTS word_by_word (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        surah_id INTEGER NOT NULL,
+                        ayah_number INTEGER NOT NULL,
+                        word_index INTEGER NOT NULL,
+                        text_arabic TEXT NOT NULL,
+                        translation_en TEXT NOT NULL,
+                        translation_id TEXT NOT NULL,
+                        source_revision TEXT NOT NULL,
+                        source_sha256 TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                database.executeSql(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_word_by_word_surah_id_ayah_number_word_index " +
+                        "ON word_by_word(surah_id, ayah_number, word_index)"
+                )
+                database.executeSql(
+                    "CREATE INDEX IF NOT EXISTS idx_word_by_word_ayah " +
+                        "ON word_by_word(surah_id, ayah_number)"
+                )
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SQLiteConnection) {
+                database.executeSql("ALTER TABLE hadiths ADD COLUMN chapter_id TEXT")
+                database.executeSql("ALTER TABLE hadiths ADD COLUMN source_revision TEXT NOT NULL DEFAULT ''")
+                database.executeSql("ALTER TABLE hadiths ADD COLUMN source_sha256 TEXT NOT NULL DEFAULT ''")
+                database.executeSql("ALTER TABLE hadiths ADD COLUMN license_status TEXT NOT NULL DEFAULT 'unverified'")
+                database.executeSql("ALTER TABLE hadiths ADD COLUMN grade TEXT")
+                database.executeSql("ALTER TABLE hadiths ADD COLUMN language TEXT NOT NULL DEFAULT 'en'")
+                database.executeSql("ALTER TABLE hadiths ADD COLUMN is_complete INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SQLiteConnection) {
+                database.executeSql(
+                    """
+                    CREATE TABLE IF NOT EXISTS hadith_collections (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title_arabic TEXT NOT NULL,
+                        title_english TEXT NOT NULL,
+                        source_revision TEXT NOT NULL,
+                        source_sha256 TEXT NOT NULL,
+                        license_status TEXT NOT NULL,
+                        grade_status TEXT NOT NULL,
+                        record_count INTEGER NOT NULL,
+                        chapter_count INTEGER NOT NULL,
+                        is_complete INTEGER NOT NULL,
+                        bundle_allowed INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                database.executeSql(
+                    """
+                    CREATE TABLE IF NOT EXISTS hadith_chapters (
+                        collection_id TEXT NOT NULL,
+                        chapter_id TEXT NOT NULL,
+                        chapter_number INTEGER NOT NULL,
+                        title_arabic TEXT NOT NULL,
+                        title_english TEXT NOT NULL,
+                        PRIMARY KEY(collection_id, chapter_id)
+                    )
+                    """.trimIndent()
+                )
             }
         }
 

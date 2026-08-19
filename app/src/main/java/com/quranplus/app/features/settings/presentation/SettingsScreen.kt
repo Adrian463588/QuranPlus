@@ -148,13 +148,30 @@ fun SettingsScreen(
 
                         SettingsNavRow(
                             icon = Icons.Rounded.Info,
-                            title = "Impor Dokumen RAG",
-                            subtitle = "TXT, Markdown, JSON; PDF text-only akan divalidasi tanpa OCR",
+                            title = "Folder Model & RAG (SAF)",
+                            subtitle = "Simpan model, source, manifest, dan index di folder pengguna",
                             onClick = onRequestRagDocument
                         )
 
                         when (val state = ragImportState) {
-                            RagImportState.Idle -> Unit
+                            RagImportState.Idle -> Text(
+                                text = "Pilih folder untuk mempertahankan asset setelah data aplikasi dihapus.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
+                            RagImportState.LinkingStorage -> Text(
+                                text = "Menghubungkan folder SAF...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
+                            is RagImportState.StorageLinked -> Text(
+                                text = "Folder SAF aktif: ${state.status.manifestCount} manifest, ${state.status.sourceCount} source, ${state.status.indexCount} index. Asset tetap divalidasi sebelum dipakai.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
                             RagImportState.Importing -> Text(
                                 text = "Memvalidasi dan menyimpan dokumen...",
                                 style = MaterialTheme.typography.bodySmall,

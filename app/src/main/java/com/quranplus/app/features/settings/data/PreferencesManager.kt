@@ -81,6 +81,7 @@ class PreferencesManager(private val context: Context) {
         val CUSTOM_SYSTEM_PROMPT = stringPreferencesKey("custom_system_prompt")
         val SELECTED_MODEL = stringPreferencesKey("selected_model")
         val TRANSLATION_MODE = stringPreferencesKey("translation_mode")
+        val SAF_ROOT_URI = stringPreferencesKey("saf_root_uri")
     }
 
     val isDarkMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -118,6 +119,10 @@ class PreferencesManager(private val context: Context) {
 
     val translationMode: Flow<TranslationMode> = context.dataStore.data.map { preferences ->
         TranslationMode.fromId(preferences[PreferencesKeys.TRANSLATION_MODE] ?: TranslationMode.INDONESIAN.id)
+    }
+
+    val safRootUri: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.SAF_ROOT_URI]
     }
 
     suspend fun setDarkMode(enabled: Boolean) {
@@ -171,6 +176,18 @@ class PreferencesManager(private val context: Context) {
     suspend fun setTranslationMode(mode: TranslationMode) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.TRANSLATION_MODE] = mode.id
+        }
+    }
+
+    suspend fun setSafRootUri(uri: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SAF_ROOT_URI] = uri
+        }
+    }
+
+    suspend fun clearSafRootUri() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(PreferencesKeys.SAF_ROOT_URI)
         }
     }
 }

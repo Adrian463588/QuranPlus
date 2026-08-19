@@ -1,6 +1,7 @@
 package com.quranplus.app.features.chatbot.data
 
 import android.content.Context
+import com.quranplus.app.features.rag.data.SafAssetStore
 import java.io.File
 
 data class ModelInfo(
@@ -11,17 +12,29 @@ data class ModelInfo(
     val ramRequirement: String,
     val downloadUrl: String,
     val sha256: String? = null,
-    val isRecommended: Boolean = false
+    val isRecommended: Boolean = false,
+    val version: String = "",
+    val abi: String = "",
+    val licenseStatus: String = "unverified",
+    val sizeBytes: Long? = null
 ) {
     val hasVerifiedManifest: Boolean
-        get() = sha256?.matches(SHA256_PATTERN) == true
+        get() = sha256?.matches(SHA256_PATTERN) == true &&
+            version.isNotBlank() &&
+            abi.isNotBlank() &&
+            licenseStatus == VERIFIED_LICENSE_STATUS &&
+            downloadUrl.startsWith("https://")
 
     private companion object {
+        const val VERIFIED_LICENSE_STATUS = "verified"
         val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
     }
 }
 
-class ModelRepository(private val context: Context) {
+class ModelRepository(
+    private val context: Context,
+    private val safAssetStore: SafAssetStore
+) {
 
     /**
      * Model catalog is intentionally empty until a reviewed, pinned manifest is
@@ -56,6 +69,35 @@ class ModelRepository(private val context: Context) {
 
     fun isAnyModelReady(): Boolean {
         return availableModelConfigs.any(::isModelReady)
+    }
+
+    suspend fun restoreVerifiedModelsFromSaf() {
+        availableModelConfigs
+            .filter { !isModelReady(it) }
+            .forEach { model ->
+                val destination = getModelFile(model.filename)
+                runCatching {
+                    safAssetStore.materialize(
+                        relativePath = "models/${model.filename}",
+                        destination = destination,
+                        expectedSha256 = model.sha256.orEmpty()
+                    )
+                }
+            }
+    }
+
+    suspend fun persistVerifiedModel(modelInfo: ModelInfo) {
+        if (!isModelReady(modelInfo)) return
+        safAssetStore.publishFile(
+            source = getModelFile(modelInfo.filename),
+            relativeDirectory = "models",
+            filename = modelInfo.filename
+        )
+        safAssetStore.publishText(
+            text = "{\"id\":\"${modelInfo.id}\",\"filename\":\"${modelInfo.filename}\",\"version\":\"${modelInfo.version}\",\"abi\":\"${modelInfo.abi}\",\"size_bytes\":${modelInfo.sizeBytes ?: 0},\"sha256\":\"${modelInfo.sha256}\",\"license_status\":\"${modelInfo.licenseStatus}\"}",
+            relativeDirectory = "manifests",
+            filename = "model-${modelInfo.id}.json"
+        )
     }
 
     fun isModelReady(modelInfo: ModelInfo): Boolean {

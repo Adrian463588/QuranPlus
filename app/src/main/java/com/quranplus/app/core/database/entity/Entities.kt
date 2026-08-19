@@ -50,6 +50,34 @@ data class AyahEntity(
     val tajwidTags: String? = null
 )
 
+@Entity(
+    tableName = "word_by_word",
+    indices = [
+        Index(value = ["surah_id", "ayah_number", "word_index"], unique = true),
+        Index(value = ["surah_id", "ayah_number"], name = "idx_word_by_word_ayah")
+    ]
+)
+data class WordByWordEntity(
+    @PrimaryKey
+    val id: Long,
+    @ColumnInfo(name = "surah_id")
+    val surahId: Int,
+    @ColumnInfo(name = "ayah_number")
+    val ayahNumber: Int,
+    @ColumnInfo(name = "word_index")
+    val wordIndex: Int,
+    @ColumnInfo(name = "text_arabic")
+    val textArabic: String,
+    @ColumnInfo(name = "translation_en")
+    val translationEn: String,
+    @ColumnInfo(name = "translation_id")
+    val translationId: String,
+    @ColumnInfo(name = "source_revision")
+    val sourceRevision: String,
+    @ColumnInfo(name = "source_sha256")
+    val sourceSha256: String
+)
+
 @Entity(tableName = "bookmarks")
 data class BookmarkEntity(
     @PrimaryKey(autoGenerate = true)
@@ -136,7 +164,62 @@ data class HadithEntity(
     val translationId: String,
     @ColumnInfo(name = "translation_en")
     val translationEn: String,
-    val reference: String
+    val reference: String,
+    @ColumnInfo(name = "chapter_id")
+    val chapterId: String? = null,
+    @ColumnInfo(name = "source_revision")
+    val sourceRevision: String = "",
+    @ColumnInfo(name = "source_sha256")
+    val sourceSha256: String = "",
+    @ColumnInfo(name = "license_status")
+    val licenseStatus: String = "unverified",
+    val grade: String? = null,
+    val language: String = "en",
+    @ColumnInfo(name = "is_complete")
+    val isComplete: Boolean = false
+)
+
+@Entity(tableName = "hadith_collections")
+data class HadithCollectionEntity(
+    @PrimaryKey
+    val id: String,
+    @ColumnInfo(name = "title_arabic")
+    val titleArabic: String,
+    @ColumnInfo(name = "title_english")
+    val titleEnglish: String,
+    @ColumnInfo(name = "source_revision")
+    val sourceRevision: String,
+    @ColumnInfo(name = "source_sha256")
+    val sourceSha256: String,
+    @ColumnInfo(name = "license_status")
+    val licenseStatus: String,
+    @ColumnInfo(name = "grade_status")
+    val gradeStatus: String,
+    @ColumnInfo(name = "record_count")
+    val recordCount: Int,
+    @ColumnInfo(name = "chapter_count")
+    val chapterCount: Int,
+    @ColumnInfo(name = "is_complete")
+    val isComplete: Boolean,
+    @ColumnInfo(name = "bundle_allowed")
+    val bundleAllowed: Boolean
+)
+
+@Entity(
+    tableName = "hadith_chapters",
+    primaryKeys = ["collection_id", "chapter_id"]
+)
+data class HadithChapterEntity(
+    @ColumnInfo(name = "collection_id")
+    val collectionId: String,
+    @ColumnInfo(name = "chapter_id")
+    val chapterId: String,
+    @ColumnInfo(name = "chapter_number")
+    val chapterNumber: Int,
+    @ColumnInfo(name = "title_arabic")
+    val titleArabic: String,
+    @ColumnInfo(name = "title_english")
+    val titleEnglish: String
 )
 
 @Entity(

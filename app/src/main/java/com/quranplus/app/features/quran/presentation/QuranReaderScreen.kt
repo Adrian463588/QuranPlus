@@ -13,11 +13,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -26,6 +29,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
@@ -34,6 +38,7 @@ import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -46,6 +51,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -60,6 +67,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,6 +86,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -99,6 +109,7 @@ import com.quranplus.app.core.ui.theme.getQuranArabicStyle
 import com.quranplus.app.core.utils.TajwidParser
 import com.quranplus.app.core.utils.WaqafParser
 import com.quranplus.app.features.quran.domain.Ayah
+import com.quranplus.app.features.quran.domain.WordByWord
 import com.quranplus.app.features.quran.presentation.components.AyahActionBottomSheet
 import com.quranplus.app.features.settings.data.PreferencesManager
 import com.quranplus.app.features.settings.data.TranslationMode
@@ -120,6 +131,7 @@ fun QuranReaderScreen(
 ) {
     val surah by viewModel.currentSurah.collectAsStateWithLifecycle()
     val ayahsState by viewModel.currentAyahsState.collectAsStateWithLifecycle()
+    val wordByWordState by viewModel.wordByWordState.collectAsStateWithLifecycle()
 
     val arabicFontSize by preferencesManager.arabicFontSize.collectAsStateWithLifecycle(initialValue = 28f)
     val showTransliteration by preferencesManager.showTransliteration.collectAsStateWithLifecycle(initialValue = true)
@@ -130,6 +142,7 @@ fun QuranReaderScreen(
     val activity = view.context as? Activity
 
     var showTajwidSheet by remember { mutableStateOf(false) }
+    var showReaderMenu by remember { mutableStateOf(false) }
     var showNavigationSheet by remember { mutableStateOf(false) }
     var showFontSlider by remember { mutableStateOf(false) }
     var isWordByWordMode by remember { mutableStateOf(false) }
@@ -196,59 +209,69 @@ fun QuranReaderScreen(
                 subtitle = surah?.let { "${it.revelationType.uppercase()} • ${it.ayahCount} Ayat" },
                 onBackClick = onBackClick,
                 actions = {
-                    // Word-by-word mode toggle
-                    IconButton(onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isWordByWordMode = !isWordByWordMode
-                    }) {
-                        Icon(
-                            imageVector = Icons.Rounded.TextFields,
-                            contentDescription = "Mode Kata Demi Kata (data belum tersedia)",
-                            tint = if (isWordByWordMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    // Translation mode toggle
-                    IconButton(onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        val next = when (translationMode) {
-                            TranslationMode.INDONESIAN -> TranslationMode.ENGLISH
-                            TranslationMode.ENGLISH    -> TranslationMode.BOTH
-                            TranslationMode.BOTH       -> TranslationMode.INDONESIAN
+                    Box {
+                        IconButton(onClick = { showReaderMenu = true }) {
+                            Icon(Icons.Rounded.Menu, contentDescription = "Menu Quran")
                         }
-                        scope.launch { preferencesManager.setTranslationMode(next) }
-                    }) {
-                        Icon(
-                            imageVector = Icons.Rounded.Translate,
-                            contentDescription = "Terjemahan: ${translationMode.label}",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    IconButton(onClick = { showTajwidSheet = true }) {
-                        Icon(
-                            imageVector = Icons.Rounded.Palette,
-                            contentDescription = "Panduan Tajwid"
-                        )
-                    }
-                    IconButton(onClick = { showNavigationSheet = true }) {
-                        Icon(
-                            imageVector = Icons.Rounded.AutoStories,
-                            contentDescription = "Navigasi halaman dan juz"
-                        )
-                    }
-                    IconButton(onClick = { showFontSlider = !showFontSlider }) {
-                        Icon(
-                            imageVector = Icons.Rounded.FormatSize,
-                            contentDescription = "Ukuran Font"
-                        )
-                    }
-                    IconButton(onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isImmersiveReader = !isImmersiveReader
-                    }) {
-                        Icon(
-                            imageVector = if (isImmersiveReader) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                            contentDescription = if (isImmersiveReader) "Keluar mode imersif" else "Mode imersif"
-                        )
+                        DropdownMenu(
+                            expanded = showReaderMenu,
+                            onDismissRequest = { showReaderMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(if (isWordByWordMode) "Kembali ke baris ayat" else "Kata per kata") },
+                                leadingIcon = { Icon(Icons.Rounded.TextFields, contentDescription = null) },
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    isWordByWordMode = !isWordByWordMode
+                                    showReaderMenu = false
+                                }
+                            )
+                            if (!isWordByWordMode) {
+                                DropdownMenuItem(
+                                    text = { Text("Terjemahan: ${translationMode.label}") },
+                                    leadingIcon = { Icon(Icons.Rounded.Translate, contentDescription = null) },
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        val next = when (translationMode) {
+                                            TranslationMode.INDONESIAN -> TranslationMode.ENGLISH
+                                            TranslationMode.ENGLISH -> TranslationMode.BOTH
+                                            TranslationMode.BOTH -> TranslationMode.INDONESIAN
+                                        }
+                                        scope.launch { preferencesManager.setTranslationMode(next) }
+                                        showReaderMenu = false
+                                    }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Legenda Tajwid") },
+                                leadingIcon = { Icon(Icons.Rounded.Palette, contentDescription = null) },
+                                onClick = { showTajwidSheet = true; showReaderMenu = false }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Navigasi halaman dan juz") },
+                                leadingIcon = { Icon(Icons.Rounded.AutoStories, contentDescription = null) },
+                                onClick = { showNavigationSheet = true; showReaderMenu = false }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Ukuran font") },
+                                leadingIcon = { Icon(Icons.Rounded.FormatSize, contentDescription = null) },
+                                onClick = { showFontSlider = !showFontSlider; showReaderMenu = false }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (isImmersiveReader) "Keluar mode imersif" else "Mode imersif") },
+                                leadingIcon = {
+                                    Icon(
+                                        if (isImmersiveReader) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    isImmersiveReader = !isImmersiveReader
+                                    showReaderMenu = false
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -274,7 +297,7 @@ fun QuranReaderScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "Terjemahan: ${translationMode.label}  •  ${if (isWordByWordMode) "Kata per Kata • Diblokir" else "Baris Ayat"}",
+                        text = "Terjemahan: ${if (isWordByWordMode) "English (source)" else translationMode.label}  •  ${if (isWordByWordMode) "Kata per Kata" else "Baris Ayat"}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -403,6 +426,8 @@ fun QuranReaderScreen(
                                                 showTranslation = showTranslation,
                                                 translationMode = translationMode,
                                                 isWordByWordMode = isWordByWordMode,
+                                                wordByWord = (wordByWordState as? UiState.Success<Map<Int, List<WordByWord>>>)
+                                                    ?.data?.get(ayah.ayahNumber).orEmpty(),
                                                 onAyahClick = {
                                                     selectedAyahForAction = ayah
                                                 },
@@ -711,7 +736,8 @@ fun AyahReaderItem(
     onTajwidClick: (TajwidParser.TajwidType) -> Unit,
     modifier: Modifier = Modifier,
     translationMode: TranslationMode = TranslationMode.INDONESIAN,
-    isWordByWordMode: Boolean = false
+    isWordByWordMode: Boolean = false,
+    wordByWord: List<WordByWord> = emptyList()
 ) {
     Column(
         modifier = modifier
@@ -769,25 +795,15 @@ fun AyahReaderItem(
 
         // Arabic Text / Word-by-Word View
         if (isWordByWordMode) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(Spacing.md)) {
-                    Text(
-                        text = "Mode kata-per-kata diblokir",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(Spacing.xs))
-                    Text(
-                        text = "Dataset Arab, transliterasi, arti, akar kata, dan audio lafaz belum memiliki provenance terverifikasi.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            if (wordByWord.isEmpty()) {
+                Text(
+                    text = "Data kata per kata belum tersedia untuk ayat ini.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                WordByWordAyah(words = wordByWord)
             }
         } else {
             // Standard Line-by-Line Uthmani Text with End of Ayah glyph
@@ -905,6 +921,61 @@ fun AyahReaderItem(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WordByWordAyah(words: List<WordByWord>) {
+    var selectedWordIndex by remember(words) { mutableIntStateOf(-1) }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            words.forEach { word ->
+                val selected = word.wordIndex == selectedWordIndex
+                val sourceTranslation = word.translationEn.ifBlank { word.translationId }
+                Surface(
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .clickable { selectedWordIndex = word.wordIndex }
+                        .semantics {
+                            contentDescription = "Kata ${word.wordIndex}: $sourceTranslation"
+                        }
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = word.textArabic,
+                            style = getQuranArabicStyle(20f),
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                        if (selected) {
+                            Text(
+                                text = sourceTranslation,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

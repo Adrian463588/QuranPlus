@@ -4,6 +4,7 @@ import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.quranplus.app.core.database.QuranDatabase
+import com.quranplus.app.core.database.ReferenceAssetSynchronizer
 import com.quranplus.app.features.quran.data.QuranRepositoryImpl
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -20,6 +21,7 @@ class QuranDatabaseInstrumentedTest {
     fun GIVEN_bundledAsset_WHEN_roomMigrates_THEN_quranAndFts5AreAvailable() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val database = QuranDatabase.getInstance(context)
+        ReferenceAssetSynchronizer(context, database).synchronize()
 
         val surahs = database.quranDao().getAllSurahs().first()
         val ayahs = database.quranDao().getAyahsBySurah(2).first()
@@ -39,6 +41,11 @@ class QuranDatabaseInstrumentedTest {
         assertFalse(ayahs.isEmpty())
         assertTrue(searchResults.isNotEmpty())
         assertEquals(0, database.hadithDao().getAllHadiths().size)
+        assertEquals(77430, database.wordByWordDao().count())
+        assertEquals(16, database.wordByWordDao().getWordsByAyah(10, 20).size)
+        assertTrue(database.wordByWordDao().getWordsByAyah(10, 20).all { it.translationEn.isNotBlank() })
+        assertTrue(database.wordByWordDao().getWordsByAyah(10, 20).all { it.translationId.isBlank() })
+        assertEquals(17, database.hadithDao().getCollections().first().size)
         assertEquals(0, database.knowledgeChunkDao().getChunksCount())
     }
 

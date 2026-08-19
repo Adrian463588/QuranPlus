@@ -1,12 +1,16 @@
 [CmdletBinding()]
 param(
     [Parameter()]
-    [string]$ReferenceRoot = (Join-Path $PSScriptRoot '..\docs\HadistReference\reference2'),
+    [string]$ReferenceRoot = '',
     [Parameter()]
     [switch]$AsJson
 )
 
 $ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($ReferenceRoot)) {
+    $scriptDirectory = Split-Path -Parent $PSCommandPath
+    $ReferenceRoot = Join-Path $scriptDirectory '..\docs\HadistReference\reference2'
+}
 $root = [IO.Path]::GetFullPath($ReferenceRoot)
 
 function Get-Sha256([string]$Path) {
@@ -23,12 +27,10 @@ function Get-Sha256([string]$Path) {
     }
 }
 
-$books = @(
-    @{ name = 'bukhari'; book_id = 1 },
-    @{ name = 'muslim'; book_id = 2 },
-    @{ name = 'abudawud'; book_id = 4 },
-    @{ name = 'tirmidhi'; book_id = 5 }
-)
+$files = @(Get-ChildItem -LiteralPath (Join-Path $root 'db\by_book') -Filter '*.json' -File -Recurse | Sort-Object FullName)
+if ($files.Count -ne 17) {
+    throw "Expected 17 hadith collections, found $($files.Count)"
+}
 $rows = [Collections.Generic.List[object]]::new()
 $globalIds = [Collections.Generic.HashSet[string]]::new()
 $compositeIds = [Collections.Generic.HashSet[string]]::new()
@@ -39,13 +41,9 @@ $incompleteSamples = [Collections.Generic.List[object]]::new()
 $incompleteRecordKeys = [Collections.Generic.HashSet[string]]::new()
 $invalidChapterReferences = [Collections.Generic.List[object]]::new()
 
-foreach ($book in $books) {
-    $bookName = $book.name
-    $path = Join-Path $root "db\by_book\the_9_books\$bookName.json"
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-        throw "Missing hadith source file: $path"
-    }
-
+foreach ($pathInfo in $files) {
+    $path = $pathInfo.FullName
+    $bookName = $pathInfo.BaseName
     $document = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
     $records = @($document.hadiths)
     $chapters = @($document.chapters)
@@ -60,23 +58,8 @@ foreach ($book in $books) {
         $missing = @($required | Where-Object {
                 $null -eq $record.$_ -or [string]::IsNullOrWhiteSpace([string]$record.$_)
             })
-        if ($null -eq $record.english) {
-            $missing += 'english'
-        } else {
-            foreach ($field in @('narrator', 'text')) {
-                if ([string]::IsNullOrWhiteSpace([string]$record.english.$field)) {
-                    $incompleteFields.Add("english.$field")
-                    $null = $incompleteRecordKeys.Add("${bookName}:$($record.id)")
-                    if ($incompleteSamples.Count -lt 10) {
-                        $incompleteSamples.Add([pscustomobject]@{
-                                book = $bookName
-                                id = $record.id
-                                id_in_book = $record.idInBook
-                                field = "english.$field"
-                            })
-                    }
-                }
-            }
+        if ($null -eq $record.english -or [string]::IsNullOrWhiteSpace([string]$record.english.text)) {
+            $missing += 'english.text'
         }
         if (-not $chapterIds.Contains([string]$record.chapterId)) {
             $invalidChapterReferences.Add([pscustomobject]@{
@@ -86,6 +69,18 @@ foreach ($book in $books) {
                 })
         }
         if ($missing.Count -gt 0) {
+            foreach ($field in $missing) {
+                $incompleteFields.Add([string]$field)
+            }
+            $null = $incompleteRecordKeys.Add("${bookName}:$($record.id)")
+            if ($incompleteSamples.Count -lt 10) {
+                $incompleteSamples.Add([pscustomobject]@{
+                        book = $bookName
+                        id = $record.id
+                        id_in_book = $record.idInBook
+                        fields = @($missing)
+                    })
+            }
             $structuralIssues.Add([pscustomobject]@{
                     book = $bookName
                     index = $index
@@ -106,7 +101,8 @@ foreach ($book in $books) {
 
     $rows.Add([pscustomobject]@{
             collection = $bookName
-            book_id = $book.book_id
+            book_id = [string]$document.id
+            source_path = $pathInfo.FullName.Substring($root.Length).TrimStart('\')
             chapter_count = $chapters.Count
             record_count = $records.Count
             metadata_length = $document.metadata.length
@@ -121,9 +117,11 @@ $structurallyValid = $structuralIssues.Count -eq 0 -and
     $invalidChapterReferences.Count -eq 0
 $result = [pscustomobject]@{
     status = if ($structurallyValid) { 'schema-valid-incomplete-records-license-review-required' } else { 'blocked-schema-validation-failed' }
-    source_revision = (& git -C $root rev-parse HEAD).Trim()
+    source_revision = [string]$package.version
     package_version = [string]$package.version
     package_license = [string]$package.license
+    expected_collections = 17
+    collection_count = $files.Count
     total_records = ($rows | Measure-Object -Property record_count -Sum).Sum
     collections = @($rows)
     duplicate_composite_ids = @($duplicateKeys | Sort-Object)

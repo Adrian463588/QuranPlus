@@ -1,6 +1,7 @@
 package com.quranplus.app
 
 import com.quranplus.app.core.utils.TajwidParser
+import com.quranplus.app.core.utils.TajwidTagCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -123,5 +124,23 @@ class TajwidParserTest {
 
         assertEquals("ت", annotated.text)
         assertTrue(annotated.getStringAnnotations(TajwidParser.TAJWID_ANNOTATION, 0, 1).isEmpty())
+    }
+
+    @Test
+    fun GIVEN_nestedSourceTags_WHEN_parseBracketTags_THEN_preservesInnerAndOuterSpans() {
+        val parsed = TajwidParser.parseBracketTags("[o[ُوٓ[s[اْ]ۚ]")
+
+        assertEquals("ُوٓاْۚ", parsed.text)
+        assertFalse(parsed.malformed)
+        assertEquals(2, parsed.spans.size)
+        assertTrue(parsed.spans.any { it.type == TajwidParser.TajwidType.MAD_WAJIB_JAIZ })
+        assertTrue(parsed.spans.any { it.type == TajwidParser.TajwidType.SILENT })
+    }
+
+    @Test
+    fun GIVEN_reviewedSourceTagCatalog_WHEN_resolvingTags_THEN_everyTagHasTypedRule() {
+        TajwidTagCatalog.mappings.forEach { mapping ->
+            assertNotNull(TajwidParser.TajwidType.fromSourceTag(mapping.sourceTag))
+        }
     }
 }

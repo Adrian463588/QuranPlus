@@ -12,10 +12,13 @@ import com.quranplus.app.core.database.entity.AyahEntity
 import com.quranplus.app.core.database.entity.BookmarkEntity
 import com.quranplus.app.core.database.entity.ChatMessageEntity
 import com.quranplus.app.core.database.entity.HadithEntity
+import com.quranplus.app.core.database.entity.HadithCollectionEntity
+import com.quranplus.app.core.database.entity.HadithChapterEntity
 import com.quranplus.app.core.database.entity.KnowledgeChunkEntity
 import com.quranplus.app.core.database.entity.LastReadEntity
 import com.quranplus.app.core.database.entity.SurahEntity
 import com.quranplus.app.core.database.entity.TahsinLessonEntity
+import com.quranplus.app.core.database.entity.WordByWordEntity
 import com.quranplus.app.core.database.entity.QuizAttemptEntity
 import com.quranplus.app.core.database.entity.QuizQuestionEntity
 import kotlinx.coroutines.flow.Flow
@@ -48,6 +51,32 @@ interface QuranDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAyahs(ayahs: List<AyahEntity>)
+}
+
+@Dao
+interface WordByWordDao {
+    @Query(
+        "SELECT * FROM word_by_word " +
+            "WHERE surah_id = :surahNumber " +
+            "ORDER BY ayah_number ASC, word_index ASC"
+    )
+    fun getWordsBySurah(surahNumber: Int): Flow<List<WordByWordEntity>>
+
+    @Query(
+        "SELECT * FROM word_by_word " +
+            "WHERE surah_id = :surahNumber AND ayah_number = :ayahNumber " +
+            "ORDER BY word_index ASC"
+    )
+    suspend fun getWordsByAyah(surahNumber: Int, ayahNumber: Int): List<WordByWordEntity>
+
+    @Query("SELECT COUNT(*) FROM word_by_word")
+    suspend fun count(): Int
+
+    @Query("SELECT COUNT(*) FROM word_by_word WHERE source_revision = :sourceRevision")
+    suspend fun countBySourceRevision(sourceRevision: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(words: List<WordByWordEntity>)
 }
 
 @Dao
@@ -109,6 +138,15 @@ interface TahsinDao {
 
 @Dao
 interface HadithDao {
+    @Query("SELECT * FROM hadith_collections ORDER BY title_english ASC")
+    fun getCollections(): Flow<List<HadithCollectionEntity>>
+
+    @Query("SELECT COUNT(*) FROM hadith_collections")
+    suspend fun countCollections(): Int
+
+    @Query("SELECT * FROM hadith_chapters WHERE collection_id = :collectionId ORDER BY chapter_number ASC")
+    fun getChapters(collectionId: String): Flow<List<HadithChapterEntity>>
+
     @Query("SELECT * FROM hadiths WHERE collection_id = :collectionId ORDER BY hadith_number ASC")
     fun getHadithsByCollection(collectionId: String): Flow<List<HadithEntity>>
 
@@ -118,8 +156,25 @@ interface HadithDao {
     @Query("SELECT * FROM hadiths LIMIT :limit")
     suspend fun getAllHadiths(limit: Int = 100): List<HadithEntity>
 
+    @Query("SELECT collection_id FROM hadiths GROUP BY collection_id ORDER BY collection_id ASC")
+    fun getCollectionIds(): Flow<List<String>>
+
+    @Query(
+        "SELECT * FROM hadiths " +
+            "WHERE (:collectionId IS NULL OR collection_id = :collectionId) AND " +
+            "(text_arabic LIKE '%' || :query || '%' OR translation_en LIKE '%' || :query || '%') " +
+            "ORDER BY hadith_number ASC LIMIT :limit"
+    )
+    suspend fun search(collectionId: String?, query: String, limit: Int = 100): List<HadithEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHadiths(hadiths: List<HadithEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCollections(collections: List<HadithCollectionEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertChapters(chapters: List<HadithChapterEntity>)
 }
 
 @Dao

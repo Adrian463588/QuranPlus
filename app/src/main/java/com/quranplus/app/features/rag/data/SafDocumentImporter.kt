@@ -31,6 +31,7 @@ data class SafDocumentMetadata(
     val collection: String?,
     val identifier: String,
     val persistedUri: String,
+    val storageUri: String,
     val chunks: List<SafChunk>
 )
 
@@ -40,8 +41,11 @@ sealed interface SafImportResult {
     data class Error(val reason: String, val cause: Throwable? = null) : SafImportResult
 }
 
-/** SAF importer with strict UTF-8/schema checks and atomic app-private storage. */
-class SafDocumentImporter(private val context: Context) {
+/** SAF importer with strict UTF-8/schema checks and durable SAF storage. */
+class SafDocumentImporter(
+    private val context: Context,
+    private val assetStore: SafAssetStore
+) {
 
     private val resolver = context.contentResolver
 
@@ -55,7 +59,7 @@ class SafDocumentImporter(private val context: Context) {
         if (takeFlags != 0) resolver.takePersistableUriPermission(uri, takeFlags)
     }
 
-    private fun importInternal(uri: Uri): SafImportResult {
+    private suspend fun importInternal(uri: Uri): SafImportResult {
         val displayName = queryDisplayName(uri) ?: uri.lastPathSegment ?: return SafImportResult.Error(
             "Nama dokumen dari provider SAF tidak tersedia"
         )
@@ -99,8 +103,12 @@ class SafDocumentImporter(private val context: Context) {
             val chunks = chunkText(source.text)
             if (chunks.isEmpty()) return SafImportResult.Error("Dokumen tidak memiliki token teks")
 
-            val stored = File(stagingDirectory, "$sha256.source")
-            atomicReplace(temporary, stored)
+            val storedUri = assetStore.publishFile(
+                source = temporary,
+                relativeDirectory = "rag/source",
+                filename = "$sha256.source",
+                mimeType = "text/plain"
+            )
             val metadata = SafDocumentMetadata(
                 displayName = displayName,
                 mimeType = mimeType,
@@ -110,9 +118,14 @@ class SafDocumentImporter(private val context: Context) {
                 collection = source.collection,
                 identifier = source.identifier,
                 persistedUri = uri.toString(),
+                storageUri = storedUri.toString(),
                 chunks = chunks
             )
-            writeMetadata(metadata, stagingDirectory)
+            assetStore.publishText(
+                text = metadataJson(metadata),
+                relativeDirectory = "manifests",
+                filename = "$sha256.json"
+            )
             SafImportResult.StoredAwaitingEmbedding(metadata)
         } finally {
             temporary.delete()
@@ -189,8 +202,8 @@ class SafDocumentImporter(private val context: Context) {
         return chunks
     }
 
-    private fun writeMetadata(metadata: SafDocumentMetadata, directory: File) {
-        val json = JSONObject()
+    private fun metadataJson(metadata: SafDocumentMetadata): String {
+        return JSONObject()
             .put("display_name", metadata.displayName)
             .put("mime_type", metadata.mimeType)
             .put("format", metadata.format.name)
@@ -199,23 +212,9 @@ class SafDocumentImporter(private val context: Context) {
             .put("collection", metadata.collection)
             .put("identifier", metadata.identifier)
             .put("persisted_uri", metadata.persistedUri)
+            .put("storage_uri", metadata.storageUri)
             .put("chunk_count", metadata.chunks.size)
-        val temporary = File(directory, "${metadata.sha256}.json.tmp")
-        temporary.writeText(json.toString(2), Charsets.UTF_8)
-        atomicReplace(temporary, File(directory, "${metadata.sha256}.json"))
-    }
-
-    private fun atomicReplace(source: File, target: File) {
-        runCatching {
-            java.nio.file.Files.move(
-                source.toPath(),
-                target.toPath(),
-                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING
-            )
-        }.getOrElse { error ->
-            throw IllegalStateException("Atomic storage move is unavailable", error)
-        }
+            .toString(2)
     }
 
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }

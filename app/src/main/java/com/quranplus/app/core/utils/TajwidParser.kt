@@ -157,24 +157,24 @@ object TajwidParser {
              * Maps the compact tag IDs stored by the Quran Tajwid edition to a typed rule.
              * The IDs are source data, not inferred from the displayed Arabic text.
              */
-            fun fromSourceTag(tag: String): TajwidType? = when (tag.lowercase(Locale.ROOT)) {
-                "h" -> HAMZAT_WASL
-                "s" -> SILENT
-                "l" -> LAM_SHAMSIYYAH
-                "n" -> MAD_TABII
-                "p" -> MAD_PERMISSIBLE
-                "m" -> MAD_LAZIM
-                "q" -> QALQALAH
-                "o" -> MAD_WAJIB_JAIZ
-                "c" -> IKHFA_SYAFAWI
-                "f" -> IKHFA_HAQIQI
-                "w" -> IDGHAM_MIM_MIMI
-                "i" -> IQLAB
-                "a" -> IDGHAM_BIGHUNNAH
-                "u" -> IDGHAM_BILAGHUNNAH
-                "d" -> IDGHAM_MUTAJANISAIN
-                "b" -> IDGHAM_MUTAQARIBAIN
-                "g" -> GHUNNAH
+            fun fromSourceTag(tag: String): TajwidType? = when (TajwidTagCatalog.ruleIdFor(tag)) {
+                TajwidRuleId.HAMZAT_WASL -> HAMZAT_WASL
+                TajwidRuleId.SILENT -> SILENT
+                TajwidRuleId.LAM_SHAMSIYYAH -> LAM_SHAMSIYYAH
+                TajwidRuleId.MAD_TABII -> MAD_TABII
+                TajwidRuleId.MAD_PERMISSIBLE -> MAD_PERMISSIBLE
+                TajwidRuleId.MAD_LAZIM -> MAD_LAZIM
+                TajwidRuleId.QALQALAH -> QALQALAH
+                TajwidRuleId.MAD_WAJIB_JAIZ -> MAD_WAJIB_JAIZ
+                TajwidRuleId.IKHFA_SYAFAWI -> IKHFA_SYAFAWI
+                TajwidRuleId.IKHFA_HAQIQI -> IKHFA_HAQIQI
+                TajwidRuleId.IDGHAM_MIM_MIMI -> IDGHAM_MIM_MIMI
+                TajwidRuleId.IQLAB -> IQLAB
+                TajwidRuleId.IDGHAM_BIGHUNNAH -> IDGHAM_BIGHUNNAH
+                TajwidRuleId.IDGHAM_BILAGHUNNAH -> IDGHAM_BILAGHUNNAH
+                TajwidRuleId.IDGHAM_MUTAJANISAIN -> IDGHAM_MUTAJANISAIN
+                TajwidRuleId.IDGHAM_MUTAQARIBAIN -> IDGHAM_MUTAQARIBAIN
+                TajwidRuleId.GHUNNAH -> GHUNNAH
                 else -> null
             }
         }
@@ -308,48 +308,73 @@ object TajwidParser {
         val plainText = StringBuilder()
         val spans = mutableListOf<TajwidSpan>()
         val unknownTags = linkedSetOf<String>()
+        data class OpenTag(
+            val tag: String,
+            val sourceId: String,
+            val start: Int
+        )
+
+        val openTags = ArrayDeque<OpenTag>()
         var cursor = 0
         var malformed = false
 
         while (cursor < text.length) {
             val match = bracketTagPattern.find(text, cursor)
-            if (match == null) {
-                plainText.append(text.substring(cursor))
-                break
-            }
-
-            if (match.range.first > cursor) {
-                plainText.append(text.substring(cursor, match.range.first))
-            }
-
-            val contentStart = match.range.last + 1
-            val contentEnd = text.indexOf(']', startIndex = contentStart)
-            if (contentEnd < contentStart) {
-                // Preserve malformed source verbatim and fail closed for this remainder.
-                plainText.append(text.substring(match.range.first))
-                malformed = true
-                break
-            }
-
-            val tag = match.groupValues[1].lowercase(Locale.ROOT)
-            val sourceId = match.groupValues.getOrNull(2).orEmpty()
-            val start = plainText.length
-            val content = normalizeSourceContent(text.substring(contentStart, contentEnd))
-            plainText.append(content)
-            val type = TajwidType.fromSourceTag(tag)
-            if (type == null) {
-                unknownTags += tag
-            } else if (content.isNotEmpty()) {
-                spans += TajwidSpan(
-                    start = start,
-                    end = plainText.length,
-                    type = type,
-                    snippet = content,
-                    sourceTag = if (sourceId.isEmpty()) tag else "$tag:$sourceId"
+            if (match != null && match.range.first == cursor) {
+                openTags.addLast(
+                    OpenTag(
+                        tag = match.groupValues[1].lowercase(Locale.ROOT),
+                        sourceId = match.groupValues.getOrNull(2).orEmpty(),
+                        start = plainText.length
+                    )
                 )
+                cursor = match.range.last + 1
+                continue
             }
-            cursor = contentEnd + 1
+
+            if (text[cursor] == '[') {
+                val literalEnd = text.indexOf(']', startIndex = cursor + 1)
+                val literal = if (literalEnd > cursor) text.substring(cursor + 1, literalEnd) else null
+                if (literal == "ٮٰ") {
+                    plainText.append(normalizeSourceContent(literal))
+                    cursor = literalEnd + 1
+                    continue
+                }
+            }
+
+            when {
+                text[cursor] == ']' -> {
+                    val openTag = openTags.removeLastOrNull()
+                    if (openTag == null) {
+                        malformed = true
+                    } else {
+                        val type = TajwidType.fromSourceTag(openTag.tag)
+                        if (type == null) {
+                            unknownTags += openTag.tag
+                        } else if (openTag.start < plainText.length) {
+                            spans += TajwidSpan(
+                                start = openTag.start,
+                                end = plainText.length,
+                                type = type,
+                                snippet = plainText.substring(openTag.start),
+                                sourceTag = if (openTag.sourceId.isEmpty()) {
+                                    openTag.tag
+                                } else {
+                                    "${openTag.tag}:${openTag.sourceId}"
+                                }
+                            )
+                        }
+                    }
+                    cursor++
+                }
+                else -> {
+                    plainText.append(normalizeSourceContent(text[cursor].toString()))
+                    cursor++
+                }
+            }
         }
+
+        if (openTags.isNotEmpty()) malformed = true
 
         return TaggedTextResult(
             text = plainText.toString(),
@@ -410,6 +435,18 @@ object TajwidParser {
                 span.copy(snippet = displayText.substring(span.start, span.end))
             }
         }
+        if (displayText.startsWith(BISMILLAH_PREFIX)) {
+            val prefixLength = BISMILLAH_PREFIX.length
+            val aligned = alignSpansToDisplay(parsed, displayText.substring(prefixLength))
+                ?: return null
+            return aligned.map { span ->
+                span.copy(
+                    start = span.start + prefixLength,
+                    end = span.end + prefixLength,
+                    snippet = displayText.substring(span.start + prefixLength, span.end + prefixLength)
+                )
+            }
+        }
         val sourceToDisplay = alignSourceToDisplay(parsed.text, displayText) ?: return null
         return parsed.spans.mapNotNull { span ->
             val start = sourceToDisplay[span.start.coerceIn(0, parsed.text.length)]
@@ -457,7 +494,13 @@ object TajwidParser {
                     }
                 }
 
-                if (sourceIndex < sourceLength && isOptionalSourceCharacter(source[sourceIndex])) {
+                if (sourceIndex < sourceLength && isOptionalSourceCharacter(
+                        source,
+                        sourceIndex,
+                        display,
+                        displayIndex
+                    )
+                ) {
                     val candidate = costs[index(sourceIndex + 1, displayIndex)]
                     if (candidate < bestCost) {
                         bestCost = candidate
@@ -465,7 +508,13 @@ object TajwidParser {
                     }
                 }
 
-                if (displayIndex < displayLength && isOptionalDisplayCharacter(display[displayIndex])) {
+                if (displayIndex < displayLength && isOptionalDisplayCharacter(
+                        source,
+                        sourceIndex,
+                        display,
+                        displayIndex
+                    )
+                ) {
                     val candidate = costs[index(sourceIndex, displayIndex + 1)]
                     if (candidate < bestCost) {
                         bestCost = candidate
@@ -508,19 +557,61 @@ object TajwidParser {
 
     private fun areSourceAndDisplayEquivalent(source: Char, display: Char): Boolean {
         if (source == display) return true
-        return source == '\u0652' && display == '\u06DF'
+        return (source == '\u0652' && display == '\u06DF') ||
+            (source == '\u0623' && display == '\u0621') ||
+            (source == '\u0649' && display == '\u0626') ||
+            (source == '\u0648' && display == '\u0624')
     }
 
-    private fun isOptionalSourceCharacter(char: Char): Boolean = char == ' ' || char == '\u200C'
+    private fun isOptionalSourceCharacter(
+        source: String,
+        sourceIndex: Int,
+        display: String,
+        displayIndex: Int
+    ): Boolean {
+        val char = source[sourceIndex]
+        if (char == ' ' || char == '\u200C' || char in OPTIONAL_ALIGNMENT_MARKS) return true
+        return char == ALIF &&
+            sourceIndex > 0 &&
+            displayIndex > 0 &&
+            source[sourceIndex - 1] == HAMZA &&
+            display[displayIndex - 1] == ALIF_HAMZA
+    }
 
-    private fun isOptionalDisplayCharacter(char: Char): Boolean = char == ' ' || char in DISPLAY_ONLY_MARKS
+    private fun isOptionalDisplayCharacter(
+        source: String,
+        sourceIndex: Int,
+        display: String,
+        displayIndex: Int
+    ): Boolean {
+        val char = display[displayIndex]
+        if (char == ' ' || char in DISPLAY_ONLY_MARKS || char in OPTIONAL_ALIGNMENT_MARKS) return true
+        return char == ALIF &&
+            sourceIndex > 0 &&
+            displayIndex > 0 &&
+            source[sourceIndex - 1] == ALIF_HAMZA &&
+            display[displayIndex - 1] == HAMZA
+    }
 
     private const val OPERATION_NONE: Byte = 0
     private const val OPERATION_MATCH: Byte = 1
     private const val OPERATION_DELETE_SOURCE: Byte = 2
     private const val OPERATION_INSERT_DISPLAY: Byte = 3
     private const val MAX_ALIGNMENT_COST = 24
-    private val DISPLAY_ONLY_MARKS = setOf('\u06DF', '\u06E0', '\u06E2', '\u06ED', '\u200C')
+    private const val BISMILLAH_PREFIX = "بِّسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ "
+    private const val HAMZA = '\u0621'
+    private const val ALIF_HAMZA = '\u0623'
+    private val DISPLAY_ONLY_MARKS = setOf(
+        '\u06DF', '\u06E0', '\u06E2', '\u06ED', '\u200C',
+        WaqafParser.WAQAF_LA_SYM.single(), WaqafParser.WAQAF_JAIZ_SYM.single(),
+        WaqafParser.WAQAF_WASHLA_SYM.single(), WaqafParser.WAQAF_AWLA_SYM.single(),
+        WaqafParser.WAQAF_MUANAQAH_SYM.single(), WaqafParser.WAQAF_SAKTAH_SYM.single(),
+        WaqafParser.WAQAF_LAZIM_SYM.single(), WaqafParser.AYAH_END_SYM.single()
+    ) + ('٠'..'٩').toSet()
+    private val OPTIONAL_ALIGNMENT_MARKS = setOf(
+        '\u064B', '\u064C', '\u064D', '\u064E', '\u064F', '\u0650', '\u0651', '\u0652',
+        '\u0670', '\u0649', '\u06E5', '\u06E6'
+    )
 
     // ─── Tagged XML parser ───────────────────────────────────────────────────
     private fun parseTaggedArabic(text: String, defaultColor: Color): AnnotatedString {

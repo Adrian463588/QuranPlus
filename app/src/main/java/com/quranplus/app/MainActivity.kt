@@ -35,6 +35,8 @@ import com.quranplus.app.features.chatbot.presentation.ChatScreen
 import com.quranplus.app.features.chatbot.presentation.ChatViewModel
 import com.quranplus.app.features.chatbot.presentation.ModelGateScreen
 import com.quranplus.app.features.gharib.presentation.GharibScreen
+import com.quranplus.app.features.hadith.presentation.HadithScreen
+import com.quranplus.app.features.hadith.presentation.HadithViewModel
 import com.quranplus.app.features.quran.presentation.BookmarksScreen
 import com.quranplus.app.features.quran.presentation.QuranReaderScreen
 import com.quranplus.app.features.quran.presentation.QuranViewModel
@@ -60,11 +62,15 @@ class MainActivity : ComponentActivity() {
     private val modelRepository: ModelRepository by inject()
     private val audioPlayerManager: AudioPlayerManager by inject()
     private val ragDocumentViewModel: RagDocumentViewModel by viewModel()
-    private val openDocumentLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
+    private val openStorageTreeLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         uri?.let {
-            ragDocumentViewModel.importDocument(it, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            ragDocumentViewModel.linkStorageTree(
+                it,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
         }
     }
 
@@ -85,9 +91,7 @@ class MainActivity : ComponentActivity() {
                     audioPlayerManager = audioPlayerManager,
                     ragDocumentViewModel = ragDocumentViewModel,
                     onRequestRagDocument = {
-                        openDocumentLauncher.launch(
-                            arrayOf("text/plain", "text/markdown", "application/json", "application/pdf")
-                        )
+                        openStorageTreeLauncher.launch(null)
                     }
                 )
             }
@@ -111,6 +115,7 @@ fun AppMain(
     val quranViewModel: QuranViewModel = koinViewModel()
     val chatViewModel: ChatViewModel = koinViewModel()
     val tahsinViewModel: TahsinViewModel = koinViewModel()
+    val hadithViewModel: HadithViewModel = koinViewModel()
     val quizViewModel: QuizViewModel = koinViewModel()
     val settingsViewModel: SettingsViewModel = koinViewModel()
 
@@ -133,6 +138,7 @@ fun AppMain(
             quranViewModel = quranViewModel,
             chatViewModel = chatViewModel,
             tahsinViewModel = tahsinViewModel,
+            hadithViewModel = hadithViewModel,
             quizViewModel = quizViewModel,
             settingsViewModel = settingsViewModel,
             preferencesManager = preferencesManager,
@@ -151,6 +157,7 @@ fun AppNavHost(
     quranViewModel: QuranViewModel,
     chatViewModel: ChatViewModel,
     tahsinViewModel: TahsinViewModel,
+    hadithViewModel: HadithViewModel,
     quizViewModel: QuizViewModel,
     settingsViewModel: SettingsViewModel,
     preferencesManager: PreferencesManager,
@@ -178,6 +185,9 @@ fun AppNavHost(
                 },
                 onSearchClick = {
                     navController.navigate("quran_search")
+                },
+                onNavigateToSettings = {
+                    navController.navigate(AppDestination.SETTINGS.route)
                 },
                 widthSizeClass = widthSizeClass
             )
@@ -224,6 +234,11 @@ fun AppNavHost(
         }
 
         // --- 2. Tanya AI (Chatbot RAG) Navigation ---
+        composable(AppDestination.HADITH.route) {
+            HadithScreen(viewModel = hadithViewModel)
+        }
+
+        // --- 3. Tanya AI (Chatbot RAG) Navigation ---
         composable(AppDestination.CHAT.route) {
             if (isModelReady) {
                 ChatScreen(
@@ -237,12 +252,13 @@ fun AppNavHost(
                 ModelGateScreen(
                     viewModel = chatViewModel,
                     modelRepository = modelRepository,
-                    onModelReady = { chatViewModel.checkModelStatus() }
+                    onModelReady = { chatViewModel.checkModelStatus() },
+                    readiness = chatViewModel.readiness
                 )
             }
         }
 
-        // --- 3. Tahsin & Quiz Navigation ---
+        // --- 4. Tahsin & Quiz Navigation ---
         composable(AppDestination.TAHSIN.route) {
             TahsinHomeScreen(
                 viewModel = tahsinViewModel,

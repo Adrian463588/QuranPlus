@@ -12,6 +12,7 @@ import com.quranplus.app.features.quran.domain.GetFirstAyahByJuzUseCase
 import com.quranplus.app.features.quran.domain.GetFirstAyahByPageUseCase
 import com.quranplus.app.features.quran.domain.GetBookmarksUseCase
 import com.quranplus.app.features.quran.domain.GetLastReadUseCase
+import com.quranplus.app.features.quran.domain.GetWordsBySurahUseCase
 import com.quranplus.app.features.quran.domain.GetSurahDetailUseCase
 import com.quranplus.app.features.quran.domain.GetSurahListUseCase
 import com.quranplus.app.features.quran.domain.LastRead
@@ -19,6 +20,7 @@ import com.quranplus.app.features.quran.domain.BookmarkSort
 import com.quranplus.app.features.quran.domain.SaveLastReadUseCase
 import com.quranplus.app.features.quran.domain.SearchQuranUseCase
 import com.quranplus.app.features.quran.domain.Surah
+import com.quranplus.app.features.quran.domain.WordByWord
 import com.quranplus.app.features.quran.domain.ToggleBookmarkUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,7 +49,8 @@ class QuranViewModel(
     private val restoreBookmarkUseCase: RestoreBookmarkUseCase,
     private val updateBookmarkNoteUseCase: UpdateBookmarkNoteUseCase,
     private val saveLastReadUseCase: SaveLastReadUseCase,
-    private val getLastReadUseCase: GetLastReadUseCase
+    private val getLastReadUseCase: GetLastReadUseCase,
+    private val getWordsBySurahUseCase: GetWordsBySurahUseCase
 ) : ViewModel() {
 
     val surahListState: StateFlow<UiState<List<Surah>>> = getSurahListUseCase()
@@ -75,6 +78,9 @@ class QuranViewModel(
     private val _currentAyahsState = MutableStateFlow<UiState<List<Ayah>>>(UiState.Idle)
     val currentAyahsState: StateFlow<UiState<List<Ayah>>> = _currentAyahsState.asStateFlow()
 
+    private val _wordByWordState = MutableStateFlow<UiState<Map<Int, List<WordByWord>>>>(UiState.Idle)
+    val wordByWordState: StateFlow<UiState<Map<Int, List<WordByWord>>>> = _wordByWordState.asStateFlow()
+
     private val _searchState = MutableStateFlow<UiState<List<Ayah>>>(UiState.Idle)
     val searchState: StateFlow<UiState<List<Ayah>>> = _searchState.asStateFlow()
 
@@ -82,12 +88,14 @@ class QuranViewModel(
     val searchSurahFilter: StateFlow<Int?> = _searchSurahFilter.asStateFlow()
 
     private var detailJob: Job? = null
+    private var wordJob: Job? = null
     private var searchJob: Job? = null
     private var lastSavedRead: String? = null
     private var lastSearchQuery = ""
 
     fun loadSurahDetail(surahNumber: Int) {
         detailJob?.cancel()
+        wordJob?.cancel()
         detailJob = viewModelScope.launch {
             _currentAyahsState.value = UiState.Loading
             val surah = getSurahDetailUseCase(surahNumber)
@@ -97,6 +105,19 @@ class QuranViewModel(
                 return@launch
             }
             _currentSurah.value = surah
+
+            wordJob = viewModelScope.launch {
+                _wordByWordState.value = UiState.Loading
+                getWordsBySurahUseCase(surahNumber)
+                    .catch { _wordByWordState.value = UiState.Error(it.localizedMessage ?: "Gagal memuat data kata") }
+                    .collect { words ->
+                        _wordByWordState.value = if (words.isEmpty()) {
+                            UiState.Empty
+                        } else {
+                            UiState.Success(words.groupBy(WordByWord::ayahNumber))
+                        }
+                    }
+            }
 
             getAyahsBySurahUseCase(surahNumber)
                 .catch { _currentAyahsState.value = UiState.Error(it.localizedMessage ?: "Gagal memuat ayat") }

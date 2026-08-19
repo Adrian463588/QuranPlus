@@ -3,9 +3,12 @@ package com.quranplus.app.features.chatbot.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.quranplus.app.core.network.DownloadState
-import com.quranplus.app.core.network.ResumableDownloader
 import com.quranplus.app.features.chatbot.data.ModelInfo
+import com.quranplus.app.features.chatbot.data.ModelDownloadScheduler
 import com.quranplus.app.features.chatbot.data.ModelRepository
+import com.quranplus.app.features.chatbot.data.AiBlocker
+import com.quranplus.app.features.chatbot.data.AiReadiness
+import com.quranplus.app.features.chatbot.data.AiReadinessChecker
 import com.quranplus.app.features.chatbot.domain.ChatMessage
 import com.quranplus.app.features.chatbot.domain.ClearChatHistoryUseCase
 import com.quranplus.app.features.chatbot.domain.GenerateRagAnswerUseCase
@@ -27,8 +30,9 @@ class ChatViewModel(
     private val clearChatHistoryUseCase: ClearChatHistoryUseCase,
     private val generateRagAnswerUseCase: GenerateRagAnswerUseCase,
     private val modelRepository: ModelRepository,
-    private val resumableDownloader: ResumableDownloader,
-    private val preferencesManager: PreferencesManager
+    private val modelDownloadScheduler: ModelDownloadScheduler,
+    private val preferencesManager: PreferencesManager,
+    private val readinessChecker: AiReadinessChecker
 ) : ViewModel() {
 
     private val conversationId = "default_conversation"
@@ -36,8 +40,13 @@ class ChatViewModel(
     val messages: StateFlow<List<ChatMessage>> = getChatHistoryUseCase(conversationId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _isModelReady = MutableStateFlow(modelRepository.isAnyModelReady())
+    private val _isModelReady = MutableStateFlow(false)
     val isModelReady: StateFlow<Boolean> = _isModelReady.asStateFlow()
+
+    private val _readiness = MutableStateFlow(
+        AiReadiness(isReady = false, blockers = AiBlocker.entries.toSet())
+    )
+    val readiness: StateFlow<AiReadiness> = _readiness.asStateFlow()
 
     private val _isStreaming = MutableStateFlow(false)
     val isStreaming: StateFlow<Boolean> = _isStreaming.asStateFlow()
@@ -51,8 +60,18 @@ class ChatViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private var downloadJob: kotlinx.coroutines.Job? = null
+
+    init {
+        checkModelStatus()
+    }
+
     fun checkModelStatus() {
-        _isModelReady.value = modelRepository.isAnyModelReady()
+        viewModelScope.launch {
+            val readiness = readinessChecker.check()
+            _readiness.value = readiness
+            _isModelReady.value = readiness.isReady
+        }
     }
 
     fun startModelDownload(modelInfo: ModelInfo) {
@@ -62,16 +81,20 @@ class ChatViewModel(
             )
             return
         }
-        viewModelScope.launch {
-            val targetFile = modelRepository.getModelFile(modelInfo.filename)
-            resumableDownloader.downloadFile(
-                url = modelInfo.downloadUrl,
-                targetDestination = targetFile,
-                expectedSha256 = modelInfo.sha256
-            ).collect { state ->
+        downloadJob?.cancel()
+        val requestId = runCatching { modelDownloadScheduler.enqueue(modelInfo) }
+            .getOrElse { error ->
+                _downloadState.value = DownloadState.Failed(
+                    error.localizedMessage ?: "Unduhan model tidak dapat dijadwalkan"
+                )
+                return
+            }
+        downloadJob = viewModelScope.launch {
+            modelDownloadScheduler.observe(requestId, modelInfo).collect { state ->
                 _downloadState.value = state
                 if (state is DownloadState.Completed) {
                     _isModelReady.value = modelRepository.isModelReady(modelInfo)
+                    checkModelStatus()
                 }
             }
         }
@@ -79,6 +102,10 @@ class ChatViewModel(
 
     fun sendMessage(userText: String) {
         if (userText.isBlank() || _isStreaming.value) return
+        if (!_isModelReady.value) {
+            _errorMessage.value = _readiness.value.blockers.joinToString(", ") { it.name }
+            return
+        }
 
         viewModelScope.launch {
             _errorMessage.value = null

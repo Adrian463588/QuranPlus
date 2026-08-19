@@ -23,10 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoStories
-import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,6 +32,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.rememberScrollState
@@ -69,11 +70,13 @@ fun SurahListScreen(
     viewModel: QuranViewModel,
     onSurahClick: (Int, Int) -> Unit,
     onSearchClick: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact
 ) {
     val surahState by viewModel.surahListState.collectAsStateWithLifecycle()
     val lastRead by viewModel.lastReadState.collectAsStateWithLifecycle()
     var showTajwidSheet by remember { mutableStateOf(false) }
+    var showQuranMenu by remember { mutableStateOf(false) }
     var selectedSurahNumber by remember { mutableStateOf<Int?>(null) }
     val sheetState = rememberModalBottomSheetState()
 
@@ -82,16 +85,36 @@ fun SurahListScreen(
             AppTopBar(
                 title = "Al-Qur'an Al-Karim",
                 actions = {
-                    IconButton(onClick = { showTajwidSheet = true }) {
+                    IconButton(onClick = { showQuranMenu = true }) {
                         Icon(
-                            imageVector = Icons.Rounded.Palette,
-                            contentDescription = "Panduan Tajwid"
+                            imageVector = Icons.Rounded.Menu,
+                            contentDescription = "Menu Al-Qur'an"
                         )
                     }
-                    IconButton(onClick = onSearchClick) {
-                        Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = "Cari Ayat"
+                    DropdownMenu(
+                        expanded = showQuranMenu,
+                        onDismissRequest = { showQuranMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Cari ayat") },
+                            onClick = {
+                                showQuranMenu = false
+                                onSearchClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Panduan Tajwid") },
+                            onClick = {
+                                showQuranMenu = false
+                                showTajwidSheet = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Pengaturan") },
+                            onClick = {
+                                showQuranMenu = false
+                                onNavigateToSettings()
+                            }
                         )
                     }
                 }
@@ -428,7 +451,9 @@ fun SurahItemRow(
                     text = surah.nameLatin,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -436,12 +461,18 @@ fun SurahItemRow(
                         text = surah.revelationType.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = " • ${surah.ayahCount} Ayat",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -451,7 +482,11 @@ fun SurahItemRow(
                     text = surah.nameArabic,
                     style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp),
                     color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.End
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.widthIn(max = 140.dp),
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

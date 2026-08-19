@@ -16,6 +16,8 @@ data class RetrievedCitation(
 )
 
 interface VectorRetriever {
+    suspend fun isIndexReady(): Boolean = false
+
     suspend fun retrieveTopK(
         query: String,
         queryEmbedding: FloatArray,
