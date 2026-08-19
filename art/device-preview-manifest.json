@@ -3,9 +3,9 @@
   "build_variant": "debug",
   "current_apk": {
     "path": "app/build/outputs/apk/debug/app-debug.apk",
-    "source_commit_sha": "6851cfb726d0ad4e5fa8183a082a31b14ec24870",
-    "sha256": "C4DA9E2A943AC9EEFB64ED003328281975BEC7D502A893FADA78E9D1FD41A741",
-    "size_bytes": 245000169
+    "source_commit_sha": "e5c6b3bfe8d835ceccba9cf9bb2689b73f36c8fe",
+    "sha256": "D3C5788E34200BB9D5533A1D5236A43CC7E3FE7BB2B1910422FAFBA623ECD370",
+    "size_bytes": 245456465
   },
   "capture_command": "adb -s <serial> exec-out screencap -p",
   "screens": [
@@ -48,8 +48,8 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-20T04:07:30+07:00",
-      "sha256": "3A03BE96A74CDE739A6687FAAFCEEB7A4F8072791440B5607526BCC64C180859"
+      "captured_at": "2026-08-20T04:47:41+07:00",
+      "sha256": "8FBD18D6A51BD5CA49F367B6AABBC41BF2DFD212E4A3D2A2F16DC50B85AD7182"
     },
     {
       "path": "art/device-sm-g988b-current-hadith.png",
