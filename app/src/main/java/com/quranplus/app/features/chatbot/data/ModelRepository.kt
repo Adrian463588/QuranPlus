@@ -97,6 +97,17 @@ class ModelRepository(
             isRecommended = true
         ),
         ModelInfo(
+            id = "gemma4-e2b-it",
+            name = "Gemma 4 E2B IT (instruction-tuned)",
+            filename = "gemma-4-E2B-it.litertlm",
+            artifactUrl = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/6e5c4f1e395deb959c494953478fa5cec4b8008f/gemma-4-E2B-it.litertlm",
+            sourceUrl = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/tree/6e5c4f1e395deb959c494953478fa5cec4b8008f",
+            sha256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+            sizeBytes = 2_588_147_712L,
+            format = "litertlm",
+            runtime = "LiteRT-LM"
+        ),
+        ModelInfo(
             id = "gemma3-1b-it",
             name = "Gemma 3 1B IT",
             filename = "gemma3-1b-it.litertlm",

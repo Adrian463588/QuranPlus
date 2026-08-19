@@ -16,6 +16,7 @@ Quran Plus adalah aplikasi Android offline-first berbasis Jetpack Compose, Clean
 Katalog memakai manifest minimal dengan URL HTTPS yang dipin, ukuran artifact, format/runtime, dan SHA-256. Checksum hanya dipakai untuk memastikan unduhan tidak korup atau tertukar.
 
 - Qwen 2.5 1.5B Instruct LiteRT-LM — [source](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/tree/fc180c8fdd5092041a35d416dea8a6c0f771f5a2), 1.567.364.648 bytes, SHA-256 `98c289e1c43cc592ac535594d5de4bdde449e8dc012ac66909064b6880f8b717`.
+- Gemma 4 E2B IT (instruction-tuned) LiteRT-LM — [source](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/tree/6e5c4f1e395deb959c494953478fa5cec4b8008f), 2.588.147.712 bytes, SHA-256 `181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`. Model ini berasal dari base Gemma 4 E2B dan varian instruction-tuned-nya; penggunaan Gemma mengikuti [Gemma Terms of Use](https://ai.google.dev/gemma/terms).
 - all-MiniLM-L6-v2 ONNX untuk RAG — [source](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/tree/1110a243fdf4706b3f48f1d95db1a4f5529b4d41), 23.026.053 bytes, 384 dimensi, SHA-256 `4278337fd0ff3c68bfb6291042cad8ab363e1d9fbc43dcb499fe91c871902474`.
 - Gemma 3, Alif Islamic, Qwen GGUF, dan Qwen3 Embedding tetap tampil sebagai sumber tambahan, tetapi tidak dapat diunduh atau dipakai sebelum format dan runtime-nya benar-benar cocok dengan aplikasi.
 
