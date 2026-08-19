@@ -3,7 +3,7 @@
   "build_variant": "debug",
   "current_apk": {
     "path": "app/build/outputs/apk/debug/app-debug.apk",
-    "source_commit_sha": "1a0c1994e375c5133f5e1b2910b021ae5453e12f",
+    "source_commit_sha": "0936ee6203ccfbbc08834e9710336ae92722ebaa",
     "sha256": "0E8E86BA4B38F4F04D8BFBACBFE93EAA7E4101495A6B8EBDC5F70276AA9A2B79"
   },
   "capture_command": "adb -s <serial> exec-out screencap -p",
