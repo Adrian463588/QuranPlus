@@ -1,9 +1,9 @@
 {
   "schema_version": "device-preview-manifest-1",
-  "source_commit_sha": "df73aaafbb00a564a0971b1ead26d5612952a8b2",
+  "source_commit_sha": "7f707d6658490bda6ab70ea028a22e8808bf3f49",
   "build_variant": "debug",
   "apk": "app/build/outputs/apk/debug/app-debug.apk",
-  "apk_sha256": "46BD4300CB8E111D9072DE9126089C9EC0CA5EC0B0529DDA885DB461D6554EB7",
+  "apk_sha256": "4D1DD72461365863DA6150AEC46EB5C6D0222206D06A7B508466F0392FC1AE89",
   "device_serial": "RRCN3008VYE",
   "device_model": "SM-G988B",
   "android_api": 33,
@@ -24,7 +24,7 @@
     { "path": "art/device-sm-g988b-settings.png", "route": "settings_home", "device_verified": true },
     { "path": "art/device-sm-g988b-search.png", "route": "quran_search_allah", "device_verified": true }
   ],
-  "captured_at": "2026-08-19T15:21:48+07:00",
+  "captured_at": "2026-08-19T16:18:43+07:00",
   "acceptance_scope": "SM-G988B compact portrait smoke evidence only",
   "not_proven": [
     "medium and expanded adaptive panes",
