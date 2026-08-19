@@ -6,6 +6,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import com.quranplus.app.core.ui.theme.QuranColors
+import java.util.Locale
 
 /**
  * Tajwid Parser and Color Formatter
@@ -105,8 +106,93 @@ object TajwidParser {
             harakatDuration = "6 Harakat (Wajib)",
             description = "Panjang 6 harakat wajib",
             ruleExplanation = "Mad bertemu huruf bertasydid atau sukun lazim, wajib dipanjangkan 6 harakat penuh."
+        ),
+        HAMZAT_WASL(
+            label = "Hamzat Wasl",
+            color = QuranColors.TajwidIzhar,
+            harakatDuration = "Sesuai posisi mulai",
+            description = "Hamzah yang dibaca saat memulai bacaan",
+            ruleExplanation = "Hamzat wasl dibaca ketika memulai kata dan gugur ketika bacaan disambung dari kata sebelumnya."
+        ),
+        SILENT(
+            label = "Huruf Saktah",
+            color = QuranColors.TajwidIzhar,
+            harakatDuration = "Tidak dibaca",
+            description = "Tanda huruf yang tidak dilafalkan",
+            ruleExplanation = "Tanda silent pada mushaf menandai huruf yang tidak dilafalkan dalam bacaan."
+        ),
+        LAM_SHAMSIYYAH(
+            label = "Lam Syamsiyyah",
+            color = QuranColors.TajwidIdgham,
+            harakatDuration = "Melebur",
+            description = "Lam ta'rif melebur ke huruf syamsiyyah",
+            ruleExplanation = "Lam pada alif-lam ta'rif tidak terdengar dan melebur ke huruf syamsiyyah setelahnya."
+        ),
+        MAD_PERMISSIBLE(
+            label = "Mad Jaiz",
+            color = QuranColors.TajwidMadWajib,
+            harakatDuration = "2, 4, atau 6 Harakat",
+            description = "Panjang bacaan yang diperbolehkan",
+            ruleExplanation = "Mad permissible ditandai oleh sumber Tajwid dan dibaca sesuai riwayat serta pedoman bacaan yang dipilih."
+        ),
+        IDGHAM_MUTAJANISAIN(
+            label = "Idgham Mutajanisain",
+            color = QuranColors.TajwidIdgham,
+            harakatDuration = "Melebur",
+            description = "Dua huruf yang makhrajnya sama",
+            ruleExplanation = "Huruf pertama dilebur ke huruf kedua ketika dua huruf yang satu makhraj bertemu sesuai tanda Tajwid."
+        ),
+        IDGHAM_MUTAQARIBAIN(
+            label = "Idgham Mutaqaribain",
+            color = QuranColors.TajwidIdghamBila,
+            harakatDuration = "Melebur",
+            description = "Dua huruf yang makhrajnya berdekatan",
+            ruleExplanation = "Huruf pertama dilebur ke huruf kedua ketika dua huruf yang berdekatan makhrajnya bertemu sesuai tanda Tajwid."
         )
+
+        ;
+
+        companion object {
+            /**
+             * Maps the compact tag IDs stored by the Quran Tajwid edition to a typed rule.
+             * The IDs are source data, not inferred from the displayed Arabic text.
+             */
+            fun fromSourceTag(tag: String): TajwidType? = when (tag.lowercase(Locale.ROOT)) {
+                "h" -> HAMZAT_WASL
+                "s" -> SILENT
+                "l" -> LAM_SHAMSIYYAH
+                "n" -> MAD_TABII
+                "p" -> MAD_PERMISSIBLE
+                "m" -> MAD_LAZIM
+                "q" -> QALQALAH
+                "o" -> MAD_WAJIB_JAIZ
+                "c" -> IKHFA_SYAFAWI
+                "f" -> IKHFA_HAQIQI
+                "w" -> IDGHAM_MIM_MIMI
+                "i" -> IQLAB
+                "a" -> IDGHAM_BIGHUNNAH
+                "u" -> IDGHAM_BILAGHUNNAH
+                "d" -> IDGHAM_MUTAJANISAIN
+                "b" -> IDGHAM_MUTAQARIBAIN
+                "g" -> GHUNNAH
+                else -> null
+            }
+        }
     }
+
+    const val TAJWID_ANNOTATION = "quranplus_tajwid"
+    const val TAJWID_SOURCE_ANNOTATION = "quranplus_tajwid_source"
+
+    /**
+     * Result of parsing the bracket syntax used by the bundled Quran database.
+     * Unknown tags are retained in [unknownTags] and rendered without a guessed rule.
+     */
+    data class TaggedTextResult(
+        val text: String,
+        val spans: List<TajwidSpan>,
+        val unknownTags: Set<String>,
+        val malformed: Boolean
+    )
 
     // Diacritic & Special Unicode constants
     private const val SUKUN          = '\u0652'
@@ -153,8 +239,12 @@ object TajwidParser {
         val start: Int,
         val end: Int,
         val type: TajwidType,
-        val snippet: String = ""
+        val snippet: String = "",
+        val sourceTag: String? = null
     )
+
+    private val bracketTagPattern = Regex("\\[([a-zA-Z])(?::([0-9]+))?\\[")
+
 
     /**
      * Parses Arabic ayah text and returns an [AnnotatedString] with precise two-letter (inter-character pair) Tajwid color spans.
@@ -169,6 +259,22 @@ object TajwidParser {
             return AnnotatedString(arabicText)
         }
 
+        if (!tajwidTags.isNullOrBlank() && bracketTagPattern.containsMatchIn(tajwidTags)) {
+            val parsed = parseBracketTags(tajwidTags)
+            val alignedSpans = alignSpansToDisplay(parsed, arabicText)
+            if (!parsed.malformed && alignedSpans != null) {
+                return buildAnnotatedText(
+                    text = arabicText,
+                    spans = alignedSpans,
+                    baseTextColor = baseTextColor
+                )
+            }
+
+            // The source markup and display text must share the same codepoint offsets.
+            // Returning an uncoloured text is safer than applying a wrong rule to a glyph.
+            return plainText(arabicText, baseTextColor)
+        }
+
         // If text contains inline tags like <tajwid:idgham>...
         if (arabicText.contains("<tajwid:") || (!tajwidTags.isNullOrBlank() && arabicText.contains("<"))) {
             return parseTaggedArabic(arabicText, baseTextColor)
@@ -176,24 +282,242 @@ object TajwidParser {
 
         // Two-letter inter-character scanner
         val spans = detectTajwidSpans(arabicText)
-        val builder = AnnotatedString.Builder(arabicText)
-        builder.addStyle(SpanStyle(color = baseTextColor), 0, arabicText.length)
-
-        for (span in spans) {
-            if (span.start in 0 until arabicText.length && span.end in (span.start + 1)..arabicText.length) {
-                builder.addStyle(SpanStyle(color = span.type.color), span.start, span.end)
-            }
-        }
-        return builder.toAnnotatedString()
+        return buildAnnotatedText(arabicText, spans, baseTextColor)
     }
 
     /**
      * Extracts all detected Tajwid occurrences with their full details for bottom sheet display.
      */
-    fun extractTajwidOccurrences(arabicText: String): List<TajwidSpan> {
+    fun extractTajwidOccurrences(arabicText: String, tajwidTags: String? = null): List<TajwidSpan> {
         if (arabicText.isBlank()) return emptyList()
+        if (!tajwidTags.isNullOrBlank() && bracketTagPattern.containsMatchIn(tajwidTags)) {
+            val parsed = parseBracketTags(tajwidTags)
+            return alignSpansToDisplay(parsed, arabicText).orEmpty()
+        }
         return detectTajwidSpans(arabicText)
     }
+
+    /**
+     * Parses the `[rule[:source-id][content]` format used by the bundled edition.
+     * The source id is retained as an annotation so a future detail screen can link
+     * back to the exact source occurrence without deriving data from the glyph.
+     */
+    fun parseBracketTags(text: String): TaggedTextResult {
+        val plainText = StringBuilder()
+        val spans = mutableListOf<TajwidSpan>()
+        val unknownTags = linkedSetOf<String>()
+        var cursor = 0
+        var malformed = false
+
+        while (cursor < text.length) {
+            val match = bracketTagPattern.find(text, cursor)
+            if (match == null) {
+                plainText.append(text.substring(cursor))
+                break
+            }
+
+            if (match.range.first > cursor) {
+                plainText.append(text.substring(cursor, match.range.first))
+            }
+
+            val contentStart = match.range.last + 1
+            val contentEnd = text.indexOf(']', startIndex = contentStart)
+            if (contentEnd < contentStart) {
+                // Preserve malformed source verbatim and fail closed for this remainder.
+                plainText.append(text.substring(match.range.first))
+                malformed = true
+                break
+            }
+
+            val tag = match.groupValues[1].lowercase(Locale.ROOT)
+            val sourceId = match.groupValues.getOrNull(2).orEmpty()
+            val start = plainText.length
+            val content = normalizeSourceContent(text.substring(contentStart, contentEnd))
+            plainText.append(content)
+            val type = TajwidType.fromSourceTag(tag)
+            if (type == null) {
+                unknownTags += tag
+            } else if (content.isNotEmpty()) {
+                spans += TajwidSpan(
+                    start = start,
+                    end = plainText.length,
+                    type = type,
+                    snippet = content,
+                    sourceTag = if (sourceId.isEmpty()) tag else "$tag:$sourceId"
+                )
+            }
+            cursor = contentEnd + 1
+        }
+
+        return TaggedTextResult(
+            text = plainText.toString(),
+            spans = spans,
+            unknownTags = unknownTags,
+            malformed = malformed
+        )
+    }
+
+    private fun normalizeSourceContent(content: String): String {
+        return buildString(content.length) {
+            content.forEach { char ->
+                when (char) {
+                    '\u0640', '\u200C' -> Unit
+                    '\u0672' -> append('\u0670')
+                    '\u066E' -> append('\u0649')
+                    '\u06E7' -> append('\u06E6')
+                    else -> append(char)
+                }
+            }
+        }
+    }
+
+    private fun buildAnnotatedText(
+        text: String,
+        spans: List<TajwidSpan>,
+        baseTextColor: Color
+    ): AnnotatedString {
+        val builder = AnnotatedString.Builder(text)
+        if (text.isNotEmpty()) {
+            builder.addStyle(SpanStyle(color = baseTextColor), 0, text.length)
+        }
+
+        spans.forEach { span ->
+            if (span.start in 0 until text.length && span.end in (span.start + 1)..text.length) {
+                builder.addStyle(SpanStyle(color = span.type.color), span.start, span.end)
+                builder.addStringAnnotation(TAJWID_ANNOTATION, span.type.name, span.start, span.end)
+                span.sourceTag?.let { sourceTag ->
+                    builder.addStringAnnotation(TAJWID_SOURCE_ANNOTATION, sourceTag, span.start, span.end)
+                }
+            }
+        }
+        return builder.toAnnotatedString()
+    }
+
+    private fun plainText(text: String, baseTextColor: Color): AnnotatedString {
+        return if (text.isEmpty()) AnnotatedString(text) else buildAnnotatedString {
+            withStyle(SpanStyle(color = baseTextColor)) { append(text) }
+        }
+    }
+
+    private fun alignSpansToDisplay(
+        parsed: TaggedTextResult,
+        displayText: String
+    ): List<TajwidSpan>? {
+        val sourceToDisplay = alignSourceToDisplay(parsed.text, displayText) ?: return null
+        return parsed.spans.mapNotNull { span ->
+            val start = sourceToDisplay[span.start.coerceIn(0, parsed.text.length)]
+            val end = sourceToDisplay[span.end.coerceIn(0, parsed.text.length)]
+            if (end <= start) return@mapNotNull null
+            span.copy(
+                start = start,
+                end = end,
+                snippet = displayText.substring(start, end)
+            )
+        }
+    }
+
+    /**
+     * Aligns the markup edition with the display edition without rewriting the
+     * Quran text. The two editions contain known decorative/codepoint variants;
+     * only low-cost equivalents are accepted, otherwise coloring is blocked.
+     */
+    private fun alignSourceToDisplay(source: String, display: String): IntArray? {
+        val sourceLength = source.length
+        val displayLength = display.length
+        val width = displayLength + 1
+        val costs = IntArray((sourceLength + 1) * width) { Int.MAX_VALUE / 4 }
+        val operations = ByteArray(costs.size)
+        fun index(sourceIndex: Int, displayIndex: Int): Int = sourceIndex * width + displayIndex
+
+        costs[index(sourceLength, displayLength)] = 0
+        for (sourceIndex in sourceLength downTo 0) {
+            for (displayIndex in displayLength downTo 0) {
+                if (sourceIndex == sourceLength && displayIndex == displayLength) continue
+                var bestCost = Int.MAX_VALUE / 4
+                var bestOperation = OPERATION_NONE
+
+                if (sourceIndex < sourceLength && displayIndex < displayLength) {
+                    val equivalent = areSourceAndDisplayEquivalent(
+                        source[sourceIndex],
+                        display[displayIndex]
+                    )
+                    val candidate = costs[index(sourceIndex + 1, displayIndex + 1)] +
+                        if (equivalent) 0 else REPLACEMENT_COST
+                    if (candidate < bestCost) {
+                        bestCost = candidate
+                        bestOperation = if (equivalent) OPERATION_MATCH else OPERATION_REPLACE
+                    }
+                }
+
+                if (sourceIndex < sourceLength) {
+                    val candidate = costs[index(sourceIndex + 1, displayIndex)] +
+                        if (isOptionalSourceCharacter(source[sourceIndex])) 0 else GAP_COST
+                    if (candidate < bestCost) {
+                        bestCost = candidate
+                        bestOperation = OPERATION_DELETE_SOURCE
+                    }
+                }
+
+                if (displayIndex < displayLength) {
+                    val candidate = costs[index(sourceIndex, displayIndex + 1)] +
+                        if (isOptionalDisplayCharacter(display[displayIndex])) 0 else GAP_COST
+                    if (candidate < bestCost) {
+                        bestCost = candidate
+                        bestOperation = OPERATION_INSERT_DISPLAY
+                    }
+                }
+
+                costs[index(sourceIndex, displayIndex)] = bestCost
+                operations[index(sourceIndex, displayIndex)] = bestOperation
+            }
+        }
+
+        val totalCost = costs[index(0, 0)]
+        if (totalCost > maxOf(MAX_ALIGNMENT_COST, sourceLength / 3)) return null
+
+        val sourceBoundaries = IntArray(sourceLength + 1)
+        var sourceIndex = 0
+        var displayIndex = 0
+        sourceBoundaries[0] = 0
+        while (sourceIndex < sourceLength || displayIndex < displayLength) {
+            when (operations[index(sourceIndex, displayIndex)]) {
+                OPERATION_MATCH, OPERATION_REPLACE -> {
+                    sourceIndex++
+                    displayIndex++
+                    sourceBoundaries[sourceIndex] = displayIndex
+                }
+                OPERATION_DELETE_SOURCE -> {
+                    sourceIndex++
+                    sourceBoundaries[sourceIndex] = displayIndex
+                }
+                OPERATION_INSERT_DISPLAY -> {
+                    displayIndex++
+                    sourceBoundaries[sourceIndex] = displayIndex
+                }
+                else -> return null
+            }
+        }
+        return sourceBoundaries
+    }
+
+    private fun areSourceAndDisplayEquivalent(source: Char, display: Char): Boolean {
+        if (source == display) return true
+        return source == '\u0652' && display == '\u06DF'
+    }
+
+    private fun isOptionalSourceCharacter(char: Char): Boolean = char == ' ' || char == '\u200C'
+
+    private fun isOptionalDisplayCharacter(char: Char): Boolean = char == ' ' || char in DISPLAY_ONLY_MARKS
+
+    private const val OPERATION_NONE: Byte = 0
+    private const val OPERATION_MATCH: Byte = 1
+    private const val OPERATION_REPLACE: Byte = 2
+    private const val OPERATION_DELETE_SOURCE: Byte = 3
+    private const val OPERATION_INSERT_DISPLAY: Byte = 4
+    private const val GAP_COST = 3
+    private const val REPLACEMENT_COST = 3
+    private const val MAX_ALIGNMENT_COST = 24
+    private val DISPLAY_ONLY_MARKS = setOf('\u06DF', '\u06E0', '\u06E2', '\u06ED', '\u200C')
 
     // ─── Tagged XML parser ───────────────────────────────────────────────────
     private fun parseTaggedArabic(text: String, defaultColor: Color): AnnotatedString {
@@ -415,4 +739,3 @@ object TajwidParser {
         return -1
     }
 }
-

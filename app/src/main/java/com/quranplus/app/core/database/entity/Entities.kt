@@ -78,6 +78,8 @@ data class LastReadEntity(
     val surahName: String,
     @ColumnInfo(name = "ayah_number")
     val ayahNumber: Int,
+    val juz: Int = 1,
+    val page: Int = 1,
     val timestamp: Long = System.currentTimeMillis()
 )
 

@@ -3,6 +3,8 @@ package com.quranplus.app.features.quran.domain
 typealias GetSurahListUseCase = com.quranplus.shared.features.quran.domain.GetSurahListUseCase
 typealias GetSurahDetailUseCase = com.quranplus.shared.features.quran.domain.GetSurahDetailUseCase
 typealias GetAyahsBySurahUseCase = com.quranplus.shared.features.quran.domain.GetAyahsBySurahUseCase
+typealias GetFirstAyahByPageUseCase = com.quranplus.shared.features.quran.domain.GetFirstAyahByPageUseCase
+typealias GetFirstAyahByJuzUseCase = com.quranplus.shared.features.quran.domain.GetFirstAyahByJuzUseCase
 typealias SearchQuranUseCase = com.quranplus.shared.features.quran.domain.SearchQuranUseCase
 typealias ToggleBookmarkUseCase = com.quranplus.shared.features.quran.domain.ToggleBookmarkUseCase
 typealias GetBookmarksUseCase = com.quranplus.shared.features.quran.domain.GetBookmarksUseCase

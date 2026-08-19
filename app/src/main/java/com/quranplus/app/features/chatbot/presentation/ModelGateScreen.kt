@@ -56,7 +56,47 @@ fun ModelGateScreen(
 ) {
     val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
     val availableModels = remember { modelRepository.availableModelConfigs }
-    var selectedModel by remember { mutableStateOf(availableModels.first { it.isRecommended }) }
+
+    if (availableModels.isEmpty()) {
+        Scaffold(
+            topBar = { AppTopBar(title = "Setup AI On-Device") }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = Spacing.lg),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Security,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(modifier = Modifier.height(Spacing.md))
+                Text(
+                    text = "Model lokal belum tersedia",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(Spacing.xs))
+                Text(
+                    text = "ModelGate diblokir sampai katalog berisi URL, lisensi, ukuran, dan SHA-256 yang telah direview.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        return
+    }
+
+    var selectedModel by remember {
+        mutableStateOf(availableModels.firstOrNull { it.isRecommended } ?: availableModels.first())
+    }
 
     Scaffold(
         topBar = {

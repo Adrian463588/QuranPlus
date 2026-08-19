@@ -23,35 +23,12 @@ data class ModelInfo(
 
 class ModelRepository(private val context: Context) {
 
-    val availableModelConfigs = listOf(
-        ModelInfo(
-            id = "gemma-3-1b-it",
-            name = "Gemma 3 1B IT (4-bit)",
-            filename = "gemma-3-1b-it.litertlm",
-            sizeDescription = "~600 MB",
-            ramRequirement = "4 GB+ RAM",
-            downloadUrl = "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma-3-1b-it.litertlm",
-            isRecommended = true
-        ),
-        ModelInfo(
-            id = "qwen2.5-1.5b",
-            name = "Qwen 2.5 1.5B Instruct",
-            filename = "qwen2.5-1.5b-instruct.litertlm",
-            sizeDescription = "~800 MB",
-            ramRequirement = "4 GB+ RAM",
-            downloadUrl = "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/qwen2.5-1.5b-instruct.litertlm",
-            isRecommended = false
-        ),
-        ModelInfo(
-            id = "gemma-4-e2b",
-            name = "Gemma 4 E2B Instruct",
-            filename = "gemma-4-E2B-it-litertlm.litertlm",
-            sizeDescription = "~2.58 GB",
-            ramRequirement = "6 GB+ RAM",
-            downloadUrl = "https://huggingface.co/litert-community/Gemma-4-E2B-IT/resolve/main/gemma-4-E2B-it-litertlm.litertlm",
-            isRecommended = false
-        )
-    )
+    /**
+     * Model catalog is intentionally empty until a reviewed, pinned manifest is
+     * supplied. A URL without an exact SHA-256 is not a downloadable production
+     * model and must not appear as one in the UI.
+     */
+    val availableModelConfigs: List<ModelInfo> = emptyList()
 
     fun getModelsDirectory(): File {
         val dir = File(context.filesDir, "models")

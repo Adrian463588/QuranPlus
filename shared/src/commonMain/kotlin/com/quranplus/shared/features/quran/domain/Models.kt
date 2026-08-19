@@ -39,5 +39,7 @@ data class LastRead(
     val surahNumber: Int,
     val surahName: String,
     val ayahNumber: Int,
+    val juz: Int = 1,
+    val page: Int = 1,
     val timestamp: Long
 )

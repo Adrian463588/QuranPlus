@@ -73,6 +73,35 @@ class QuranRepositoryImpl(
         }
     }
 
+    override suspend fun getFirstAyahByPage(page: Int): Ayah? {
+        require(page in 1..604) { "Halaman Quran harus berada di antara 1 dan 604" }
+        return quranDao.getFirstAyahByPage(page)?.toDomainAyah()
+    }
+
+    override suspend fun getFirstAyahByJuz(juz: Int): Ayah? {
+        require(juz in 1..30) { "Juz Quran harus berada di antara 1 dan 30" }
+        return quranDao.getFirstAyahByJuz(juz)?.toDomainAyah()
+    }
+
+    private suspend fun com.quranplus.app.core.database.entity.AyahEntity.toDomainAyah(): Ayah {
+        val surah = quranDao.getSurahByNumber(surahId)
+            ?: throw IllegalStateException("Surah $surahId tidak tersedia untuk posisi Quran")
+        return Ayah(
+            id = id,
+            surahNumber = surahId,
+            surahName = surah.nameLatin,
+            ayahNumber = ayahNumber,
+            textArabic = textArabic,
+            transliteration = transliteration,
+            translationId = translationId,
+            translationEn = translationEn,
+            juz = juz,
+            page = page,
+            tajwidTags = tajwidTags,
+            isBookmarked = bookmarkDao.getBookmark(surahId, ayahNumber) != null
+        )
+    }
+
     override suspend fun searchAyahs(query: String, surahNumber: Int?): List<Ayah> {
         val cleanQuery = query.trim()
         if (cleanQuery.isBlank()) return emptyList()
@@ -210,19 +239,33 @@ class QuranRepositoryImpl(
                     surahNumber = it.surahId,
                     surahName = it.surahName,
                     ayahNumber = it.ayahNumber,
+                    juz = it.juz,
+                    page = it.page,
                     timestamp = it.timestamp
                 )
             }
         }
     }
 
-    override suspend fun saveLastRead(surahNumber: Int, surahName: String, ayahNumber: Int) {
+    override suspend fun saveLastRead(
+        surahNumber: Int,
+        surahName: String,
+        ayahNumber: Int,
+        juz: Int,
+        page: Int
+    ) {
+        require(surahNumber in 1..114)
+        require(ayahNumber > 0)
+        require(juz > 0)
+        require(page > 0)
         lastReadDao.saveLastRead(
             LastReadEntity(
                 id = 1,
                 surahId = surahNumber,
                 surahName = surahName,
                 ayahNumber = ayahNumber,
+                juz = juz,
+                page = page,
                 timestamp = System.currentTimeMillis()
             )
         )

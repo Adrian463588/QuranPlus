@@ -1,5 +1,7 @@
 package com.quranplus.app.features.quran.presentation
 
+import android.app.Activity
+import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,10 +24,15 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.FormatSize
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Pause
@@ -45,15 +52,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,10 +75,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.quranplus.app.core.audio.AudioPlayerManager
 import com.quranplus.app.core.audio.PlaybackState
 import com.quranplus.app.core.ui.components.AppEmptyState
@@ -97,7 +113,8 @@ fun QuranReaderScreen(
     viewModel: QuranViewModel,
     preferencesManager: PreferencesManager,
     audioPlayerManager: AudioPlayerManager,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onNavigateToAyah: (surahNumber: Int, ayahNumber: Int) -> Unit
 ) {
     val surah by viewModel.currentSurah.collectAsStateWithLifecycle()
     val ayahsState by viewModel.currentAyahsState.collectAsStateWithLifecycle()
@@ -107,17 +124,51 @@ fun QuranReaderScreen(
     val showTranslation by preferencesManager.showTranslation.collectAsStateWithLifecycle(initialValue = true)
     val enableTajwid by preferencesManager.enableTajwid.collectAsStateWithLifecycle(initialValue = true)
     val translationMode by preferencesManager.translationMode.collectAsStateWithLifecycle(initialValue = TranslationMode.INDONESIAN)
+    val view = LocalView.current
+    val activity = view.context as? Activity
 
     var showTajwidSheet by remember { mutableStateOf(false) }
+    var showNavigationSheet by remember { mutableStateOf(false) }
     var showFontSlider by remember { mutableStateOf(false) }
     var isWordByWordMode by remember { mutableStateOf(false) }
+    var isImmersiveReader by remember { mutableStateOf(false) }
     var selectedAyahForAction by remember { mutableStateOf<Ayah?>(null) }
     var selectedWaqafRule by remember { mutableStateOf<WaqafParser.WaqafRule?>(null) }
+    var selectedTajwidRule by remember { mutableStateOf<TajwidParser.TajwidType?>(null) }
 
     val sheetState = rememberModalBottomSheetState()
-    val listState = rememberLazyListState()
+    val navigationSheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+
+    DisposableEffect(activity) {
+        val window = activity?.window
+        val alreadyKeptOn = window?.attributes?.flags?.and(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) != 0
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose {
+            if (!alreadyKeptOn) {
+                window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+    }
+
+    LaunchedEffect(activity, isImmersiveReader) {
+        val window = activity?.window ?: return@LaunchedEffect
+        val controller = WindowCompat.getInsetsController(window, view)
+        if (isImmersiveReader) {
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    DisposableEffect(activity) {
+        onDispose {
+            val window = activity?.window ?: return@onDispose
+            WindowCompat.getInsetsController(window, view).show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
 
     // HorizontalPager for swipe between surahs
     val pagerState = rememberPagerState(
@@ -129,34 +180,6 @@ fun QuranReaderScreen(
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { page ->
             viewModel.loadSurahDetail(page + 1)
-        }
-    }
-
-    // Scroll to initial ayah when ayahs load
-    LaunchedEffect(ayahsState, initialAyahNumber) {
-        if (ayahsState is UiState.Success && initialAyahNumber > 0) {
-            val data = (ayahsState as UiState.Success<List<Ayah>>).data
-            val currentSurahNum = pagerState.currentPage + 1
-            if (initialAyahNumber <= data.size) {
-                val headerOffset = if (currentSurahNum != 9) 1 else 0
-                val targetIndex = headerOffset + initialAyahNumber - 1
-                listState.animateScrollToItem(targetIndex)
-            }
-        }
-    }
-
-    // Auto-update last read position as user scrolls
-    val firstVisibleItemIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
-    LaunchedEffect(firstVisibleItemIndex, ayahsState, pagerState.currentPage) {
-        val currentSurah = surah
-        val currentSurahNum = pagerState.currentPage + 1
-        val state = ayahsState
-        if (currentSurah != null && state is UiState.Success) {
-            val headerOffset = if (currentSurahNum != 9) 1 else 0
-            val ayahIndex = (firstVisibleItemIndex - headerOffset).coerceAtLeast(0)
-            state.data.getOrNull(ayahIndex)?.let { ayah ->
-                viewModel.onAyahVisible(currentSurahNum, currentSurah.nameLatin, ayah.ayahNumber)
-            }
         }
     }
 
@@ -200,10 +223,25 @@ fun QuranReaderScreen(
                             contentDescription = "Panduan Tajwid"
                         )
                     }
+                    IconButton(onClick = { showNavigationSheet = true }) {
+                        Icon(
+                            imageVector = Icons.Rounded.AutoStories,
+                            contentDescription = "Navigasi halaman dan juz"
+                        )
+                    }
                     IconButton(onClick = { showFontSlider = !showFontSlider }) {
                         Icon(
                             imageVector = Icons.Rounded.FormatSize,
                             contentDescription = "Ukuran Font"
+                        )
+                    }
+                    IconButton(onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isImmersiveReader = !isImmersiveReader
+                    }) {
+                        Icon(
+                            imageVector = if (isImmersiveReader) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                            contentDescription = if (isImmersiveReader) "Keluar mode imersif" else "Mode imersif"
                         )
                     }
                 }
@@ -282,8 +320,39 @@ fun QuranReaderScreen(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
+                val pageListState = rememberLazyListState()
+
+                LaunchedEffect(page, pageListState, ayahsState, initialAyahNumber) {
+                    if (page != pagerState.currentPage || ayahsState !is UiState.Success) return@LaunchedEffect
+                    val data = (ayahsState as UiState.Success<List<Ayah>>).data
+                    if (page + 1 == surahNumber && initialAyahNumber in 1..data.size) {
+                        val headerOffset = if (page + 1 != 9) 1 else 0
+                        pageListState.animateScrollToItem(headerOffset + initialAyahNumber - 1)
+                    }
+                }
+
+                LaunchedEffect(page, pageListState, ayahsState) {
+                    snapshotFlow { pageListState.firstVisibleItemIndex }.collect { firstVisibleItemIndex ->
+                        if (page != pagerState.currentPage) return@collect
+                        val currentSurah = surah ?: return@collect
+                        if (currentSurah.number != page + 1) return@collect
+                        val state = ayahsState as? UiState.Success ?: return@collect
+                        val headerOffset = if (page + 1 != 9) 1 else 0
+                        val ayahIndex = (firstVisibleItemIndex - headerOffset).coerceAtLeast(0)
+                        state.data.getOrNull(ayahIndex)?.let { ayah ->
+                            viewModel.onAyahVisible(
+                                surahNumber = page + 1,
+                                surahName = currentSurah.nameLatin,
+                                ayahNumber = ayah.ayahNumber,
+                                juz = ayah.juz,
+                                page = ayah.page
+                            )
+                        }
+                    }
+                }
+
                 // Show content only for adjacent pages
-                if (abs(page - pagerState.currentPage) <= 1) {
+                if (abs(page - pagerState.currentPage) <= 1 && surah?.number == page + 1) {
                     when (val state = ayahsState) {
                         is UiState.Loading -> {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -291,7 +360,7 @@ fun QuranReaderScreen(
                             }
                         }
                         is UiState.Success -> {
-                            if (initialAyahNumber > state.data.size) {
+                            if (page + 1 == surahNumber && initialAyahNumber > state.data.size) {
                                 AppEmptyState(
                                     icon = Icons.Rounded.FormatSize,
                                     title = "Ayat tidak ditemukan",
@@ -303,7 +372,7 @@ fun QuranReaderScreen(
                                     contentAlignment = Alignment.TopCenter
                                 ) {
                                     LazyColumn(
-                                        state = listState,
+                                        state = pageListState,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .widthIn(max = 840.dp),
@@ -336,6 +405,9 @@ fun QuranReaderScreen(
                                                 },
                                                 onWaqafClick = { rule ->
                                                     selectedWaqafRule = rule
+                                                },
+                                                onTajwidClick = { rule ->
+                                                    selectedTajwidRule = rule
                                                 }
                                             )
                                         }
@@ -365,6 +437,15 @@ fun QuranReaderScreen(
             TajwidLegendSheet(
                 sheetState = sheetState,
                 onDismissRequest = { showTajwidSheet = false }
+            )
+        }
+
+        if (showNavigationSheet) {
+            ReaderNavigationSheet(
+                sheetState = navigationSheetState,
+                viewModel = viewModel,
+                onDismissRequest = { showNavigationSheet = false },
+                onNavigateToAyah = onNavigateToAyah
             )
         }
 
@@ -419,6 +500,126 @@ fun QuranReaderScreen(
                 }
             )
         }
+
+        selectedTajwidRule?.let { rule ->
+            AlertDialog(
+                onDismissRequest = { selectedTajwidRule = null },
+                title = { Text(rule.label, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text(rule.description, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.height(Spacing.xs))
+                        Text(
+                            text = "Durasi: ${rule.harakatDuration}",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(Spacing.xs))
+                        Text(
+                            text = rule.ruleExplanation,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { selectedTajwidRule = null }) {
+                        Text("Mengerti")
+                    }
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReaderNavigationSheet(
+    sheetState: androidx.compose.material3.SheetState,
+    viewModel: QuranViewModel,
+    onDismissRequest: () -> Unit,
+    onNavigateToAyah: (surahNumber: Int, ayahNumber: Int) -> Unit
+) {
+    var pageInput by remember { mutableStateOf("") }
+    var juzInput by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    fun navigateTo(target: Ayah?) {
+        if (target == null) {
+            errorMessage = "Posisi tidak tersedia di database Quran."
+            return
+        }
+        onDismissRequest()
+        onNavigateToAyah(target.surahNumber, target.ayahNumber)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.lg)
+                .padding(bottom = Spacing.xxl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Text(
+                text = "Navigasi Quran",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Buka awal halaman atau juz dari indeks database yang terverifikasi.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedTextField(
+                value = pageInput,
+                onValueChange = { pageInput = it.filter(Char::isDigit); errorMessage = null },
+                label = { Text("Halaman (1–604)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            TextButton(
+                onClick = {
+                    val page = pageInput.toIntOrNull()?.takeIf { it in 1..604 }
+                    if (page == null) {
+                        errorMessage = "Masukkan halaman antara 1 dan 604."
+                    } else {
+                        viewModel.findFirstAyahByPage(page, ::navigateTo)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Buka halaman")
+            }
+            OutlinedTextField(
+                value = juzInput,
+                onValueChange = { juzInput = it.filter(Char::isDigit); errorMessage = null },
+                label = { Text("Juz (1–30)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            TextButton(
+                onClick = {
+                    val juz = juzInput.toIntOrNull()?.takeIf { it in 1..30 }
+                    if (juz == null) {
+                        errorMessage = "Masukkan juz antara 1 dan 30."
+                    } else {
+                        viewModel.findFirstAyahByJuz(juz, ::navigateTo)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Buka juz")
+            }
+            errorMessage?.let { message ->
+                Text(message, color = MaterialTheme.colorScheme.error)
+            }
+        }
     }
 }
 
@@ -449,6 +650,7 @@ fun AyahReaderItem(
     onAyahClick: () -> Unit,
     onBookmarkClick: () -> Unit,
     onWaqafClick: (WaqafParser.WaqafRule) -> Unit,
+    onTajwidClick: (TajwidParser.TajwidType) -> Unit,
     modifier: Modifier = Modifier,
     translationMode: TranslationMode = TranslationMode.INDONESIAN,
     isWordByWordMode: Boolean = false
@@ -535,20 +737,46 @@ fun AyahReaderItem(
             val ayahEndMarker = WaqafParser.formatAyahEndMarker(ayah.ayahNumber)
             val fullArabic = ayah.textArabic + ayahEndMarker
 
-            val coloredArabic = remember(fullArabic, ayah.tajwidTags, enableTajwid, baseTextColor) {
-                TajwidParser.buildColoredAyahText(
-                    arabicText = fullArabic,
-                    tajwidTags = ayah.tajwidTags,
-                    enableTajwid = enableTajwid,
-                    baseTextColor = baseTextColor
+            val annotatedArabic = remember(fullArabic, ayah.tajwidTags, enableTajwid, baseTextColor) {
+                WaqafParser.annotateWaqafMarkers(
+                    TajwidParser.buildColoredAyahText(
+                        arabicText = fullArabic,
+                        tajwidTags = ayah.tajwidTags,
+                        enableTajwid = enableTajwid,
+                        baseTextColor = baseTextColor
+                    )
                 )
             }
-            Text(
-                text = coloredArabic,
-                style = getQuranArabicStyle(fontSizeSp),
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.End,
-                lineHeight = (fontSizeSp * 1.8f).sp
+            ClickableText(
+                text = annotatedArabic,
+                style = getQuranArabicStyle(fontSizeSp).copy(
+                    textAlign = TextAlign.End,
+                    lineHeight = (fontSizeSp * 1.8f).sp
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = "Teks Arab ayat ${ayah.ayahNumber}. Ketuk tanda atau warna Tajwid untuk detail."
+                    },
+                onClick = { offset ->
+                    if (annotatedArabic.text.isEmpty()) return@ClickableText
+                    val safeOffset = offset.coerceIn(0, annotatedArabic.text.lastIndex)
+                    annotatedArabic
+                        .getStringAnnotations(WaqafParser.WAQAF_ANNOTATION, safeOffset, safeOffset + 1)
+                        .firstOrNull()
+                        ?.let { annotation ->
+                            WaqafParser.findRuleBySymbol(annotation.item.first())?.let(onWaqafClick)
+                            return@ClickableText
+                        }
+                    annotatedArabic
+                        .getStringAnnotations(TajwidParser.TAJWID_ANNOTATION, safeOffset, safeOffset + 1)
+                        .firstOrNull()
+                        ?.let { annotation ->
+                            runCatching { TajwidParser.TajwidType.valueOf(annotation.item) }
+                                .getOrNull()
+                                ?.let(onTajwidClick)
+                        }
+                }
             )
         }
 

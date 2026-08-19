@@ -129,6 +129,7 @@ fun AppMain(
     ) {
         AppNavHost(
             navController = navController,
+            widthSizeClass = widthSizeClass,
             quranViewModel = quranViewModel,
             chatViewModel = chatViewModel,
             tahsinViewModel = tahsinViewModel,
@@ -146,6 +147,7 @@ fun AppMain(
 @Composable
 fun AppNavHost(
     navController: NavHostController,
+    widthSizeClass: WindowWidthSizeClass,
     quranViewModel: QuranViewModel,
     chatViewModel: ChatViewModel,
     tahsinViewModel: TahsinViewModel,
@@ -171,12 +173,13 @@ fun AppNavHost(
         composable(AppDestination.QURAN.route) {
             SurahListScreen(
                 viewModel = quranViewModel,
-                onSurahClick = { surahNumber ->
-                    navController.navigate("quran_reader/$surahNumber?initialAyah=1")
+                onSurahClick = { surahNumber, ayahNumber ->
+                    navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
                 },
                 onSearchClick = {
                     navController.navigate("quran_search")
-                }
+                },
+                widthSizeClass = widthSizeClass
             )
         }
 
@@ -202,7 +205,10 @@ fun AppNavHost(
                     viewModel = quranViewModel,
                     preferencesManager = preferencesManager,
                     audioPlayerManager = audioPlayerManager,
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToAyah = { targetSurah, targetAyah ->
+                        navController.navigate("quran_reader/$targetSurah?initialAyah=$targetAyah")
+                    }
                 )
             }
         }

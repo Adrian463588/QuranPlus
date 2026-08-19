@@ -43,7 +43,9 @@ class MainNavigationSmokeTest {
         composeRule.onNodeWithText("Tanya AI").performClick()
 
         waitForText("Setup AI On-Device")
-        composeRule.onNodeWithText("Model diblokir sampai manifest SHA-256 terverifikasi tersedia.").assertIsDisplayed()
+        composeRule.onNodeWithText("Model lokal belum tersedia").assertIsDisplayed()
+        composeRule.onNodeWithText("ModelGate diblokir sampai katalog berisi URL, lisensi, ukuran, dan SHA-256 yang telah direview.")
+            .assertIsDisplayed()
     }
 
     @Test

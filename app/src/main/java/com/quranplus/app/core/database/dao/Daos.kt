@@ -31,6 +31,12 @@ interface QuranDao {
     @Query("SELECT * FROM ayahs WHERE surah_id = :surahNumber ORDER BY ayah_number ASC")
     fun getAyahsBySurah(surahNumber: Int): Flow<List<AyahEntity>>
 
+    @Query("SELECT * FROM ayahs WHERE page = :page ORDER BY surah_id ASC, ayah_number ASC LIMIT 1")
+    suspend fun getFirstAyahByPage(page: Int): AyahEntity?
+
+    @Query("SELECT * FROM ayahs WHERE juz = :juz ORDER BY surah_id ASC, ayah_number ASC LIMIT 1")
+    suspend fun getFirstAyahByJuz(juz: Int): AyahEntity?
+
     @Query("SELECT * FROM ayahs WHERE surah_id = :surahNumber AND ayah_number = :ayahNumber LIMIT 1")
     suspend fun getAyah(surahNumber: Int, ayahNumber: Int): AyahEntity?
 

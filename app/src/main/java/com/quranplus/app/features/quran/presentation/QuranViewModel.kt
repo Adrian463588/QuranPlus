@@ -8,6 +8,8 @@ import com.quranplus.app.features.quran.domain.DeleteBookmarkUseCase
 import com.quranplus.app.features.quran.domain.RestoreBookmarkUseCase
 import com.quranplus.app.features.quran.domain.UpdateBookmarkNoteUseCase
 import com.quranplus.app.features.quran.domain.GetAyahsBySurahUseCase
+import com.quranplus.app.features.quran.domain.GetFirstAyahByJuzUseCase
+import com.quranplus.app.features.quran.domain.GetFirstAyahByPageUseCase
 import com.quranplus.app.features.quran.domain.GetBookmarksUseCase
 import com.quranplus.app.features.quran.domain.GetLastReadUseCase
 import com.quranplus.app.features.quran.domain.GetSurahDetailUseCase
@@ -36,6 +38,8 @@ class QuranViewModel(
     private val getSurahListUseCase: GetSurahListUseCase,
     private val getSurahDetailUseCase: GetSurahDetailUseCase,
     private val getAyahsBySurahUseCase: GetAyahsBySurahUseCase,
+    private val getFirstAyahByPageUseCase: GetFirstAyahByPageUseCase,
+    private val getFirstAyahByJuzUseCase: GetFirstAyahByJuzUseCase,
     private val searchQuranUseCase: SearchQuranUseCase,
     private val toggleBookmarkUseCase: ToggleBookmarkUseCase,
     private val getBookmarksUseCase: GetBookmarksUseCase,
@@ -102,11 +106,37 @@ class QuranViewModel(
         }
     }
 
-    fun onAyahVisible(surahNumber: Int, surahName: String, ayahNumber: Int) {
+    fun findFirstAyahByPage(page: Int, onResolved: (Ayah?) -> Unit) {
+        if (page !in 1..604) {
+            onResolved(null)
+            return
+        }
+        viewModelScope.launch {
+            onResolved(getFirstAyahByPageUseCase(page))
+        }
+    }
+
+    fun findFirstAyahByJuz(juz: Int, onResolved: (Ayah?) -> Unit) {
+        if (juz !in 1..30) {
+            onResolved(null)
+            return
+        }
+        viewModelScope.launch {
+            onResolved(getFirstAyahByJuzUseCase(juz))
+        }
+    }
+
+    fun onAyahVisible(
+        surahNumber: Int,
+        surahName: String,
+        ayahNumber: Int,
+        juz: Int,
+        page: Int
+    ) {
         if (ayahNumber < 1 || lastSavedRead == "$surahNumber:$ayahNumber") return
         lastSavedRead = "$surahNumber:$ayahNumber"
         viewModelScope.launch {
-            saveLastReadUseCase(surahNumber, surahName, ayahNumber)
+            saveLastReadUseCase(surahNumber, surahName, ayahNumber, juz, page)
         }
     }
 

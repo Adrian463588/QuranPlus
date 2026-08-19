@@ -1,6 +1,7 @@
 package com.quranplus.app.core.utils
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import com.quranplus.app.core.ui.theme.QuranColors
 
 /**
@@ -8,6 +9,8 @@ import com.quranplus.app.core.ui.theme.QuranColors
  * Manages Waqaf markers, End-of-Ayah formatting, and interactive Waqaf explanations.
  */
 object WaqafParser {
+
+    const val WAQAF_ANNOTATION = "quranplus_waqaf"
 
     // Unicode symbols for Waqaf markers
     const val WAQAF_LA_SYM       = "ۘ" // U+06D8 (لا)
@@ -140,6 +143,20 @@ object WaqafParser {
      */
     fun formatAyahEndMarker(ayahNumber: Int): String {
         return " ۝${toArabicDigits(ayahNumber)} "
+    }
+
+    /**
+     * Adds semantic annotations to the pause marks present in the source Quran text.
+     * The marker is only interactive when [findRuleBySymbol] has a verified mapping.
+     */
+    fun annotateWaqafMarkers(text: AnnotatedString): AnnotatedString {
+        val builder = AnnotatedString.Builder(text)
+        text.text.forEachIndexed { index, char ->
+            if (findRuleBySymbol(char) != null) {
+                builder.addStringAnnotation(WAQAF_ANNOTATION, char.toString(), index, index + 1)
+            }
+        }
+        return builder.toAnnotatedString()
     }
 
     /**

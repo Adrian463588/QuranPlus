@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -37,6 +38,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -51,6 +53,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.components.TajwidLegendSheet
@@ -62,12 +67,14 @@ import com.quranplus.app.features.quran.domain.Surah
 @Composable
 fun SurahListScreen(
     viewModel: QuranViewModel,
-    onSurahClick: (Int) -> Unit,
-    onSearchClick: () -> Unit
+    onSurahClick: (Int, Int) -> Unit,
+    onSearchClick: () -> Unit,
+    widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact
 ) {
     val surahState by viewModel.surahListState.collectAsStateWithLifecycle()
     val lastRead by viewModel.lastReadState.collectAsStateWithLifecycle()
     var showTajwidSheet by remember { mutableStateOf(false) }
+    var selectedSurahNumber by remember { mutableStateOf<Int?>(null) }
     val sheetState = rememberModalBottomSheetState()
 
     Scaffold(
@@ -102,7 +109,9 @@ fun SurahListScreen(
                 Box(modifier = Modifier.widthIn(max = 840.dp)) {
                     LastReadBanner(
                         lastRead = lastRead!!,
-                        onClick = { onSurahClick(lastRead!!.surahNumber) }
+                        onClick = {
+                            onSurahClick(lastRead!!.surahNumber, lastRead!!.ayahNumber)
+                        }
                     )
                 }
             }
@@ -110,34 +119,31 @@ fun SurahListScreen(
             when (val state = surahState) {
                 is UiState.Loading -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
                 is UiState.Success -> {
-                    LazyColumn(
+                    SurahContent(
+                        surahs = state.data,
+                        widthSizeClass = widthSizeClass,
+                        selectedSurahNumber = selectedSurahNumber,
+                        onSelectSurah = { selectedSurahNumber = it.number },
+                        onOpenSurah = { onSurahClick(it, 1) },
                         modifier = Modifier
-                            .fillMaxSize()
-                            .widthIn(max = 840.dp),
-                        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        items(
-                            items = state.data,
-                            key = { it.number }
-                        ) { surah ->
-                            SurahItemRow(
-                                surah = surah,
-                                onClick = { onSurahClick(surah.number) }
-                            )
-                        }
-                    }
+                            .fillMaxWidth()
+                            .weight(1f)
+                    )
                 }
                 is UiState.Error -> {
                     AppEmptyState(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
                         icon = Icons.AutoMirrored.Rounded.MenuBook,
                         title = "Gagal Memuat Surah",
                         description = state.message
@@ -145,6 +151,9 @@ fun SurahListScreen(
                 }
                 UiState.Empty -> {
                     AppEmptyState(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
                         icon = Icons.AutoMirrored.Rounded.MenuBook,
                         title = "Data Surah Kosong",
                         description = "Database Al-Qur'an belum memiliki data yang dapat dibaca."
@@ -152,6 +161,9 @@ fun SurahListScreen(
                 }
                 is UiState.Blocked -> {
                     AppEmptyState(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
                         icon = Icons.AutoMirrored.Rounded.MenuBook,
                         title = "Surah Tidak Tersedia",
                         description = state.reason
@@ -159,6 +171,9 @@ fun SurahListScreen(
                 }
                 UiState.Idle -> {
                     AppEmptyState(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
                         icon = Icons.AutoMirrored.Rounded.MenuBook,
                         title = "Memuat Surah",
                         description = "Data Al-Qur'an sedang disiapkan."
@@ -172,6 +187,142 @@ fun SurahListScreen(
                 sheetState = sheetState,
                 onDismissRequest = { showTajwidSheet = false }
             )
+        }
+    }
+}
+
+@Composable
+private fun SurahContent(
+    surahs: List<Surah>,
+    widthSizeClass: WindowWidthSizeClass,
+    selectedSurahNumber: Int?,
+    onSelectSurah: (Surah) -> Unit,
+    onOpenSurah: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (widthSizeClass == WindowWidthSizeClass.Compact) {
+        SurahListPane(
+            surahs = surahs,
+            selectedSurahNumber = null,
+            onSurahClick = { onOpenSurah(it.number) },
+            modifier = modifier
+        )
+        return
+    }
+
+    val selectedSurah = surahs.firstOrNull { it.number == selectedSurahNumber }
+        ?: surahs.firstOrNull()
+
+    Row(
+        modifier = modifier
+    ) {
+        SurahListPane(
+            surahs = surahs,
+            selectedSurahNumber = selectedSurah?.number,
+            onSurahClick = onSelectSurah,
+            showArabicName = false,
+            modifier = Modifier
+                .weight(0.52f)
+                .fillMaxHeight()
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(1.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
+        if (selectedSurah != null) {
+            SurahDetailPane(
+                surah = selectedSurah,
+                onOpen = { onOpenSurah(selectedSurah.number) },
+                modifier = Modifier
+                    .weight(0.48f)
+                    .fillMaxHeight()
+            )
+        } else {
+            AppEmptyState(
+                icon = Icons.Rounded.AutoStories,
+                title = "Pilih surah",
+                description = "Pilih surah dari daftar untuk melihat detailnya.",
+                modifier = Modifier
+                    .weight(0.48f)
+                    .fillMaxHeight()
+            )
+        }
+    }
+}
+
+@Composable
+private fun SurahListPane(
+    surahs: List<Surah>,
+    selectedSurahNumber: Int?,
+    onSurahClick: (Surah) -> Unit,
+    showArabicName: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .widthIn(max = 840.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        items(
+            items = surahs,
+            key = { it.number }
+        ) { surah ->
+            SurahItemRow(
+                surah = surah,
+                selected = surah.number == selectedSurahNumber,
+                showArabicName = showArabicName,
+                onClick = { onSurahClick(surah) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SurahDetailPane(
+    surah: Surah,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.xl),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+    ) {
+        Text(
+            text = surah.nameArabic,
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.displaySmall,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.End
+        )
+        Text(
+            text = surah.nameLatin,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "${surah.revelationType.uppercase()} • ${surah.ayahCount} Ayat",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "Baca surah ini dengan tampilan reader yang mendukung tajwid, terjemahan, transliterasi, dan bookmark.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        AppPrimaryButton(
+            onClick = onOpen,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(imageVector = Icons.Rounded.AutoStories, contentDescription = null)
+            Spacer(modifier = Modifier.width(Spacing.sm))
+            Text(text = "Buka reader")
         }
     }
 }
@@ -217,6 +368,11 @@ fun LastReadBanner(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
+                Text(
+                    text = "Juz ${lastRead.juz} • Halaman ${lastRead.page}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
             }
         }
     }
@@ -226,13 +382,19 @@ fun LastReadBanner(
 fun SurahItemRow(
     surah: Surah,
     onClick: () -> Unit,
+    selected: Boolean = false,
+    showArabicName: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
         ),
         shape = MaterialTheme.shapes.small
     ) {
@@ -284,13 +446,14 @@ fun SurahItemRow(
                 }
             }
 
-            // Arabic Name
-            Text(
-                text = surah.nameArabic,
-                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp),
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.End
-            )
+            if (showArabicName) {
+                Text(
+                    text = surah.nameArabic,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp),
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.End
+                )
+            }
         }
     }
 }

@@ -16,6 +16,8 @@ import com.quranplus.app.features.quran.domain.DeleteBookmarkUseCase
 import com.quranplus.app.features.quran.domain.RestoreBookmarkUseCase
 import com.quranplus.app.features.quran.domain.UpdateBookmarkNoteUseCase
 import com.quranplus.app.features.quran.domain.GetAyahsBySurahUseCase
+import com.quranplus.app.features.quran.domain.GetFirstAyahByJuzUseCase
+import com.quranplus.app.features.quran.domain.GetFirstAyahByPageUseCase
 import com.quranplus.app.features.quran.domain.GetBookmarksUseCase
 import com.quranplus.app.features.quran.domain.GetLastReadUseCase
 import com.quranplus.app.features.quran.domain.GetSurahDetailUseCase
@@ -82,6 +84,8 @@ val appModule = module {
     factory { GetSurahListUseCase(get()) }
     factory { GetSurahDetailUseCase(get()) }
     factory { GetAyahsBySurahUseCase(get()) }
+    factory { GetFirstAyahByPageUseCase(get()) }
+    factory { GetFirstAyahByJuzUseCase(get()) }
     factory { SearchQuranUseCase(get()) }
     factory { ToggleBookmarkUseCase(get()) }
     factory { GetBookmarksUseCase(get()) }
@@ -105,7 +109,7 @@ val appModule = module {
     factory { GenerateRagAnswerUseCase(get()) }
 
     // ViewModels
-    viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { ChatViewModel(get(), get(), get(), get(), get(), get(), get()) }
     viewModel { TahsinViewModel(get(), get(), get()) }
     viewModel { QuizViewModel(get(), get()) }

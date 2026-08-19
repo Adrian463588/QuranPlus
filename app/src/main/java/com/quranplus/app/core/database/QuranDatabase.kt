@@ -40,7 +40,7 @@ import com.quranplus.app.core.database.entity.QuizQuestionEntity
         QuizQuestionEntity::class,
         QuizAttemptEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class QuranDatabase : RoomDatabase() {
@@ -78,6 +78,7 @@ abstract class QuranDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_1_2)
                 .addMigrations(MIGRATION_2_3)
                 .addMigrations(MIGRATION_3_4)
+                .addMigrations(MIGRATION_4_5)
                 .addCallback(FTS_CALLBACK)
                 .build()
         }
@@ -151,6 +152,13 @@ abstract class QuranDatabase : RoomDatabase() {
                 database.executeSql("DROP TRIGGER IF EXISTS ayahs_fts5_after_update")
                 database.executeSql("DROP TABLE IF EXISTS ayahs_fts5")
                 createFts5(database)
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SQLiteConnection) {
+                database.executeSql("ALTER TABLE last_read ADD COLUMN juz INTEGER NOT NULL DEFAULT 1")
+                database.executeSql("ALTER TABLE last_read ADD COLUMN page INTEGER NOT NULL DEFAULT 1")
             }
         }
 
