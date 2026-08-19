@@ -80,7 +80,21 @@ Physical acceptance is separate from these gates. The first target is Samsung SM
 
 ## Preview evidence
 
-Files under `art/` from earlier work are visual references, not proof of the current build. A PNG is called a live preview only when captured with `adb exec-out screencap -p` from the tested APK and accompanied by a machine-readable manifest containing device, variant, commit SHA, orientation, window class, and timestamp.
+The following previews were captured from the debug APK built at commit `91fc7e53654e77cd1148165b009cace067010ed5` with `adb exec-out screencap -p` on a Samsung `SM-G988B` (Android 13, compact portrait, 100% font scale). They are device smoke evidence, not proof of every adaptive width or release gate.
+
+| Quran home | Reader | Ayah actions |
+| --- | --- | --- |
+| ![Quran home](art/device-sm-g988b-home.png) | ![Quran reader](art/device-sm-g988b-reader.png) | ![Ayah actions](art/device-sm-g988b-ayah-actions.png) |
+
+| Bookmarks | Search | Chat model gate |
+| --- | --- | --- |
+| ![Bookmarks](art/device-sm-g988b-bookmarks.png) | ![Search](art/device-sm-g988b-search.png) | ![Chat model gate](art/device-sm-g988b-chat-gate.png) |
+
+| Tahsin | Quiz blocked state | Settings |
+| --- | --- | --- |
+| ![Tahsin](art/device-sm-g988b-tahsin.png) | ![Quiz blocked state](art/device-sm-g988b-quiz.png) | ![Settings](art/device-sm-g988b-settings.png) |
+
+Machine-readable capture details: [`art/device-preview-manifest.json`](art/device-preview-manifest.json).
 
 ## Security and contribution rules
 
