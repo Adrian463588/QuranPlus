@@ -64,6 +64,7 @@ import com.quranplus.app.features.rag.presentation.RagImportState
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    onBackClick: () -> Unit,
     onNavigateToAudioManager: () -> Unit,
     onNavigateToWaqafGuide: () -> Unit,
     onNavigateToGharib: () -> Unit,
@@ -84,7 +85,7 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            AppTopBar(title = "Pengaturan")
+            AppTopBar(title = "Pengaturan", onBackClick = onBackClick)
         }
     ) { padding ->
         Box(

@@ -1,8 +1,10 @@
 package com.quranplus.app
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -53,8 +55,10 @@ class MainNavigationSmokeTest {
         composeRule.onNodeWithText("Tanya AI").performClick()
 
         waitForText("Setup AI On-Device")
-        composeRule.onNodeWithText("Model lokal belum tersedia").assertIsDisplayed()
-        composeRule.onNodeWithText("ModelGate diblokir: MODEL_UNAVAILABLE, EMBEDDER_UNAVAILABLE, INDEX_UNAVAILABLE. Katalog, embedding, dan index harus memiliki provenance serta SHA-256 yang direview.")
+        composeRule.onNodeWithText("Pilih Model AI yang Diinginkan:").assertIsDisplayed()
+        composeRule.onNodeWithText("Gemma 3 1B IT").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Buka sumber model").assertCountEquals(2)
+        composeRule.onNodeWithText("Model diblokir sampai manifest SHA-256 terverifikasi tersedia.")
             .assertIsDisplayed()
     }
 
@@ -78,9 +82,31 @@ class MainNavigationSmokeTest {
         waitForText("Daftar Bookmark")
     }
 
+    @Test
+    fun GIVEN_reader_WHEN_hamburgerHomeIsClicked_THEN_quranRootIsDisplayed() {
+        waitForText("Al-Qur'an Al-Karim")
+
+        composeRule.onNodeWithText("Al-Qur'an").performClick()
+        waitForText("Al-Faatiha")
+        composeRule.onNodeWithText("Al-Faatiha").performClick()
+        waitForContentDescription("Menu Quran")
+        composeRule.onNodeWithContentDescription("Menu Quran").performClick()
+        composeRule.onNodeWithText("Beranda Quran").performClick()
+
+        waitForText("Al-Qur'an Al-Karim")
+    }
+
     private fun waitForText(text: String) {
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithText(text, useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+    }
+
+    private fun waitForContentDescription(description: String) {
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithContentDescription(description, useUnmergedTree = true)
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }

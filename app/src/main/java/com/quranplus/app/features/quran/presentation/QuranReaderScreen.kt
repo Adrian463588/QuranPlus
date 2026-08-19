@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Palette
@@ -88,12 +89,14 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -127,6 +130,7 @@ fun QuranReaderScreen(
     preferencesManager: PreferencesManager,
     audioPlayerManager: AudioPlayerManager,
     onBackClick: () -> Unit,
+    onNavigateToQuranRoot: () -> Unit,
     onNavigateToAyah: (surahNumber: Int, ayahNumber: Int) -> Unit
 ) {
     val surah by viewModel.currentSurah.collectAsStateWithLifecycle()
@@ -218,6 +222,15 @@ fun QuranReaderScreen(
                             onDismissRequest = { showReaderMenu = false }
                         ) {
                             DropdownMenuItem(
+                                text = { Text("Beranda Quran") },
+                                leadingIcon = { Icon(Icons.Rounded.Home, contentDescription = null) },
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showReaderMenu = false
+                                    onNavigateToQuranRoot()
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text(if (isWordByWordMode) "Kembali ke baris ayat" else "Kata per kata") },
                                 leadingIcon = { Icon(Icons.Rounded.TextFields, contentDescription = null) },
                                 onClick = {
@@ -297,7 +310,7 @@ fun QuranReaderScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "Terjemahan: ${if (isWordByWordMode) "English (source)" else translationMode.label}  •  ${if (isWordByWordMode) "Kata per Kata" else "Baris Ayat"}",
+                        text = "Terjemahan: ${translationMode.label}  •  ${if (isWordByWordMode) "Kata Per Kata" else "Baris Ayat"}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -794,6 +807,21 @@ fun AyahReaderItem(
         Spacer(modifier = Modifier.height(Spacing.sm))
 
         // Arabic Text / Word-by-Word View
+        val baseTextColor = MaterialTheme.colorScheme.onSurface
+        val fullArabic = WaqafParser.formatAyahTextWithEndMarker(
+            ayahText = ayah.textArabic,
+            ayahNumber = ayah.ayahNumber
+        )
+        val annotatedArabic = remember(fullArabic, ayah.tajwidTags, enableTajwid, baseTextColor) {
+            WaqafParser.annotateWaqafMarkers(
+                TajwidParser.buildColoredAyahText(
+                    arabicText = fullArabic,
+                    tajwidTags = ayah.tajwidTags,
+                    enableTajwid = enableTajwid,
+                    baseTextColor = baseTextColor
+                )
+            )
+        }
         if (isWordByWordMode) {
             if (wordByWord.isEmpty()) {
                 Text(
@@ -803,24 +831,19 @@ fun AyahReaderItem(
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
-                WordByWordAyah(words = wordByWord)
+                WordByWordAyah(
+                    words = wordByWord,
+                    annotatedAyah = annotatedArabic,
+                    fontSizeSp = fontSizeSp,
+                    showTransliteration = showTransliteration,
+                    showTranslation = showTranslation,
+                    translationMode = translationMode,
+                    onWaqafClick = onWaqafClick,
+                    onTajwidClick = onTajwidClick
+                )
             }
         } else {
             // Standard Line-by-Line Uthmani Text with End of Ayah glyph
-            val baseTextColor = MaterialTheme.colorScheme.onSurface
-            val ayahEndMarker = WaqafParser.formatAyahEndMarker(ayah.ayahNumber)
-            val fullArabic = ayah.textArabic + ayahEndMarker
-
-            val annotatedArabic = remember(fullArabic, ayah.tajwidTags, enableTajwid, baseTextColor) {
-                WaqafParser.annotateWaqafMarkers(
-                    TajwidParser.buildColoredAyahText(
-                        arabicText = fullArabic,
-                        tajwidTags = ayah.tajwidTags,
-                        enableTajwid = enableTajwid,
-                        baseTextColor = baseTextColor
-                    )
-                )
-            }
             ClickableText(
                 text = annotatedArabic,
                 style = getQuranArabicStyle(fontSizeSp).copy(
@@ -854,8 +877,9 @@ fun AyahReaderItem(
             )
         }
 
-        // Latin Transliteration
-        if (showTransliteration && ayah.transliteration.isNotBlank()) {
+        if (!isWordByWordMode) {
+            // Latin Transliteration
+            if (showTransliteration && ayah.transliteration.isNotBlank()) {
             Spacer(modifier = Modifier.height(Spacing.sm))
             Text(
                 text = ayah.transliteration,
@@ -863,11 +887,11 @@ fun AyahReaderItem(
                 color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.fillMaxWidth()
             )
-        }
+            }
 
-        // Translation(s)
-        if (showTranslation) {
-            when (translationMode) {
+            // Translation(s)
+            if (showTranslation) {
+                when (translationMode) {
                 TranslationMode.INDONESIAN -> {
                     if (ayah.translationId.isNotBlank()) {
                         Spacer(modifier = Modifier.height(Spacing.xs))
@@ -914,6 +938,7 @@ fun AyahReaderItem(
                         )
                     }
                 }
+                }
             }
         }
 
@@ -923,19 +948,36 @@ fun AyahReaderItem(
 
 }
 
+private data class WordRenderSlice(
+    val word: WordByWord,
+    val text: AnnotatedString
+)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WordByWordAyah(words: List<WordByWord>) {
+private fun WordByWordAyah(
+    words: List<WordByWord>,
+    annotatedAyah: AnnotatedString,
+    fontSizeSp: Float,
+    showTransliteration: Boolean,
+    showTranslation: Boolean,
+    translationMode: TranslationMode,
+    onWaqafClick: (WaqafParser.WaqafRule) -> Unit,
+    onTajwidClick: (TajwidParser.TajwidType) -> Unit
+) {
     var selectedWordIndex by remember(words) { mutableIntStateOf(-1) }
+    val slices = remember(words, annotatedAyah) {
+        buildWordRenderSlices(words, annotatedAyah)
+    }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
-            words.forEach { word ->
+            slices.forEach { slice ->
+                val word = slice.word
                 val selected = word.wordIndex == selectedWordIndex
-                val sourceTranslation = word.translationEn.ifBlank { word.translationId }
                 Surface(
                     color = if (selected) {
                         MaterialTheme.colorScheme.primaryContainer
@@ -945,35 +987,111 @@ private fun WordByWordAyah(words: List<WordByWord>) {
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier
                         .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                        .clickable { selectedWordIndex = word.wordIndex }
                         .semantics {
-                            contentDescription = "Kata ${word.wordIndex}: $sourceTranslation"
+                            contentDescription = "Kata ${word.wordIndex}: ${word.translationEn ?: "Terjemahan belum tersedia"}"
+                            this.selected = selected
                         }
                 ) {
                     Column(
                         modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = word.textArabic,
-                            style = getQuranArabicStyle(20f),
-                            color = if (selected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
+                        ClickableText(
+                            text = slice.text,
+                            style = getQuranArabicStyle(fontSizeSp).copy(textAlign = TextAlign.Center),
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { offset ->
+                                selectedWordIndex = word.wordIndex
+                                slice.text
+                                    .getStringAnnotations(WaqafParser.WAQAF_ANNOTATION, offset, offset + 1)
+                                    .firstOrNull()
+                                    ?.let { annotation ->
+                                        WaqafParser.findRuleBySymbol(annotation.item.first())?.let(onWaqafClick)
+                                    }
+                                slice.text
+                                    .getStringAnnotations(TajwidParser.TAJWID_ANNOTATION, offset, offset + 1)
+                                    .firstOrNull()
+                                    ?.let { annotation ->
+                                        runCatching { TajwidParser.TajwidType.valueOf(annotation.item) }
+                                            .getOrNull()
+                                            ?.let(onTajwidClick)
+                                    }
                             }
                         )
                         if (selected) {
-                            Text(
-                                text = sourceTranslation,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                textAlign = TextAlign.Center
-                            )
+                            if (showTransliteration && word.transliteration != null) {
+                                Text(
+                                    text = word.transliteration,
+                                    style = TransliterationStyle,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    textAlign = TextAlign.Center
+                                )
+                            } else if (showTransliteration) {
+                                Text(
+                                    text = "Transliterasi kata belum tersedia dari sumber terverifikasi",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                            if (showTranslation) {
+                                val translations = wordTranslations(word, translationMode)
+                                if (translations.isEmpty()) {
+                                    Text(
+                                        text = "Terjemahan ${translationMode.label} belum tersedia",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        textAlign = TextAlign.Center
+                                    )
+                                } else {
+                                    translations.forEach { (label, value) ->
+                                        Text(
+                                            text = "$label: $value",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+private fun wordTranslations(
+    word: WordByWord,
+    mode: TranslationMode
+): List<Pair<String, String>> = when (mode) {
+    TranslationMode.INDONESIAN -> word.translationId?.let { listOf("Indonesia" to it) }.orEmpty()
+    TranslationMode.ENGLISH -> word.translationEn?.let { listOf("English" to it) }.orEmpty()
+    TranslationMode.BOTH -> buildList {
+        word.translationId?.let { add("Indonesia" to it) }
+        word.translationEn?.let { add("English" to it) }
+    }
+}
+
+private fun buildWordRenderSlices(
+    words: List<WordByWord>,
+    annotatedAyah: AnnotatedString
+): List<WordRenderSlice> {
+    var cursor = 0
+    return words.mapIndexed { index, word ->
+        val start = annotatedAyah.text.indexOf(word.textArabic, cursor)
+        if (start < 0) {
+            WordRenderSlice(word, AnnotatedString(word.textArabic))
+        } else {
+            val wordEnd = start + word.textArabic.length
+            val nextStart = words.drop(index + 1)
+                .asSequence()
+                .map { next -> annotatedAyah.text.indexOf(next.textArabic, wordEnd) }
+                .firstOrNull { it >= wordEnd }
+            val end = nextStart ?: annotatedAyah.text.length
+            cursor = wordEnd
+            WordRenderSlice(word, annotatedAyah.subSequence(start, end))
         }
     }
 }

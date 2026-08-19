@@ -6,8 +6,9 @@ data class WordByWord(
     val ayahNumber: Int,
     val wordIndex: Int,
     val textArabic: String,
-    val translationEn: String,
-    val translationId: String
+    val transliteration: String?,
+    val translationEn: String?,
+    val translationId: String?
 )
 
 interface WordByWordRepository {

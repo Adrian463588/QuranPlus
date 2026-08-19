@@ -47,7 +47,7 @@ import com.quranplus.app.core.database.entity.WordByWordEntity
         QuizQuestionEntity::class,
         QuizAttemptEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class QuranDatabase : RoomDatabase() {
@@ -90,6 +90,7 @@ abstract class QuranDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_5_6)
                 .addMigrations(MIGRATION_6_7)
                 .addMigrations(MIGRATION_7_8)
+                .addMigrations(MIGRATION_8_9)
                 .addCallback(FTS_CALLBACK)
                 .build()
         }
@@ -247,6 +248,16 @@ abstract class QuranDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(database: SQLiteConnection) {
+                if (!hasColumn(database, "word_by_word", "transliteration")) {
+                    database.executeSql(
+                        "ALTER TABLE word_by_word ADD COLUMN transliteration TEXT"
+                    )
+                }
+            }
+        }
+
         private fun createFts5(database: SupportSQLiteDatabase) {
             fts5Statements().forEach(database::execSQL)
         }
@@ -257,6 +268,19 @@ abstract class QuranDatabase : RoomDatabase() {
 
         private fun SQLiteConnection.executeSql(sql: String) {
             prepare(sql).use { it.step() }
+        }
+
+        private fun hasColumn(
+            database: SQLiteConnection,
+            tableName: String,
+            columnName: String
+        ): Boolean {
+            database.prepare("PRAGMA table_info($tableName)").use { statement ->
+                while (statement.step()) {
+                    if (statement.getText(1) == columnName) return true
+                }
+            }
+            return false
         }
 
         private fun fts5Statements(): List<String> {

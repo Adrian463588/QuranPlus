@@ -31,7 +31,12 @@ class ModelDownloadWorker(
         var terminalState: DownloadState = DownloadState.Idle
 
         ResumableDownloader(applicationContext)
-            .downloadFile(model.downloadUrl, target, model.sha256.orEmpty())
+            .downloadFile(
+                url = model.downloadUrl,
+                targetDestination = target,
+                expectedSha256 = model.sha256.orEmpty(),
+                expectedSizeBytes = model.sizeBytes
+            )
             .collect { state ->
                 terminalState = state
                 when (state) {
@@ -54,7 +59,13 @@ class ModelDownloadWorker(
             }.getOrElse {
                 failure("Model tidak dipublikasikan ke SAF: ${it.localizedMessage}")
             }
-            is DownloadState.Paused -> Result.retry()
+            is DownloadState.Paused -> {
+                if (runAttemptCount < MAX_RETRIES) {
+                    Result.retry()
+                } else {
+                    failure("Unduhan dihentikan setelah $MAX_RETRIES percobaan jaringan")
+                }
+            }
             is DownloadState.ChecksumError -> failure(state.message)
             is DownloadState.Failed -> failure(state.message)
             else -> failure("Unduhan model berhenti tanpa status selesai")
@@ -68,12 +79,21 @@ class ModelDownloadWorker(
             filename = inputData.getString(KEY_FILENAME).orEmpty(),
             sizeDescription = inputData.getString(KEY_SIZE_DESCRIPTION).orEmpty(),
             ramRequirement = inputData.getString(KEY_RAM_REQUIREMENT).orEmpty(),
-            downloadUrl = inputData.getString(KEY_URL).orEmpty(),
+            artifactUrl = inputData.getString(KEY_URL).orEmpty(),
+            sourceUrl = inputData.getString(KEY_SOURCE_URL).orEmpty(),
+            licenseUrl = inputData.getString(KEY_LICENSE_URL).orEmpty(),
             sha256 = inputData.getString(KEY_SHA256),
             version = inputData.getString(KEY_VERSION).orEmpty(),
+            revision = inputData.getString(KEY_REVISION).orEmpty(),
             abi = inputData.getString(KEY_ABI).orEmpty(),
             licenseStatus = inputData.getString(KEY_LICENSE_STATUS).orEmpty(),
-            sizeBytes = inputData.getLong(KEY_SIZE_BYTES, -1L).takeIf { it >= 0L }
+            sizeBytes = inputData.getLong(KEY_SIZE_BYTES, -1L).takeIf { it >= 0L },
+            format = inputData.getString(KEY_FORMAT).orEmpty(),
+            runtime = inputData.getString(KEY_RUNTIME).orEmpty(),
+            tokenizerId = inputData.getString(KEY_TOKENIZER_ID).orEmpty(),
+            tokenizerSha256 = inputData.getString(KEY_TOKENIZER_SHA256),
+            minimumRamMb = inputData.getInt(KEY_MINIMUM_RAM_MB, -1).takeIf { it > 0 },
+            citation = inputData.getString(KEY_CITATION).orEmpty()
         )
         return model.takeIf {
             it.id.isNotBlank() &&
@@ -100,11 +120,20 @@ class ModelDownloadWorker(
         const val KEY_SIZE_DESCRIPTION = "model_size_description"
         const val KEY_RAM_REQUIREMENT = "model_ram_requirement"
         const val KEY_URL = "model_url"
+        const val KEY_SOURCE_URL = "model_source_url"
+        const val KEY_LICENSE_URL = "model_license_url"
         const val KEY_SHA256 = "model_sha256"
         const val KEY_VERSION = "model_version"
+        const val KEY_REVISION = "model_revision"
         const val KEY_ABI = "model_abi"
         const val KEY_LICENSE_STATUS = "model_license_status"
         const val KEY_SIZE_BYTES = "model_size_bytes"
+        const val KEY_FORMAT = "model_format"
+        const val KEY_RUNTIME = "model_runtime"
+        const val KEY_TOKENIZER_ID = "model_tokenizer_id"
+        const val KEY_TOKENIZER_SHA256 = "model_tokenizer_sha256"
+        const val KEY_MINIMUM_RAM_MB = "model_minimum_ram_mb"
+        const val KEY_CITATION = "model_citation"
         const val KEY_STAGE = "stage"
         const val KEY_REASON = "reason"
         const val KEY_BYTES_DOWNLOADED = "bytes_downloaded"
@@ -112,5 +141,6 @@ class ModelDownloadWorker(
         const val KEY_PROGRESS = "progress"
         const val KEY_SPEED = "speed_bytes_per_second"
         const val KEY_ERROR = "error"
+        const val MAX_RETRIES = 3
     }
 }

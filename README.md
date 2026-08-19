@@ -84,9 +84,9 @@ Gate terakhir yang lolos:
 
 - compile shared/app dan unit test: pass;
 - lint debug dan debug assembly: pass;
-- 13/13 Android instrumentation tests: pass pada Samsung SM-G988B, Android 13;
-- 13/13 Android instrumentation tests: pass pada device `2412DPC0AG`, Android 15;
-- APK debug terbaru di-install dan diluncurkan dengan `adb install -r` pada `RRCN3008VYE` dan `QSWSEMRKNFZ9LJRC`;
+- 14/14 Android instrumentation tests: pass pada `RRCN3008VYE` / Samsung SM-G988B, Android 13;
+- APK debug terbaru di-install dan diluncurkan dengan `adb install -r` pada `RRCN3008VYE`;
+- `QSWSEMRKNFZ9LJRC` tidak terhubung pada acceptance run ini, sehingga tidak diklaim lulus pada APK/commit ini;
 - DB runtime setelah upgrade: 6.236 ayat, 77.430 word rows, 17 hadist collection metadata, 0 hadist text;
 - accessibility tree memverifikasi hamburger, bottom-bar five-slot, selected state, marker `۝`, mu‘anaqah `ۛ`, word selection, dan ModelGate blocker;
 - landscape adaptive navigation dan font-scale 200% smoke pass pada Samsung.
@@ -99,19 +99,19 @@ Preview utama berikut diambil dari APK debug terbaru memakai `adb exec-out scree
 
 | Quran home | Reader Waqaf/Tajwid | Word-by-word selected |
 | --- | --- | --- |
-| ![Quran home](art/device-sm-g988b-sprint2-compact.png) | ![Reader Waqaf and Tajwid](art/device-sm-g988b-reader-waqaf.png) | ![Word by word selected](art/device-sm-g988b-word-selected.png) |
+| ![Quran home](art/device-sm-g988b-final-home.png) | ![Reader Waqaf and Tajwid](art/device-sm-g988b-final-baqara-reader.png) | ![Word by word selected](art/device-sm-g988b-final-word-selected.png) |
 
-| Hadist blocked state | AI ModelGate |
-| --- | --- |
-| ![Hadist provenance gate](art/device-sm-g988b-hadith.png) | ![AI readiness gate](art/device-sm-g988b-ai-gate.png) |
-
-Responsive/device evidence:
-
-| Landscape adaptive navigation | Font scale 200% | Device smoke API 35 |
+| Word-by-word Waqaf | Hadist blocked state | AI ModelGate |
 | --- | --- | --- |
-| ![Landscape adaptive navigation](art/device-sm-g988b-landscape.png) | ![Font scale 200 percent](art/device-sm-g988b-font200.png) | ![API 35 device smoke](art/device-qswse-mark-sprint2-compact.png) |
+| ![Word by word Waqaf](art/device-sm-g988b-final-baqara-word.png) | ![Hadist provenance gate](art/device-sm-g988b-final-hadith.png) | ![AI readiness gate](art/device-sm-g988b-final-ai.png) |
 
-Preview adalah smoke evidence, bukan bukti bahwa model, audio, lisensi hadist, atau semua device class sudah release-ready.
+Responsive evidence dari run sebelumnya pada APK yang sama:
+
+| Landscape adaptive navigation | Font scale 200% |
+| --- | --- |
+| ![Landscape adaptive navigation](art/device-sm-g988b-landscape.png) | ![Font scale 200 percent](art/device-sm-g988b-font200.png) |
+
+Preview adalah smoke evidence, bukan bukti bahwa model, audio, lisensi hadist, atau semua device class sudah release-ready. Screenshot API 35 tidak ditampilkan sebagai acceptance terkini karena device tersebut tidak terhubung pada run ini.
 
 ## Security
 

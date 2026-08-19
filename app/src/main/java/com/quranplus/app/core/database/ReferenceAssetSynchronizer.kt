@@ -17,7 +17,7 @@ class ReferenceAssetSynchronizer(
     private val context: Context,
     private val database: QuranDatabase
 ) {
-    private val wordByWordRevision = "wordbyword.db:english-alignment-only-v3"
+    private val wordByWordRevision = "wordbyword.db:source-gated-v4"
 
     suspend fun synchronize() = withContext(Dispatchers.IO) {
         val temporaryAsset = copyAssetToCache()
@@ -50,7 +50,7 @@ class ReferenceAssetSynchronizer(
         val batch = ArrayList<WordByWordEntity>(BATCH_SIZE)
         source.rawQuery(
             "SELECT id, surah_id, ayah_number, word_index, text_arabic, " +
-                "translation_en, translation_id, source_revision, source_sha256 " +
+                "transliteration, translation_en, translation_id, source_revision, source_sha256 " +
                 "FROM word_by_word ORDER BY id ASC",
             null
         ).use { cursor ->
@@ -61,10 +61,11 @@ class ReferenceAssetSynchronizer(
                     ayahNumber = cursor.getInt(2),
                     wordIndex = cursor.getInt(3),
                     textArabic = cursor.getString(4),
-                    translationEn = cursor.getString(5),
-                    translationId = cursor.getString(6),
+                    transliteration = cursor.getString(5),
+                    translationEn = cursor.getString(6),
+                    translationId = cursor.getString(7),
                     sourceRevision = wordByWordRevision,
-                    sourceSha256 = cursor.getString(8)
+                    sourceSha256 = cursor.getString(9)
                 )
                 if (batch.size == BATCH_SIZE) {
                     database.wordByWordDao().insertAll(batch)

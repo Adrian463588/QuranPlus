@@ -28,6 +28,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -37,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -392,6 +395,7 @@ fun ModelSelectCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val uriHandler = LocalUriHandler.current
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -438,6 +442,36 @@ fun ModelSelectCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    TextButton(
+                        onClick = { uriHandler.openUri(model.sourceUrl) },
+                        enabled = model.sourceUrl.startsWith("https://"),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = if (isSelected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            }
+                        )
+                    ) {
+                        Text("Buka sumber model")
+                    }
+                    TextButton(
+                        onClick = { uriHandler.openUri(model.licenseUrl) },
+                        enabled = model.licenseUrl.startsWith("https://"),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = if (isSelected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            }
+                        )
+                    ) {
+                        Text("Buka lisensi")
+                    }
+                }
             }
         }
     }

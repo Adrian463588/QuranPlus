@@ -12,7 +12,12 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
+import java.net.ConnectException
+import java.net.UnknownHostException
 import java.security.MessageDigest
+import java.net.SocketTimeoutException
+import java.io.EOFException
 import java.util.concurrent.TimeUnit
 
 sealed interface DownloadState {
@@ -54,7 +59,8 @@ class ResumableDownloader(
     fun downloadFile(
         url: String,
         targetDestination: File,
-        expectedSha256: String
+        expectedSha256: String,
+        expectedSizeBytes: Long? = null
     ): Flow<DownloadState> = flow {
         emit(DownloadState.Idle)
         if (!expectedSha256.matches(SHA256_PATTERN)) {
@@ -144,6 +150,14 @@ class ResumableDownloader(
             }
 
             emit(DownloadState.Verifying)
+            if (expectedSizeBytes != null &&
+                expectedSizeBytes > 0L &&
+                tempFile.length() != expectedSizeBytes
+            ) {
+                tempFile.delete()
+                emit(DownloadState.ChecksumError("Verifikasi ukuran artifact gagal"))
+                return@flow
+            }
             val actualSha256 = calculateSha256(tempFile)
             if (!actualSha256.equals(expectedSha256, ignoreCase = true)) {
                 tempFile.delete()
@@ -171,11 +185,25 @@ class ResumableDownloader(
             } else {
                 emit(DownloadState.Failed("File terverifikasi tidak dapat dipublikasikan"))
             }
-        } catch (error: Exception) {
+        } catch (error: IOException) {
             // Keep the .tmp candidate for a later resume; it is never treated as a model.
+            if (isRetryableNetworkError(error)) {
+                emit(DownloadState.Paused("Koneksi terputus; unduhan akan dilanjutkan dari file sementara"))
+            } else {
+                emit(DownloadState.Failed("Penyimpanan atau konfigurasi unduhan bermasalah", error))
+            }
+        } catch (error: Exception) {
             emit(DownloadState.Failed("Terjadi kesalahan saat mengunduh: ${error.localizedMessage}", error))
         }
     }.flowOn(Dispatchers.IO)
+
+    private fun isRetryableNetworkError(error: IOException): Boolean {
+        if (!isOnline()) return true
+        return error is SocketTimeoutException ||
+            error is ConnectException ||
+            error is UnknownHostException ||
+            error is EOFException
+    }
 
     private fun calculateSha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")

@@ -15,6 +15,7 @@ object WaqafParser {
 
     const val SOURCE_CATALOG_VERIFIED = true
     const val WAQAF_ANNOTATION = "quranplus_waqaf"
+    const val AYAH_END_ANNOTATION = "quranplus_ayah_end"
 
     const val WAQAF_LA_SYM = "ۙ"
     const val WAQAF_JAIZ_SYM = "ۚ"
@@ -149,7 +150,15 @@ object WaqafParser {
 
     fun formatAyahEndMarker(ayahNumber: Int): String {
         require(ayahNumber > 0) { "Nomor ayat harus positif" }
-        return " ۝${toArabicDigits(ayahNumber)} "
+        return " ۝" + toArabicDigits(ayahNumber) + " "
+    }
+
+    fun formatAyahTextWithEndMarker(ayahText: String, ayahNumber: Int): String {
+        require(ayahNumber > 0) { "Nomor ayat harus positif" }
+        val textWithoutTerminalMarker = ayahText
+            .replace(Regex("\\s*۝[٠-٩0-9]*\\s*$"), "")
+            .trimEnd()
+        return textWithoutTerminalMarker + formatAyahEndMarker(ayahNumber)
     }
 
     /**
@@ -160,8 +169,28 @@ object WaqafParser {
         if (!SOURCE_CATALOG_VERIFIED) return text
         val builder = AnnotatedString.Builder(text)
         text.text.forEachIndexed { index, char ->
-            findRuleBySymbol(char)?.let {
-                builder.addStringAnnotation(WAQAF_ANNOTATION, char.toString(), index, index + 1)
+            when {
+                char == AYAH_END_SYM.single() -> {
+                    builder.addStyle(
+                        androidx.compose.ui.text.SpanStyle(color = QuranColors.Secondary),
+                        index,
+                        index + 1
+                    )
+                    builder.addStringAnnotation(
+                        AYAH_END_ANNOTATION,
+                        AYAH_END_SYM,
+                        index,
+                        index + 1
+                    )
+                }
+                else -> findRuleBySymbol(char)?.let { rule ->
+                    builder.addStyle(
+                        androidx.compose.ui.text.SpanStyle(color = rule.badgeColor),
+                        index,
+                        index + 1
+                    )
+                    builder.addStringAnnotation(WAQAF_ANNOTATION, char.toString(), index, index + 1)
+                }
             }
         }
         return builder.toAnnotatedString()

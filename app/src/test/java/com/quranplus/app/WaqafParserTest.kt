@@ -33,4 +33,36 @@ class WaqafParserTest {
     fun GIVEN_nonPositiveAyah_WHEN_formattingEndMarker_THEN_rejectsInvalidTarget() {
         WaqafParser.formatAyahEndMarker(0)
     }
+
+    @Test
+    fun GIVEN_ayahEndMarker_WHEN_annotatingMarkers_THEN_isSeparatedFromWaqafAnnotations() {
+        val source = AnnotatedString("الْحَمْدُ " + WaqafParser.formatAyahEndMarker(1))
+
+        val result = WaqafParser.annotateWaqafMarkers(source)
+
+        assertEquals(
+            1,
+            result.getStringAnnotations(
+                WaqafParser.AYAH_END_ANNOTATION,
+                0,
+                result.length
+            ).size
+        )
+        assertEquals(
+            0,
+            result.getStringAnnotations(
+                WaqafParser.WAQAF_ANNOTATION,
+                0,
+                result.length
+            ).size
+        )
+    }
+
+    @Test
+    fun GIVEN_sourceAlreadyHasEndMarker_WHEN_formattingAyahText_THEN_markerIsRenderedOnce() {
+        val result = WaqafParser.formatAyahTextWithEndMarker("بِسْمِ ۝٧ ", 1)
+
+        assertEquals(1, result.count { it == WaqafParser.AYAH_END_SYM.single() })
+        assertEquals("بِسْمِ ۝١ ", result)
+    }
 }

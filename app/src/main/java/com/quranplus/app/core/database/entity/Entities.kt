@@ -68,6 +68,7 @@ data class WordByWordEntity(
     val wordIndex: Int,
     @ColumnInfo(name = "text_arabic")
     val textArabic: String,
+    val transliteration: String? = null,
     @ColumnInfo(name = "translation_en")
     val translationEn: String,
     @ColumnInfo(name = "translation_id")

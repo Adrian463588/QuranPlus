@@ -101,3 +101,6 @@ captures/
 Thumbs.db
 ehthumbs.db
 desktop.ini
+
+# Local accessibility dumps are acceptance evidence, not release assets.
+art/*.xml

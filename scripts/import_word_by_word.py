@@ -14,7 +14,7 @@ from pathlib import Path
 
 EXPECTED_WORDS = 77_430
 EXPECTED_AYAHS = 6_236
-SOURCE_REVISION = "wordbyword.db:english-alignment-only-v3"
+SOURCE_REVISION = "wordbyword.db:source-gated-v4"
 
 
 def normalize_english(value: str | None) -> str:
@@ -30,7 +30,17 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def import_rows(source: Path, target: Path) -> tuple[int, int, str]:
+def import_rows(
+    source: Path,
+    target: Path,
+    include_indonesian: bool = False,
+    indonesian_source: str = "",
+    indonesian_license: str = "",
+) -> tuple[int, int, str]:
+    if include_indonesian and (not indonesian_source or indonesian_license != "verified"):
+        raise RuntimeError(
+            "Indonesian word translation requires a verified source URL and license status"
+        )
     source_hash = sha256(source)
     source_db = sqlite3.connect(source)
     target_db = sqlite3.connect(target)
@@ -60,6 +70,7 @@ def import_rows(source: Path, target: Path) -> tuple[int, int, str]:
                 ayah_number INTEGER NOT NULL,
                 word_index INTEGER NOT NULL,
                 text_arabic TEXT NOT NULL,
+                transliteration TEXT,
                 translation_en TEXT NOT NULL,
                 translation_id TEXT NOT NULL,
                 source_revision TEXT NOT NULL,
@@ -67,13 +78,20 @@ def import_rows(source: Path, target: Path) -> tuple[int, int, str]:
             )
             """
         )
+        target_columns = {
+            row[1] for row in target_db.execute("PRAGMA table_info(word_by_word)")
+        }
+        if "transliteration" not in target_columns:
+            target_db.execute(
+                "ALTER TABLE word_by_word ADD COLUMN transliteration TEXT"
+            )
         target_db.execute("DELETE FROM word_by_word")
         target_db.executemany(
             """
             INSERT INTO word_by_word(
-                id, surah_id, ayah_number, word_index, text_arabic,
+                id, surah_id, ayah_number, word_index, text_arabic, transliteration,
                 translation_en, translation_id, source_revision, source_sha256
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -82,8 +100,9 @@ def import_rows(source: Path, target: Path) -> tuple[int, int, str]:
                     verse_id,
                     words_id,
                     arabic or "",
+                    None,
                     normalize_english(english),
-                    "",
+                    normalize_english(indonesian) if include_indonesian else "",
                     SOURCE_REVISION,
                     source_hash,
                 )
@@ -110,8 +129,17 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--target", type=Path, required=True)
+    parser.add_argument("--include-indonesian", action="store_true")
+    parser.add_argument("--indonesian-source", default="")
+    parser.add_argument("--indonesian-license", default="")
     args = parser.parse_args()
-    words, ayahs, source_hash = import_rows(args.source, args.target)
+    words, ayahs, source_hash = import_rows(
+        args.source,
+        args.target,
+        include_indonesian=args.include_indonesian,
+        indonesian_source=args.indonesian_source,
+        indonesian_license=args.indonesian_license,
+    )
     print(f"Imported {words} words across {ayahs} ayahs")
     print(f"source_sha256={source_hash}")
 

@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -123,12 +122,14 @@ fun AppMain(
         currentRoute = currentRoute,
         widthSizeClass = widthSizeClass,
         onNavigateToDestination = { destination ->
-            navController.navigate(destination.route) {
-                popUpTo(AppDestination.QURAN.route) {
-                    saveState = true
+            if (destination == AppDestination.QURAN) {
+                navController.navigateToQuranRoot()
+            } else {
+                navController.navigate(destination.route) {
+                    popUpTo(AppDestination.QURAN.route) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
                 }
-                launchSingleTop = true
-                restoreState = true
             }
         }
     ) {
@@ -171,17 +172,17 @@ fun AppNavHost(
     NavHost(
         navController = navController,
         startDestination = AppDestination.QURAN.route,
-        enterTransition = { fadeIn(tween(260)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(260)) },
-        exitTransition = { fadeOut(tween(220)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(220)) },
-        popEnterTransition = { fadeIn(tween(260)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(260)) },
-        popExitTransition = { fadeOut(tween(220)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(220)) }
+        enterTransition = { fadeIn(tween(220)) },
+        exitTransition = { fadeOut(tween(220)) },
+        popEnterTransition = { fadeIn(tween(220)) },
+        popExitTransition = { fadeOut(tween(220)) }
     ) {
         // --- 1. Al-Quran Navigation ---
         composable(AppDestination.QURAN.route) {
             SurahListScreen(
                 viewModel = quranViewModel,
                 onSurahClick = { surahNumber, ayahNumber ->
-                    navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
+                    navController.navigateToReader(surahNumber, ayahNumber)
                 },
                 onSearchClick = {
                     navController.navigate("quran_search")
@@ -216,8 +217,9 @@ fun AppNavHost(
                     preferencesManager = preferencesManager,
                     audioPlayerManager = audioPlayerManager,
                     onBackClick = { navController.popBackStack() },
+                    onNavigateToQuranRoot = { navController.navigateToQuranRoot() },
                     onNavigateToAyah = { targetSurah, targetAyah ->
-                        navController.navigate("quran_reader/$targetSurah?initialAyah=$targetAyah")
+                        navController.navigateToReader(targetSurah, targetAyah)
                     }
                 )
             }
@@ -227,7 +229,7 @@ fun AppNavHost(
             SearchScreen(
                 viewModel = quranViewModel,
                 onAyahClick = { surahNumber, ayahNumber ->
-                    navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
+                    navController.navigateToReader(surahNumber, ayahNumber)
                 },
                 onBackClick = { navController.popBackStack() }
             )
@@ -245,7 +247,7 @@ fun AppNavHost(
                     viewModel = chatViewModel,
                     preferencesManager = preferencesManager,
                     onNavigateToAyah = { surahNumber, ayahNumber ->
-                        navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
+                        navController.navigateToReader(surahNumber, ayahNumber)
                     }
                 )
             } else {
@@ -284,7 +286,7 @@ fun AppNavHost(
                     viewModel = tahsinViewModel,
                     audioPlayerManager = audioPlayerManager,
                     onNavigateToAyah = { surahNumber, ayahNumber ->
-                        navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
+                        navController.navigateToReader(surahNumber, ayahNumber)
                     },
                     onBackClick = { navController.popBackStack() }
                 )
@@ -328,7 +330,7 @@ fun AppNavHost(
             BookmarksScreen(
                 viewModel = quranViewModel,
                 onBookmarkClick = { surahNumber, ayahNumber ->
-                    navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
+                    navController.navigateToReader(surahNumber, ayahNumber)
                 }
             )
         }
@@ -337,6 +339,7 @@ fun AppNavHost(
         composable(AppDestination.SETTINGS.route) {
             SettingsScreen(
                 viewModel = settingsViewModel,
+                onBackClick = { navController.popBackStack() },
                 onNavigateToAudioManager = { navController.navigate("audio_manager") },
                 onNavigateToWaqafGuide = { navController.navigate("waqaf_guide") },
                 onNavigateToGharib = { navController.navigate("gharib_directory") },
@@ -345,6 +348,27 @@ fun AppNavHost(
                 onRequestRagDocument = onRequestRagDocument
             )
         }
+    }
+}
+
+private fun NavHostController.navigateToQuranRoot() {
+    navigate(AppDestination.QURAN.route) {
+        popUpTo(AppDestination.QURAN.route) {
+            inclusive = false
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+private fun NavHostController.navigateToReader(surahNumber: Int, ayahNumber: Int) {
+    require(surahNumber in 1..114) { "Nomor surah tidak valid" }
+    require(ayahNumber > 0) { "Nomor ayat tidak valid" }
+    navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber") {
+        popUpTo(AppDestination.QURAN.route) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
     }
 }
 

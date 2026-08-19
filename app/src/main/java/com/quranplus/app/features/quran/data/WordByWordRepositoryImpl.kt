@@ -18,8 +18,9 @@ class WordByWordRepositoryImpl(
                     ayahNumber = word.ayahNumber,
                     wordIndex = word.wordIndex,
                     textArabic = word.textArabic,
-                    translationEn = word.translationEn,
-                    translationId = word.translationId
+                    transliteration = word.transliteration,
+                    translationEn = word.translationEn.takeIf(String::isNotBlank),
+                    translationId = word.translationId.takeIf(String::isNotBlank)
                 )
             }
         }

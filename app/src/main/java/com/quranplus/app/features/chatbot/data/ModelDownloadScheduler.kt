@@ -52,11 +52,20 @@ class ModelDownloadScheduler(
         "model_size_description" to sizeDescription,
         "model_ram_requirement" to ramRequirement,
         "model_url" to downloadUrl,
+        "model_source_url" to sourceUrl,
+        "model_license_url" to licenseUrl,
         "model_sha256" to sha256,
         "model_version" to version,
+        "model_revision" to revision,
         "model_abi" to abi,
         "model_license_status" to licenseStatus,
-        "model_size_bytes" to (sizeBytes ?: -1L)
+        "model_size_bytes" to (sizeBytes ?: -1L),
+        "model_format" to format,
+        "model_runtime" to runtime,
+        "model_tokenizer_id" to tokenizerId,
+        "model_tokenizer_sha256" to tokenizerSha256,
+        "model_minimum_ram_mb" to (minimumRamMb ?: -1),
+        "model_citation" to citation
     )
 
     private fun WorkInfo?.toDownloadState(model: ModelInfo): DownloadState {
