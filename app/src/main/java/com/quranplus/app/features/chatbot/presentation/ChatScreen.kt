@@ -109,7 +109,7 @@ fun ChatScreen(
                     AppEmptyState(
                         icon = Icons.Rounded.AutoAwesome,
                         title = "Asisten AI Islami Offline",
-                        description = "Tanyakan seputar hukum, fiqih, tafsir ayat, atau akhlak. Jawaban akan dirujuk langsung ke dalil Al-Qur'an dan Hadits Shahih."
+                        description = "Tanyakan seputar hukum, fiqih, tafsir ayat, atau akhlak. Jawaban hanya tersedia setelah sumber yang relevan dan model terverifikasi siap."
                     )
                 }
             } else {
@@ -189,7 +189,7 @@ fun ChatScreen(
                 OutlinedTextField(
                     value = inputPrompt,
                     onValueChange = { inputPrompt = it },
-                    placeholder = { Text("Tanyakan masalah agama...", fontSize = 14.sp) },
+                    label = { Text("Pertanyaan agama") },
                     modifier = Modifier.weight(1f),
                     shape = MaterialTheme.shapes.medium,
                     colors = OutlinedTextFieldDefaults.colors(

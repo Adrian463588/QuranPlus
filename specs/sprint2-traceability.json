@@ -36,7 +36,7 @@
   ],
   "acceptance_gates": {
     "static": ["shared compile", "app compile", "lint", "unit tests"],
-    "automated": ["Room migration", "FTS5", "parser", "retrieval", "citation", "downloader", "SAF", "Compose semantics"],
+    "automated": ["Room migration", "FTS5", "surah-filtered search", "search highlighting", "parser", "retrieval", "citation", "downloader", "SAF", "adaptive Compose semantics", "navigation journeys"],
     "physical": ["SM-G988B install/launch/journeys", "Poco separate evidence"],
     "release": ["secret scan", "explicit staged diff", "device PNG preview manifest", "remote SHA verification"]
   }

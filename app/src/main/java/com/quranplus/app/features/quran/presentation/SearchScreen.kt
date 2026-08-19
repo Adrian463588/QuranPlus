@@ -19,11 +19,14 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -39,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
 import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
@@ -55,7 +57,12 @@ fun SearchScreen(
     onBackClick: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    var filterMenuExpanded by remember { mutableStateOf(false) }
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
+    val surahListState by viewModel.surahListState.collectAsStateWithLifecycle()
+    val selectedSurahNumber by viewModel.searchSurahFilter.collectAsStateWithLifecycle()
+    val surahs = (surahListState as? UiState.Success)?.data.orEmpty()
+    val selectedSurah = surahs.firstOrNull { it.number == selectedSurahNumber }
 
     Scaffold(
         topBar = {
@@ -67,7 +74,7 @@ fun SearchScreen(
                             searchQuery = it
                             viewModel.searchQuran(it)
                         },
-                        placeholder = { Text("Cari kata dalam Al-Qur'an (Arab / Terjemahan)...", fontSize = 14.sp) },
+                        label = { Text("Cari ayat") },
                         singleLine = true,
                         leadingIcon = {
                             Icon(imageVector = Icons.Rounded.Search, contentDescription = null)
@@ -106,6 +113,52 @@ fun SearchScreen(
                 .padding(padding)
                 .imePadding()
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                Text(
+                    text = "Filter",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedButton(
+                        onClick = { filterMenuExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = selectedSurah?.nameLatin ?: "Semua Surah",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = filterMenuExpanded,
+                        onDismissRequest = { filterMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Semua Surah") },
+                            onClick = {
+                                viewModel.setSearchSurahFilter(null)
+                                filterMenuExpanded = false
+                            }
+                        )
+                        surahs.forEach { surah ->
+                            DropdownMenuItem(
+                                text = { Text(surah.nameLatin) },
+                                onClick = {
+                                    viewModel.setSearchSurahFilter(surah.number)
+                                    filterMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
             when (val state = searchState) {
                 is UiState.Idle -> {
                     AppEmptyState(
@@ -138,6 +191,7 @@ fun SearchScreen(
                             ) { ayah ->
                                 SearchResultCard(
                                     ayah = ayah,
+                                    query = searchQuery,
                                     onClick = { onAyahClick(ayah.surahNumber, ayah.ayahNumber) }
                                 )
                             }
@@ -173,6 +227,7 @@ fun SearchScreen(
 @Composable
 fun SearchResultCard(
     ayah: Ayah,
+    query: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -195,7 +250,7 @@ fun SearchResultCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "QS. Surah ${ayah.surahNumber} : Ayat ${ayah.ayahNumber}",
+                    text = "QS. ${ayah.surahName} : Ayat ${ayah.ayahNumber}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -205,7 +260,12 @@ fun SearchResultCard(
             Spacer(modifier = Modifier.height(Spacing.xs))
 
             Text(
-                text = ayah.textArabic,
+                text = highlightSearchMatches(
+                    text = ayah.textArabic,
+                    query = query,
+                    highlightColor = MaterialTheme.colorScheme.primaryContainer,
+                    highlightTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
                 style = getQuranArabicStyle(20f),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
@@ -216,7 +276,12 @@ fun SearchResultCard(
             Spacer(modifier = Modifier.height(Spacing.xs))
 
             Text(
-                text = ayah.translationId,
+                text = highlightSearchMatches(
+                    text = ayah.translationId,
+                    query = query,
+                    highlightColor = MaterialTheme.colorScheme.secondaryContainer,
+                    highlightTextColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 3,

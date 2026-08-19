@@ -73,9 +73,12 @@ class QuranRepositoryImpl(
         }
     }
 
-    override suspend fun searchAyahs(query: String): List<Ayah> {
+    override suspend fun searchAyahs(query: String, surahNumber: Int?): List<Ayah> {
         val cleanQuery = query.trim()
         if (cleanQuery.isBlank()) return emptyList()
+        require(surahNumber == null || surahNumber in 1..114) {
+            "Filter surah tidak valid"
+        }
 
         val ftsExpression = cleanQuery
             .split(Regex("\\s+"))
@@ -83,23 +86,38 @@ class QuranRepositoryImpl(
             .joinToString(" AND ") { token ->
                 "\"${token.replace("\"", "\"\"")}\"*"
             }
+        val filterClause = if (surahNumber == null) "" else "AND a.surah_id = ?"
+        val queryArgs = if (surahNumber == null) {
+            arrayOf<Any>(ftsExpression, 50)
+        } else {
+            arrayOf<Any>(ftsExpression, surahNumber, 50)
+        }
         val results = quranDao.searchAyahsFts(
             SimpleSQLiteQuery(
                 """
                 SELECT a.* FROM ayahs AS a
                 JOIN ayahs_fts5 ON a.id = ayahs_fts5.rowid
-                WHERE ayahs_fts5 MATCH ?
+                JOIN surahs AS s ON s.number = a.surah_id
+                WHERE ayahs_fts5 MATCH ? $filterClause
                 ORDER BY a.surah_id ASC, a.ayah_number ASC
                 LIMIT ?
                 """.trimIndent(),
-                arrayOf<Any>(ftsExpression, 50)
+                queryArgs
             )
         )
+        val surahNames = results
+            .map { it.surahId }
+            .distinct()
+            .associateWith { id ->
+                quranDao.getSurahByNumber(id)?.nameLatin
+                    ?: throw IllegalStateException("Nama surah $id tidak tersedia")
+            }
 
         return results.map { entity ->
             Ayah(
                 id = entity.id,
                 surahNumber = entity.surahId,
+                surahName = surahNames.getValue(entity.surahId),
                 ayahNumber = entity.ayahNumber,
                 textArabic = entity.textArabic,
                 transliteration = entity.transliteration,

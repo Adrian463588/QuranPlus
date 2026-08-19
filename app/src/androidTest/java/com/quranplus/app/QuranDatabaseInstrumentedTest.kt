@@ -4,6 +4,7 @@ import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.quranplus.app.core.database.QuranDatabase
+import com.quranplus.app.features.quran.data.QuranRepositoryImpl
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -39,5 +40,22 @@ class QuranDatabaseInstrumentedTest {
         assertTrue(searchResults.isNotEmpty())
         assertEquals(0, database.hadithDao().getAllHadiths().size)
         assertEquals(0, database.knowledgeChunkDao().getChunksCount())
+    }
+
+    @Test
+    fun GIVEN_ftsQueryAndSurahFilter_WHEN_repositorySearches_THEN_resultsStayInSelectedSurah() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val database = QuranDatabase.getInstance(context)
+        val repository = QuranRepositoryImpl(
+            quranDao = database.quranDao(),
+            bookmarkDao = database.bookmarkDao(),
+            lastReadDao = database.lastReadDao()
+        )
+
+        val results = repository.searchAyahs(query = "Allah", surahNumber = 2)
+
+        assertTrue(results.isNotEmpty())
+        assertTrue(results.all { it.surahNumber == 2 })
+        assertTrue(results.all { it.surahName.isNotBlank() })
     }
 }

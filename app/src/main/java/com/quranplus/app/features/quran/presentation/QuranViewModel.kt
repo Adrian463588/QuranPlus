@@ -74,9 +74,13 @@ class QuranViewModel(
     private val _searchState = MutableStateFlow<UiState<List<Ayah>>>(UiState.Idle)
     val searchState: StateFlow<UiState<List<Ayah>>> = _searchState.asStateFlow()
 
+    private val _searchSurahFilter = MutableStateFlow<Int?>(null)
+    val searchSurahFilter: StateFlow<Int?> = _searchSurahFilter.asStateFlow()
+
     private var detailJob: Job? = null
     private var searchJob: Job? = null
     private var lastSavedRead: String? = null
+    private var lastSearchQuery = ""
 
     fun loadSurahDetail(surahNumber: Int) {
         detailJob?.cancel()
@@ -139,6 +143,7 @@ class QuranViewModel(
 
     fun searchQuran(query: String) {
         searchJob?.cancel()
+        lastSearchQuery = query
         if (query.isBlank()) {
             _searchState.value = UiState.Idle
             return
@@ -147,7 +152,7 @@ class QuranViewModel(
             delay(250)
             _searchState.value = UiState.Loading
             try {
-                val results = searchQuranUseCase(query)
+                val results = searchQuranUseCase(query, _searchSurahFilter.value)
                 _searchState.value = if (results.isEmpty()) UiState.Empty else UiState.Success(results)
             } catch (e: Exception) {
                 _searchState.value = UiState.Error(e.localizedMessage ?: "Pencarian gagal")
@@ -156,6 +161,13 @@ class QuranViewModel(
     }
 
     fun clearSearch() {
+        lastSearchQuery = ""
         _searchState.value = UiState.Idle
+    }
+
+    fun setSearchSurahFilter(surahNumber: Int?) {
+        require(surahNumber == null || surahNumber in 1..114)
+        _searchSurahFilter.value = surahNumber
+        if (lastSearchQuery.isNotBlank()) searchQuran(lastSearchQuery)
     }
 }

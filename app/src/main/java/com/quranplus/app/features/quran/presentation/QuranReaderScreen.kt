@@ -6,8 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,7 +22,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
@@ -96,7 +93,7 @@ private const val TOTAL_SURAHS = 114
 @Composable
 fun QuranReaderScreen(
     surahNumber: Int,
-    initialAyahNumber: Int = 1,
+    initialAyahNumber: Int,
     viewModel: QuranViewModel,
     preferencesManager: PreferencesManager,
     audioPlayerManager: AudioPlayerManager,
@@ -177,7 +174,7 @@ fun QuranReaderScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Rounded.TextFields,
-                            contentDescription = "Mode Kata Demi Kata",
+                            contentDescription = "Mode Kata Demi Kata (data belum tersedia)",
                             tint = if (isWordByWordMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -229,11 +226,11 @@ fun QuranReaderScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = Spacing.md, vertical = 4.dp),
+                        .padding(horizontal = Spacing.md, vertical = Spacing.xs),
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "Terjemahan: ${translationMode.label}  •  ${if (isWordByWordMode) "Kata per Kata ON" else "Baris Ayat"}",
+                        text = "Terjemahan: ${translationMode.label}  •  ${if (isWordByWordMode) "Kata per Kata • Diblokir" else "Baris Ayat"}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -262,7 +259,7 @@ fun QuranReaderScreen(
                             IconButton(onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 scope.launch {
-                                    preferencesManager.setArabicFontSize((arabicFontSize - 2f).coerceIn(20f, 40f))
+                                    preferencesManager.setArabicFontSize((arabicFontSize - 2f).coerceIn(18f, 48f))
                                 }
                             }) {
                                 Text("A-", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
@@ -270,7 +267,7 @@ fun QuranReaderScreen(
                             IconButton(onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 scope.launch {
-                                    preferencesManager.setArabicFontSize((arabicFontSize + 2f).coerceIn(20f, 40f))
+                                    preferencesManager.setArabicFontSize((arabicFontSize + 2f).coerceIn(18f, 48f))
                                 }
                             }) {
                                 Text("A+", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
@@ -442,7 +439,6 @@ fun BismillahHeader() {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AyahReaderItem(
     ayah: Ayah,
@@ -457,8 +453,6 @@ fun AyahReaderItem(
     translationMode: TranslationMode = TranslationMode.INDONESIAN,
     isWordByWordMode: Boolean = false
 ) {
-    var selectedWordDetail by remember { mutableStateOf<String?>(null) }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -515,40 +509,24 @@ fun AyahReaderItem(
 
         // Arabic Text / Word-by-Word View
         if (isWordByWordMode) {
-            // Word-by-word chip layout
-            val words = remember(ayah.textArabic) { ayah.textArabic.split(" ").filter { it.isNotBlank() } }
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                words.forEachIndexed { wIdx, wordText ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .padding(2.dp)
-                            .clickable {
-                                selectedWordDetail = wordText
-                            }
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = TajwidParser.buildColoredAyahText(wordText, enableTajwid = enableTajwid),
-                                style = getQuranArabicStyle(fontSizeSp * 0.85f),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Kata ${wIdx + 1}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 10.sp
-                            )
-                        }
-                    }
+                Column(modifier = Modifier.padding(Spacing.md)) {
+                    Text(
+                        text = "Mode kata-per-kata diblokir",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+                    Text(
+                        text = "Dataset Arab, transliterasi, arti, akar kata, dan audio lafaz belum memiliki provenance terverifikasi.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         } else {
@@ -624,7 +602,7 @@ fun AyahReaderItem(
                         )
                     }
                     if (ayah.translationEn.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(
                             text = ayah.translationEn,
                             style = MaterialTheme.typography.bodySmall,
@@ -641,25 +619,6 @@ fun AyahReaderItem(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 
-    // Word Detail Dialog
-    selectedWordDetail?.let { word ->
-        AlertDialog(
-            onDismissRequest = { selectedWordDetail = null },
-            title = { Text("Detail Kata Arab") },
-            text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(text = word, style = getQuranArabicStyle(32f), color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.height(Spacing.sm))
-                    Text(text = "Lafaz Al-Qur'an Utsmani", style = MaterialTheme.typography.bodyMedium)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { selectedWordDetail = null }) {
-                    Text("Tutup")
-                }
-            }
-        )
-    }
 }
 
 @Composable

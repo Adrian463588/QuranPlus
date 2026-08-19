@@ -128,7 +128,7 @@ class PreferencesManager(private val context: Context) {
 
     suspend fun setArabicFontSize(size: Float) {
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.ARABIC_FONT_SIZE] = size.coerceIn(20f, 40f)
+            preferences[PreferencesKeys.ARABIC_FONT_SIZE] = size.coerceIn(18f, 48f)
         }
     }
 

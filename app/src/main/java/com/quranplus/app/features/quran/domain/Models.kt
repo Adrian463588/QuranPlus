@@ -12,6 +12,7 @@ data class Surah(
 data class Ayah(
     val id: Long,
     val surahNumber: Int,
+    val surahName: String = "",
     val ayahNumber: Int,
     val textArabic: String,
     val transliteration: String,

@@ -7,6 +7,7 @@ Sprint 2 is under implementation and acceptance. This repository does not claim 
 ## Current scope
 
 - Quran reader with Arabic text, translation, transliteration, Tajwid annotation, Waqaf parsing, search, bookmarks, notes, and exact last-read ayah state.
+- Quran search uses FTS5 with Arabic/Latin/translation queries, an optional surah filter, and result highlighting; it has no `LIKE` fallback.
 - Tahsin lessons backed by Room and exact Quran links.
 - Material 3 adaptive navigation for compact, medium, and expanded window classes.
 - Local RAG pipeline contracts with fail-closed model, embedding, citation, and source states.
@@ -20,17 +21,17 @@ Status is intentionally evidence-based. `blocked` is not treated as `complete`.
 
 | ID | Status |
 | --- | --- |
-| F-01 | Partial: reader, navigation, exact last-read; device gate pending |
-| F-02 | Partial: translations/transliteration; word-level provenance pending |
-| F-03 | Partial: action wiring; verified audio gate pending |
-| F-04 | Partial: parser and corpus parity review pending |
-| F-05 | Partial: audio playback is local-asset gated |
+| F-01 | Partial: reader, surah navigation, exact last-read; juz/page, immersive, and device gates pending |
+| F-02 | Partial: verified text, translation/transliteration, and 18–48sp font controls; word-level provenance pending |
+| F-03 | Partial: ayah action wiring; verified audio asset gate pending |
+| F-04 | Partial: 15-rule parser/annotation; corpus parity review pending |
+| F-05 | Partial: token detail action is not released until granular source mapping is verified |
 | F-06 | Partial: legend/catalog UI; source test pending |
 | F-07 | Partial: Waqaf parser/UI; corpus evidence pending |
 | F-08 | Partial: guidance UI; source attribution pending |
 | F-09 | Blocked: Gharib record review and lineage pending |
-| F-10 | Blocked: verified audio manifest/checksums pending |
-| F-11 | Partial: resumable/checksum state machine; worker tests pending |
+| F-10 | Blocked: Media3 playback remains unavailable without a verified audio manifest/checksums |
+| F-11 | Partial: resumable/checksum state machine; verified asset and worker tests pending |
 | F-12 | Blocked: verified Room question bank pending |
 | F-13 | Blocked: verified ONNX corpus/vector index/LiteRT model pending |
 | F-14 | Partial: citation persistence and source links; tests pending |
@@ -74,13 +75,14 @@ rtk proxy .\gradlew.bat :app:compileDebugKotlin
 rtk proxy .\gradlew.bat :app:lintDebug
 rtk proxy .\gradlew.bat :app:testDebugUnitTest
 rtk proxy .\gradlew.bat :app:assembleDebug
+rtk proxy .\gradlew.bat :app:connectedDebugAndroidTest
 ```
 
 Physical acceptance is separate from these gates. The first target is Samsung SM-G988B; Poco evidence is a separate gate. Until install, launch, journey, accessibility, rotation, IME, 200% font, performance, and screenshot evidence are recorded, device acceptance is not claimed.
 
 ## Preview evidence
 
-The following previews were captured from the debug APK built at commit `91fc7e53654e77cd1148165b009cace067010ed5` with `adb exec-out screencap -p` on a Samsung `SM-G988B` (Android 13, compact portrait, 100% font scale). They are device smoke evidence, not proof of every adaptive width or release gate.
+The following previews were captured from the debug APK with `adb exec-out screencap -p` on a Samsung `SM-G988B` (Android 13, compact portrait, 100% font scale). The exact source commit and capture metadata are recorded in the [preview manifest](art/device-preview-manifest.json). They are device smoke evidence, not proof of every adaptive width or release gate.
 
 | Quran home | Reader | Ayah actions |
 | --- | --- | --- |

@@ -239,8 +239,8 @@ fun SettingsScreen(
                             Slider(
                                 value = arabicFontSize,
                                 onValueChange = { viewModel.setArabicFontSize(it) },
-                                valueRange = 20f..40f,
-                                steps = 10,
+                                valueRange = 18f..48f,
+                                steps = 14,
                                 colors = SliderDefaults.colors(
                                     thumbColor = MaterialTheme.colorScheme.primary,
                                     activeTrackColor = MaterialTheme.colorScheme.primary
