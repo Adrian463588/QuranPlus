@@ -1,0 +1,18 @@
+{
+  "schema_version": "tahsin-provenance-1",
+  "status": "reference-derived-review-required",
+  "source": {
+    "kind": "local reference-derived seed",
+    "seed_path": "app/src/main/assets/seeds/tahsin_seed.json",
+    "seed_sha256": "75AD6A9D169B0156DF4CF415D2ABA9525DFD1262C7120B032619BF8E4005C0B5",
+    "record_count": 54,
+    "license_status": "verify-before-distribution"
+  },
+  "runtime_policy": {
+    "room_backed_content": true,
+    "example_ayah_must_resolve_against_quran_database": true,
+    "audio_required_for_playback": true,
+    "missing_audio_is_blocked": true,
+    "record_level_review_complete": false
+  }
+}

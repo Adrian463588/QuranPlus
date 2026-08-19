@@ -12,7 +12,14 @@ data class ModelInfo(
     val downloadUrl: String,
     val sha256: String? = null,
     val isRecommended: Boolean = false
-)
+) {
+    val hasVerifiedManifest: Boolean
+        get() = sha256?.matches(SHA256_PATTERN) == true
+
+    private companion object {
+        val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
+    }
+}
 
 class ModelRepository(private val context: Context) {
 
@@ -53,36 +60,44 @@ class ModelRepository(private val context: Context) {
     }
 
     fun getModelFile(filename: String): File {
-        // Check primary internal storage
-        val local = File(getModelsDirectory(), filename)
-        if (local.exists() && local.length() > 0) return local
-
-        // Check external files dir
-        val ext = File(context.getExternalFilesDir(null), "models/$filename")
-        if (ext.exists() && ext.length() > 0) return ext
-
-        // Check local tmp / adb push directory
-        val tmp = File("/data/local/tmp/llm/$filename")
-        if (tmp.exists() && tmp.length() > 0) return tmp
-
-        return local
+        require(filename == File(filename).name) { "Model filename must not contain a path" }
+        return File(getModelsDirectory(), filename)
     }
 
     fun isModelReady(filename: String): Boolean {
-        val file = getModelFile(filename)
-        return file.exists() && file.length() > 1024 * 1024 // Greater than 1MB
+        val config = availableModelConfigs.firstOrNull { it.filename == filename } ?: return false
+        return isModelReady(config)
     }
 
     fun getActiveModelFile(): File {
-        // Return first ready model or default target
-        for (cfg in availableModelConfigs) {
-            val file = getModelFile(cfg.filename)
-            if (file.exists() && file.length() > 1024 * 1024) return file
-        }
-        return getModelFile("gemma-3-1b-it.litertlm")
+        val readyModel = availableModelConfigs.firstOrNull(::isModelReady)
+            ?: throw IllegalStateException(
+                "Tidak ada model LiteRT-LM terverifikasi. SHA-256 manifest dan file model diperlukan."
+            )
+        return getModelFile(readyModel.filename)
     }
 
     fun isAnyModelReady(): Boolean {
-        return availableModelConfigs.any { isModelReady(it.filename) }
+        return availableModelConfigs.any(::isModelReady)
+    }
+
+    fun isModelReady(modelInfo: ModelInfo): Boolean {
+        if (!modelInfo.hasVerifiedManifest) return false
+        val file = getModelFile(modelInfo.filename)
+        return file.isFile && file.length() > 0L &&
+            calculateSha256(file).equals(modelInfo.sha256, ignoreCase = true)
+    }
+
+    private fun calculateSha256(file: File): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }

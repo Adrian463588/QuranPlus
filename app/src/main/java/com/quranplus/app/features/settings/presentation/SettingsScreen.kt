@@ -19,7 +19,7 @@ import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.Quiz
@@ -37,7 +37,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +52,8 @@ import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.features.settings.data.AiPersona
+import com.quranplus.app.features.rag.presentation.RagDocumentViewModel
+import com.quranplus.app.features.rag.presentation.RagImportState
 
 @Composable
 fun SettingsScreen(
@@ -59,15 +61,18 @@ fun SettingsScreen(
     onNavigateToAudioManager: () -> Unit = {},
     onNavigateToWaqafGuide: () -> Unit = {},
     onNavigateToGharib: () -> Unit = {},
-    onNavigateToQuiz: () -> Unit = {}
+    onNavigateToQuiz: () -> Unit = {},
+    ragDocumentViewModel: RagDocumentViewModel,
+    onRequestRagDocument: () -> Unit
 ) {
-    val isDarkMode by viewModel.isDarkMode.collectAsState()
-    val arabicFontSize by viewModel.arabicFontSize.collectAsState()
-    val showTransliteration by viewModel.showTransliteration.collectAsState()
-    val showTranslation by viewModel.showTranslation.collectAsState()
-    val enableTajwid by viewModel.enableTajwid.collectAsState()
-    val selectedPersona by viewModel.selectedPersona.collectAsState()
-    val customPrompt by viewModel.customSystemPrompt.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+    val arabicFontSize by viewModel.arabicFontSize.collectAsStateWithLifecycle()
+    val showTransliteration by viewModel.showTransliteration.collectAsStateWithLifecycle()
+    val showTranslation by viewModel.showTranslation.collectAsStateWithLifecycle()
+    val enableTajwid by viewModel.enableTajwid.collectAsStateWithLifecycle()
+    val selectedPersona by viewModel.selectedPersona.collectAsStateWithLifecycle()
+    val customPrompt by viewModel.customSystemPrompt.collectAsStateWithLifecycle()
+    val ragImportState by ragDocumentViewModel.state.collectAsStateWithLifecycle()
 
     var customPromptInput by remember(customPrompt) { mutableStateOf(customPrompt) }
 
@@ -109,7 +114,7 @@ fun SettingsScreen(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = Spacing.xs))
 
                         SettingsNavRow(
-                            icon = Icons.Rounded.MenuBook,
+                            icon = Icons.AutoMirrored.Rounded.MenuBook,
                             title = "Panduan Waqaf & Ibtida'",
                             subtitle = "Kaidah berhenti, tanda mushaf, dan rekomendasi",
                             onClick = onNavigateToWaqafGuide
@@ -132,6 +137,43 @@ fun SettingsScreen(
                             subtitle = "Uji pemahaman dan tingkatkan kemahiran tartil",
                             onClick = onNavigateToQuiz
                         )
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = Spacing.xs))
+
+                        SettingsNavRow(
+                            icon = Icons.Rounded.Info,
+                            title = "Impor Dokumen RAG",
+                            subtitle = "TXT, Markdown, JSON; PDF text-only akan divalidasi tanpa OCR",
+                            onClick = onRequestRagDocument
+                        )
+
+                        when (val state = ragImportState) {
+                            RagImportState.Idle -> Unit
+                            RagImportState.Importing -> Text(
+                                text = "Memvalidasi dan menyimpan dokumen...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
+                            is RagImportState.StoredAwaitingEmbedding -> Text(
+                                text = "Tersimpan ${state.metadata.displayName}; menunggu model embedding terverifikasi sebelum indexing.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
+                            is RagImportState.Unsupported -> Text(
+                                text = state.reason,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
+                            is RagImportState.Error -> Text(
+                                text = state.reason,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
+                        }
                     }
                 }
 

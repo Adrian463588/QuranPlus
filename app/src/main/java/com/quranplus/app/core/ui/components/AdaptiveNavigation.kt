@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
@@ -41,7 +41,7 @@ enum class AppDestination(
     val title: String,
     val icon: ImageVector
 ) {
-    QURAN("quran_home", "Al-Qur'an", Icons.Rounded.MenuBook),
+    QURAN("quran_home", "Al-Qur'an", Icons.AutoMirrored.Rounded.MenuBook),
     CHAT("chat_home", "Tanya AI", Icons.Rounded.AutoAwesome),
     TAHSIN("tahsin_home", "Tahsin", Icons.Rounded.School),
     BOOKMARKS("bookmarks_home", "Bookmark", Icons.Rounded.Bookmark),

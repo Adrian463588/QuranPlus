@@ -16,6 +16,8 @@ import com.quranplus.app.core.database.entity.KnowledgeChunkEntity
 import com.quranplus.app.core.database.entity.LastReadEntity
 import com.quranplus.app.core.database.entity.SurahEntity
 import com.quranplus.app.core.database.entity.TahsinLessonEntity
+import com.quranplus.app.core.database.entity.QuizAttemptEntity
+import com.quranplus.app.core.database.entity.QuizQuestionEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -139,4 +141,13 @@ interface ChatDao {
 
     @Query("DELETE FROM chat_messages WHERE conversation_id = :conversationId")
     suspend fun clearConversation(conversationId: String)
+}
+
+@Dao
+interface QuizDao {
+    @Query("SELECT * FROM quiz_questions ORDER BY id ASC")
+    fun getQuestions(): Flow<List<QuizQuestionEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertAttempt(attempt: QuizAttemptEntity)
 }

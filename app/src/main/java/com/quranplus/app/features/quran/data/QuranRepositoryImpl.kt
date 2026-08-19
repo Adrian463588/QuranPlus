@@ -7,6 +7,7 @@ import com.quranplus.app.core.database.entity.BookmarkEntity
 import com.quranplus.app.core.database.entity.LastReadEntity
 import com.quranplus.app.features.quran.domain.Ayah
 import com.quranplus.app.features.quran.domain.Bookmark
+import com.quranplus.app.features.quran.domain.BookmarkSort
 import com.quranplus.app.features.quran.domain.LastRead
 import com.quranplus.app.features.quran.domain.QuranRepository
 import com.quranplus.app.features.quran.domain.Surah
@@ -86,12 +87,12 @@ class QuranRepositoryImpl(
             SimpleSQLiteQuery(
                 """
                 SELECT a.* FROM ayahs AS a
-                JOIN ayahs_fts5 AS f ON a.id = f.rowid
+                JOIN ayahs_fts5 ON a.id = ayahs_fts5.rowid
                 WHERE ayahs_fts5 MATCH ?
                 ORDER BY a.surah_id ASC, a.ayah_number ASC
                 LIMIT ?
                 """.trimIndent(),
-                arrayOf(ftsExpression, 50)
+                arrayOf<Any>(ftsExpression, 50)
             )
         )
 
@@ -111,8 +112,12 @@ class QuranRepositoryImpl(
         }
     }
 
-    override fun getAllBookmarks(): Flow<List<Bookmark>> {
-        return bookmarkDao.getAllBookmarks().map { list ->
+    override fun getAllBookmarks(sort: BookmarkSort): Flow<List<Bookmark>> {
+        val source = when (sort) {
+            BookmarkSort.NEWEST -> bookmarkDao.getAllBookmarks()
+            BookmarkSort.SURAH -> bookmarkDao.getAllBookmarksBySurah()
+        }
+        return source.map { list ->
             list.map { entity ->
                 Bookmark(
                     id = entity.id,
@@ -159,6 +164,25 @@ class QuranRepositoryImpl(
 
     override suspend fun deleteBookmark(id: Long) {
         bookmarkDao.deleteBookmarkById(id)
+    }
+
+    override suspend fun restoreBookmark(bookmark: Bookmark) {
+        bookmarkDao.insertBookmark(
+            BookmarkEntity(
+                id = bookmark.id,
+                surahId = bookmark.surahNumber,
+                surahName = bookmark.surahName,
+                ayahNumber = bookmark.ayahNumber,
+                ayahTextArabic = bookmark.ayahTextArabic,
+                ayahTranslation = bookmark.ayahTranslation,
+                note = bookmark.note,
+                timestamp = bookmark.timestamp
+            )
+        )
+    }
+
+    override suspend fun updateBookmarkNote(id: Long, note: String?) {
+        bookmarkDao.updateNote(id, note?.takeIf(String::isNotBlank))
     }
 
     override fun getLastRead(): Flow<LastRead?> {

@@ -21,7 +21,6 @@ docs*/
 *.gguf
 *.onnx
 *.tflite
-!app/src/main/assets/embedding/all-MiniLM-L6-v2.tflite
 *.bin
 *.pt
 *.safetensors

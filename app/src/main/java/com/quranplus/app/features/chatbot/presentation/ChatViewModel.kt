@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.io.File
 
 class ChatViewModel(
     private val getChatHistoryUseCase: GetChatHistoryUseCase,
@@ -49,11 +48,20 @@ class ChatViewModel(
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     fun checkModelStatus() {
         _isModelReady.value = modelRepository.isAnyModelReady()
     }
 
     fun startModelDownload(modelInfo: ModelInfo) {
+        if (!modelInfo.hasVerifiedManifest || modelInfo.sha256.isNullOrBlank()) {
+            _downloadState.value = DownloadState.Failed(
+                "Unduhan belum tersedia: manifest SHA-256 model belum diverifikasi."
+            )
+            return
+        }
         viewModelScope.launch {
             val targetFile = modelRepository.getModelFile(modelInfo.filename)
             resumableDownloader.downloadFile(
@@ -63,7 +71,7 @@ class ChatViewModel(
             ).collect { state ->
                 _downloadState.value = state
                 if (state is DownloadState.Completed) {
-                    _isModelReady.value = true
+                    _isModelReady.value = modelRepository.isModelReady(modelInfo)
                 }
             }
         }
@@ -73,6 +81,7 @@ class ChatViewModel(
         if (userText.isBlank() || _isStreaming.value) return
 
         viewModelScope.launch {
+            _errorMessage.value = null
             // 1. Save user message
             val userMessage = ChatMessage(
                 conversationId = conversationId,
@@ -98,6 +107,10 @@ class ChatViewModel(
                     _streamingContent.value = fullResponse.toString()
                 }
 
+                if (fullResponse.isEmpty()) {
+                    throw IllegalStateException("Model tidak mengembalikan token jawaban")
+                }
+
                 // 4. Save Assistant Response with citations
                 val assistantMessage = ChatMessage(
                     conversationId = conversationId,
@@ -108,13 +121,9 @@ class ChatViewModel(
                 saveChatMessageUseCase(assistantMessage)
 
             } catch (e: Exception) {
-                // Fallback response if on-device model generation has issue
-                val fallbackMessage = ChatMessage(
-                    conversationId = conversationId,
-                    role = MessageRole.ASSISTANT,
-                    content = "Maaf, terjadi kendala saat memproses inferensi on-device: ${e.localizedMessage}"
-                )
-                saveChatMessageUseCase(fallbackMessage)
+                _errorMessage.value = e.localizedMessage
+                    ?.takeIf(String::isNotBlank)
+                    ?: "Inferensi lokal gagal tanpa menghasilkan jawaban."
             } finally {
                 _isStreaming.value = false
                 _streamingContent.value = ""
@@ -126,5 +135,9 @@ class ChatViewModel(
         viewModelScope.launch {
             clearChatHistoryUseCase(conversationId)
         }
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
     }
 }

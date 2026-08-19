@@ -1,0 +1,53 @@
+package com.quranplus.app.features.chatbot.data
+
+import com.quranplus.app.features.rag.domain.RetrievedCitation
+import org.json.JSONArray
+import org.json.JSONObject
+
+/** Room-safe codec for the exact citations attached to an assistant message. */
+object CitationJsonCodec {
+
+    fun encode(citations: List<RetrievedCitation>): String {
+        val array = JSONArray()
+        citations.forEach { citation ->
+            array.put(
+                JSONObject()
+                    .put("source_id", citation.sourceId)
+                    .put("source_type", citation.sourceType)
+                    .put("title", citation.title)
+                    .put("reference", citation.reference)
+                    .put("text_snippet", citation.textSnippet)
+                    .put("score", citation.score.toDouble())
+                    .put("surah_number", citation.surahNumber)
+                    .put("ayah_number", citation.ayahNumber)
+            )
+        }
+        return array.toString()
+    }
+
+    fun decode(json: String?): List<RetrievedCitation> {
+        if (json.isNullOrBlank()) return emptyList()
+        val array = JSONArray(json)
+        return buildList(array.length()) {
+            for (index in 0 until array.length()) {
+                val item = array.getJSONObject(index)
+                add(
+                    RetrievedCitation(
+                        sourceId = item.getString("source_id"),
+                        sourceType = item.getString("source_type"),
+                        title = item.getString("title"),
+                        reference = item.getString("reference"),
+                        textSnippet = item.getString("text_snippet"),
+                        score = item.getDouble("score").toFloat(),
+                        surahNumber = item.optionalInt("surah_number"),
+                        ayahNumber = item.optionalInt("ayah_number")
+                    )
+                )
+            }
+        }
+    }
+
+    private fun JSONObject.optionalInt(key: String): Int? {
+        return if (has(key) && !isNull(key)) getInt(key) else null
+    }
+}

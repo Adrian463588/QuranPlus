@@ -30,11 +30,19 @@ class ToggleBookmarkUseCase(private val repository: QuranRepository) {
 }
 
 class GetBookmarksUseCase(private val repository: QuranRepository) {
-    operator fun invoke(): Flow<List<Bookmark>> = repository.getAllBookmarks()
+    operator fun invoke(sort: BookmarkSort = BookmarkSort.NEWEST): Flow<List<Bookmark>> = repository.getAllBookmarks(sort)
 }
 
 class DeleteBookmarkUseCase(private val repository: QuranRepository) {
-    suspend operator fun invoke(id: Long) = repository.deleteBookmark(id)
+    suspend operator fun invoke(bookmark: Bookmark) = repository.deleteBookmark(bookmark.id)
+}
+
+class RestoreBookmarkUseCase(private val repository: QuranRepository) {
+    suspend operator fun invoke(bookmark: Bookmark) = repository.restoreBookmark(bookmark)
+}
+
+class UpdateBookmarkNoteUseCase(private val repository: QuranRepository) {
+    suspend operator fun invoke(id: Long, note: String?) = repository.updateBookmarkNote(id, note)
 }
 
 class SaveLastReadUseCase(private val repository: QuranRepository) {

@@ -38,9 +38,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -66,10 +66,10 @@ fun AudioManagerScreen(
     quranViewModel: QuranViewModel,
     onBackClick: () -> Unit
 ) {
-    val selectedQari by audioPlayerManager.selectedQari.collectAsState()
-    val surahsState by quranViewModel.surahListState.collectAsState()
+    val selectedQari by audioPlayerManager.selectedQari.collectAsStateWithLifecycle()
+    val surahsState by quranViewModel.surahListState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var simulatedStorageBytes by remember { mutableStateOf(14_500_000L) } // ~14.5 MB default cached
+    var storageBytes by remember { mutableLongStateOf(audioPlayerManager.getAudioStorageBytes()) }
 
     Scaffold(
         topBar = {
@@ -105,7 +105,7 @@ fun AudioManagerScreen(
                             Text("Penyimpanan Murottal", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         }
                         Text(
-                            text = "${"%.1f".format(simulatedStorageBytes / (1024.0 * 1024.0))} MB",
+                            text = "${"%.1f".format(storageBytes / (1024.0 * 1024.0))} MB",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -127,9 +127,15 @@ fun AudioManagerScreen(
                         )
                         OutlinedButton(
                             onClick = {
-                                simulatedStorageBytes = 0L
-                                Toast.makeText(context, "Cache audio offline berhasil dibersihkan", Toast.LENGTH_SHORT).show()
+                                val deletedBytes = audioPlayerManager.clearDownloadedAudio()
+                                storageBytes = audioPlayerManager.getAudioStorageBytes()
+                                Toast.makeText(
+                                    context,
+                                    "Cache audio dihapus: ${deletedBytes / (1024 * 1024)} MB",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             },
+                            enabled = storageBytes > 0L,
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Icon(imageVector = Icons.Rounded.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -183,19 +189,28 @@ fun AudioManagerScreen(
                         items(state.data, key = { it.number }) { surah ->
                             SurahAudioDownloadRow(
                                 surah = surah,
-                                onDownload = {
-                                    simulatedStorageBytes += (surah.ayahCount * 45_000L)
-                                    Toast.makeText(context, "Surah ${surah.nameLatin} berhasil diunduh untuk pemutaran offline", Toast.LENGTH_SHORT).show()
-                                }
+                                qari = selectedQari,
+                                storedBytes = audioPlayerManager.getSurahAudioBytes(selectedQari, surah.number)
                             )
                         }
                     }
                 }
-                else -> {
+                is UiState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("Memuat daftar surah...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+                is UiState.Empty -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Data surah tidak tersedia", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                is UiState.Error -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(state.message, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                is UiState.Blocked, UiState.Idle -> Unit
             }
         }
     }
@@ -204,7 +219,8 @@ fun AudioManagerScreen(
 @Composable
 fun SurahAudioDownloadRow(
     surah: Surah,
-    onDownload: () -> Unit
+    qari: Qari,
+    storedBytes: Long
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -242,18 +258,25 @@ fun SurahAudioDownloadRow(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${surah.ayahCount} Ayat • ±${(surah.ayahCount * 0.08).toInt() + 1} MB",
+                        text = if (storedBytes > 0L) {
+                            "${storedBytes / (1024 * 1024)} MB tersimpan • ${qari.displayName}"
+                        } else {
+                            "Asset audio terverifikasi belum tersedia"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            IconButton(onClick = onDownload) {
+            IconButton(
+                onClick = {},
+                enabled = false
+            ) {
                 Icon(
                     imageVector = Icons.Rounded.Download,
-                    contentDescription = "Unduh Surah ${surah.nameLatin}",
-                    tint = MaterialTheme.colorScheme.primary
+                    contentDescription = "Unduhan audio diblokir sampai manifest URL dan SHA-256 tersedia",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

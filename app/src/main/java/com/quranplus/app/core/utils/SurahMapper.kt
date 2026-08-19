@@ -162,7 +162,7 @@ object SurahMapper {
         val clean = ref.substringBefore("(").trim()
         val match = Regex("""QS\.?\s+([^:]+):\s*(\d+)""").find(clean) ?: return null
         val surahQuery = match.groupValues[1].trim()
-        val ayahNumber = match.groupValues[2].toIntOrNull() ?: 1
+        val ayahNumber = match.groupValues[2].toIntOrNull()?.takeIf { it > 0 } ?: return null
         val surah = findSurah(surahQuery) ?: return null
         return Pair(surah, ayahNumber)
     }

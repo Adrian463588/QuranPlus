@@ -1,0 +1,43 @@
+{
+  "schema_version": "sprint2-1",
+  "status_policy": "Blocked is explicit and never represented as complete",
+  "contract_sources": [
+    "local AGENTS.md",
+    "local PRD.md",
+    "local DESIGN.md",
+    "local docsSprint2/PRD.md",
+    "local docs/Reference.md"
+  ],
+  "features": {
+    "F-01": "implemented-bundled-quran-device-gate-pending",
+    "F-02": "partial-word-level-provenance-pending",
+    "F-03": "implemented-action-wiring-device-gate-pending",
+    "F-04": "partial-parser-corpus-parity-pending",
+    "F-05": "partial-audio-asset-gated",
+    "F-06": "implemented-parser-catalog-ui-test-pending",
+    "F-07": "implemented-corpus-evidence-pending",
+    "F-08": "partial-source-attribution-pending",
+    "F-09": "blocked-record-level-lineage-review-pending",
+    "F-10": "blocked-verified-audio-manifest-pending",
+    "F-11": "partial-range-checksum-worker-tests-pending",
+    "F-12": "blocked-verified-room-question-bank-pending",
+    "F-13": "blocked-verified-onnx-corpus-vector-and-litert-model-pending",
+    "F-14": "partial-citation-persistence-and-source-link-tests-pending",
+    "F-15": "implemented-datastore-state-restoration-pending",
+    "F-16": "partial-room-lessons-source-audit-pending"
+  },
+  "authenticity_gates": [
+    "FTS5 only; no LIKE fallback",
+    "No zero, hash, constant, or fabricated embeddings/scores/confidence",
+    "No assistant fallback content",
+    "No arbitrary route identifiers or ayah counts",
+    "Missing source/model/audio/index produces explicit blocked or error state",
+    "Reference projects, raw archives, cache, and internal markdown are local-only"
+  ],
+  "acceptance_gates": {
+    "static": ["shared compile", "app compile", "lint", "unit tests"],
+    "automated": ["Room migration", "FTS5", "parser", "retrieval", "citation", "downloader", "SAF", "Compose semantics"],
+    "physical": ["SM-G988B install/launch/journeys", "Poco separate evidence"],
+    "release": ["secret scan", "explicit staged diff", "device PNG preview manifest", "remote SHA verification"]
+  }
+}

@@ -5,12 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.quranplus.app.features.quran.domain.Ayah
 import com.quranplus.app.features.quran.domain.Bookmark
 import com.quranplus.app.features.quran.domain.DeleteBookmarkUseCase
+import com.quranplus.app.features.quran.domain.RestoreBookmarkUseCase
+import com.quranplus.app.features.quran.domain.UpdateBookmarkNoteUseCase
 import com.quranplus.app.features.quran.domain.GetAyahsBySurahUseCase
 import com.quranplus.app.features.quran.domain.GetBookmarksUseCase
 import com.quranplus.app.features.quran.domain.GetLastReadUseCase
 import com.quranplus.app.features.quran.domain.GetSurahDetailUseCase
 import com.quranplus.app.features.quran.domain.GetSurahListUseCase
 import com.quranplus.app.features.quran.domain.LastRead
+import com.quranplus.app.features.quran.domain.BookmarkSort
 import com.quranplus.app.features.quran.domain.SaveLastReadUseCase
 import com.quranplus.app.features.quran.domain.SearchQuranUseCase
 import com.quranplus.app.features.quran.domain.Surah
@@ -21,11 +24,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class QuranViewModel(
     private val getSurahListUseCase: GetSurahListUseCase,
     private val getSurahDetailUseCase: GetSurahDetailUseCase,
@@ -34,6 +40,8 @@ class QuranViewModel(
     private val toggleBookmarkUseCase: ToggleBookmarkUseCase,
     private val getBookmarksUseCase: GetBookmarksUseCase,
     private val deleteBookmarkUseCase: DeleteBookmarkUseCase,
+    private val restoreBookmarkUseCase: RestoreBookmarkUseCase,
+    private val updateBookmarkNoteUseCase: UpdateBookmarkNoteUseCase,
     private val saveLastReadUseCase: SaveLastReadUseCase,
     private val getLastReadUseCase: GetLastReadUseCase
 ) : ViewModel() {
@@ -48,7 +56,11 @@ class QuranViewModel(
     val lastReadState: StateFlow<LastRead?> = getLastReadUseCase()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val bookmarksState: StateFlow<UiState<List<Bookmark>>> = getBookmarksUseCase()
+    private val _bookmarkSort = MutableStateFlow(BookmarkSort.NEWEST)
+    val bookmarkSort: StateFlow<BookmarkSort> = _bookmarkSort.asStateFlow()
+
+    val bookmarksState: StateFlow<UiState<List<Bookmark>>> = _bookmarkSort
+        .flatMapLatest { sort -> getBookmarksUseCase(sort) }
         .map<List<Bookmark>, UiState<List<Bookmark>>> { UiState.Success(it) }
         .catch { emit(UiState.Error(it.localizedMessage ?: "Gagal memuat bookmark")) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState.Loading)
@@ -107,10 +119,22 @@ class QuranViewModel(
         }
     }
 
-    fun deleteBookmark(bookmarkId: Long) {
+    fun deleteBookmark(bookmark: Bookmark) {
         viewModelScope.launch {
-            deleteBookmarkUseCase(bookmarkId)
+            deleteBookmarkUseCase(bookmark)
         }
+    }
+
+    fun restoreBookmark(bookmark: Bookmark) {
+        viewModelScope.launch { restoreBookmarkUseCase(bookmark) }
+    }
+
+    fun updateBookmarkNote(bookmarkId: Long, note: String?) {
+        viewModelScope.launch { updateBookmarkNoteUseCase(bookmarkId, note) }
+    }
+
+    fun setBookmarkSort(sort: BookmarkSort) {
+        _bookmarkSort.value = sort
     }
 
     fun searchQuran(query: String) {

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -54,7 +55,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -101,14 +102,14 @@ fun QuranReaderScreen(
     audioPlayerManager: AudioPlayerManager,
     onBackClick: () -> Unit
 ) {
-    val surah by viewModel.currentSurah.collectAsState()
-    val ayahsState by viewModel.currentAyahsState.collectAsState()
+    val surah by viewModel.currentSurah.collectAsStateWithLifecycle()
+    val ayahsState by viewModel.currentAyahsState.collectAsStateWithLifecycle()
 
-    val arabicFontSize by preferencesManager.arabicFontSize.collectAsState(initial = 28f)
-    val showTransliteration by preferencesManager.showTransliteration.collectAsState(initial = true)
-    val showTranslation by preferencesManager.showTranslation.collectAsState(initial = true)
-    val enableTajwid by preferencesManager.enableTajwid.collectAsState(initial = true)
-    val translationMode by preferencesManager.translationMode.collectAsState(initial = TranslationMode.INDONESIAN)
+    val arabicFontSize by preferencesManager.arabicFontSize.collectAsStateWithLifecycle(initialValue = 28f)
+    val showTransliteration by preferencesManager.showTransliteration.collectAsStateWithLifecycle(initialValue = true)
+    val showTranslation by preferencesManager.showTranslation.collectAsStateWithLifecycle(initialValue = true)
+    val enableTajwid by preferencesManager.enableTajwid.collectAsStateWithLifecycle(initialValue = true)
+    val translationMode by preferencesManager.translationMode.collectAsStateWithLifecycle(initialValue = TranslationMode.INDONESIAN)
 
     var showTajwidSheet by remember { mutableStateOf(false) }
     var showFontSlider by remember { mutableStateOf(false) }
@@ -136,28 +137,36 @@ fun QuranReaderScreen(
 
     // Scroll to initial ayah when ayahs load
     LaunchedEffect(ayahsState, initialAyahNumber) {
-        if (ayahsState is UiState.Success && initialAyahNumber > 1) {
+        if (ayahsState is UiState.Success && initialAyahNumber > 0) {
+            val data = (ayahsState as UiState.Success<List<Ayah>>).data
             val currentSurahNum = pagerState.currentPage + 1
-            val targetIndex = (initialAyahNumber - 1 + if (currentSurahNum != 9) 1 else 0).coerceAtLeast(0)
-            listState.animateScrollToItem(targetIndex)
+            if (initialAyahNumber <= data.size) {
+                val headerOffset = if (currentSurahNum != 9) 1 else 0
+                val targetIndex = headerOffset + initialAyahNumber - 1
+                listState.animateScrollToItem(targetIndex)
+            }
         }
     }
 
     // Auto-update last read position as user scrolls
     val firstVisibleItemIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
-    LaunchedEffect(firstVisibleItemIndex) {
+    LaunchedEffect(firstVisibleItemIndex, ayahsState, pagerState.currentPage) {
         val currentSurah = surah
         val currentSurahNum = pagerState.currentPage + 1
-        if (currentSurah != null && firstVisibleItemIndex >= 0) {
-            val ayahNum = firstVisibleItemIndex + 1
-            viewModel.onAyahVisible(currentSurahNum, currentSurah.nameLatin, ayahNum)
+        val state = ayahsState
+        if (currentSurah != null && state is UiState.Success) {
+            val headerOffset = if (currentSurahNum != 9) 1 else 0
+            val ayahIndex = (firstVisibleItemIndex - headerOffset).coerceAtLeast(0)
+            state.data.getOrNull(ayahIndex)?.let { ayah ->
+                viewModel.onAyahVisible(currentSurahNum, currentSurah.nameLatin, ayah.ayahNumber)
+            }
         }
     }
 
     Scaffold(
         topBar = {
             AppTopBar(
-                title = surah?.nameLatin ?: "Surah ${pagerState.currentPage + 1}",
+                title = surah?.nameLatin ?: "Memuat surah",
                 subtitle = surah?.let { "${it.revelationType.uppercase()} • ${it.ayahCount} Ayat" },
                 onBackClick = onBackClick,
                 actions = {
@@ -285,38 +294,55 @@ fun QuranReaderScreen(
                             }
                         }
                         is UiState.Success -> {
-                            LazyColumn(
-                                state = listState,
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = Spacing.xxl)
-                            ) {
-                                // Bismillah Header (except At-Tawbah)
-                                if (page + 1 != 9) {
-                                    item { BismillahHeader() }
-                                }
-                                items(
-                                    items = state.data,
-                                    key = { "${it.surahNumber}_${it.ayahNumber}" }
-                                ) { ayah ->
-                                    AyahReaderItem(
-                                        ayah = ayah,
-                                        fontSizeSp = arabicFontSize,
-                                        enableTajwid = enableTajwid,
-                                        showTransliteration = showTransliteration,
-                                        showTranslation = showTranslation,
-                                        translationMode = translationMode,
-                                        isWordByWordMode = isWordByWordMode,
-                                        onAyahClick = {
-                                            selectedAyahForAction = ayah
-                                        },
-                                        onBookmarkClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            viewModel.toggleBookmark(ayah, surah?.nameLatin ?: "Surah ${page + 1}")
-                                        },
-                                        onWaqafClick = { rule ->
-                                            selectedWaqafRule = rule
+                            if (initialAyahNumber > state.data.size) {
+                                AppEmptyState(
+                                    icon = Icons.Rounded.FormatSize,
+                                    title = "Ayat tidak ditemukan",
+                                    description = "Rute meminta ayat $initialAyahNumber, tetapi surah ini hanya memiliki ${state.data.size} ayat."
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.TopCenter
+                                ) {
+                                    LazyColumn(
+                                        state = listState,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .widthIn(max = 840.dp),
+                                        contentPadding = PaddingValues(bottom = Spacing.xxl)
+                                    ) {
+                                        // Bismillah Header (except At-Tawbah)
+                                        if (page + 1 != 9) {
+                                            item { BismillahHeader() }
                                         }
-                                    )
+                                        items(
+                                            items = state.data,
+                                            key = { "${it.surahNumber}_${it.ayahNumber}" }
+                                        ) { ayah ->
+                                            AyahReaderItem(
+                                                ayah = ayah,
+                                                fontSizeSp = arabicFontSize,
+                                                enableTajwid = enableTajwid,
+                                                showTransliteration = showTransliteration,
+                                                showTranslation = showTranslation,
+                                                translationMode = translationMode,
+                                                isWordByWordMode = isWordByWordMode,
+                                                onAyahClick = {
+                                                    selectedAyahForAction = ayah
+                                                },
+                                                onBookmarkClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    surah?.nameLatin?.let { name ->
+                                                        viewModel.toggleBookmark(ayah, name)
+                                                    }
+                                                },
+                                                onWaqafClick = { rule ->
+                                                    selectedWaqafRule = rule
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -347,17 +373,20 @@ fun QuranReaderScreen(
 
         // Ayah Action Bottom Sheet
         selectedAyahForAction?.let { ayah ->
+            val currentSurah = surah
+            if (currentSurah != null) {
             AyahActionBottomSheet(
                 ayah = ayah,
-                surahName = surah?.nameLatin ?: "Surah ${surahNumber}",
-                totalAyahsInSurah = surah?.ayahCount ?: 100,
+                surahName = currentSurah.nameLatin,
+                totalAyahsInSurah = currentSurah.ayahCount,
                 sheetState = sheetState,
                 audioPlayerManager = audioPlayerManager,
                 onDismissRequest = { selectedAyahForAction = null },
                 onBookmarkToggle = { note ->
-                    viewModel.toggleBookmark(ayah, surah?.nameLatin ?: "Surah ${surahNumber}", note)
+                    viewModel.toggleBookmark(ayah, currentSurah.nameLatin, note)
                 }
             )
+            }
         }
 
         // Waqaf Rule Information Dialog
@@ -421,12 +450,12 @@ fun AyahReaderItem(
     enableTajwid: Boolean,
     showTransliteration: Boolean,
     showTranslation: Boolean,
-    translationMode: TranslationMode = TranslationMode.INDONESIAN,
-    isWordByWordMode: Boolean = false,
     onAyahClick: () -> Unit,
     onBookmarkClick: () -> Unit,
     onWaqafClick: (WaqafParser.WaqafRule) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    translationMode: TranslationMode = TranslationMode.INDONESIAN,
+    isWordByWordMode: Boolean = false
 ) {
     var selectedWordDetail by remember { mutableStateOf<String?>(null) }
 
@@ -637,10 +666,10 @@ fun AyahReaderItem(
 fun DockedMiniPlayerBar(
     audioPlayerManager: AudioPlayerManager
 ) {
-    val playbackState by audioPlayerManager.playbackState.collectAsState()
-    val currentTrack by audioPlayerManager.currentTrack.collectAsState()
-    val progress by audioPlayerManager.playbackProgress.collectAsState()
-    val speed by audioPlayerManager.playbackSpeed.collectAsState()
+    val playbackState by audioPlayerManager.playbackState.collectAsStateWithLifecycle()
+    val currentTrack by audioPlayerManager.currentTrack.collectAsStateWithLifecycle()
+    val progress by audioPlayerManager.playbackProgress.collectAsStateWithLifecycle()
+    val speed by audioPlayerManager.playbackSpeed.collectAsStateWithLifecycle()
 
     if (currentTrack != null && playbackState !is PlaybackState.Idle) {
         Surface(

@@ -34,7 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,9 +63,9 @@ fun LessonDetailScreen(
     onNavigateToAyah: ((Int, Int) -> Unit)? = null,
     onBackClick: () -> Unit
 ) {
-    val lesson by viewModel.selectedLesson.collectAsState()
+    val lesson by viewModel.selectedLesson.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val playbackState = audioPlayerManager?.playbackState?.collectAsState()?.value
+    val playbackState = audioPlayerManager?.playbackState?.collectAsStateWithLifecycle()?.value
 
     LaunchedEffect(lessonId) {
         viewModel.loadLessonDetail(lessonId)
@@ -107,18 +107,20 @@ fun LessonDetailScreen(
                             .padding(Spacing.lg),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = item.letterArabic.ifBlank { item.title.take(1) },
-                                style = getQuranArabicStyle(40f),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                        if (item.letterArabic.isNotBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = item.letterArabic,
+                                    style = getQuranArabicStyle(40f),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.height(Spacing.sm))
                         Text(

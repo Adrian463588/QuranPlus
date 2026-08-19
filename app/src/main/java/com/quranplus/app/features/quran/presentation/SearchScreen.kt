@@ -30,7 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,7 +55,7 @@ fun SearchScreen(
     onBackClick: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val searchState by viewModel.searchState.collectAsState()
+    val searchState by viewModel.searchState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {

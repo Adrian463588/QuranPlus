@@ -22,13 +22,14 @@ import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,7 +54,7 @@ fun ModelGateScreen(
     modelRepository: ModelRepository,
     onModelReady: () -> Unit
 ) {
-    val downloadState by viewModel.downloadState.collectAsState()
+    val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
     val availableModels = remember { modelRepository.availableModelConfigs }
     var selectedModel by remember { mutableStateOf(availableModels.first { it.isRecommended }) }
 
@@ -100,7 +101,7 @@ fun ModelGateScreen(
             Spacer(modifier = Modifier.height(Spacing.xs))
 
             Text(
-                text = "Semua pemrosesan kecerdasan buatan berjalan 100% di perangkat tanpa internet dan tanpa mengirim data ke luar.",
+                text = "Inferensi dirancang berjalan di perangkat setelah model, tokenizer, corpus, dan indeks terverifikasi. Unduhan awal tetap membutuhkan jaringan.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -184,6 +185,13 @@ fun ModelGateScreen(
 
             // Download Status Card or Model Selection
             when (val state = downloadState) {
+                is DownloadState.Queued -> {
+                    Text(
+                        text = "Menyiapkan unduhan ${selectedModel.name}...",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 is DownloadState.Downloading -> {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -221,6 +229,19 @@ fun ModelGateScreen(
                         }
                     }
                 }
+                is DownloadState.Paused -> {
+                    Text(
+                        text = state.reason,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                is DownloadState.Verifying -> {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.height(Spacing.sm))
+                    Text("Memverifikasi SHA-256 sebelum model diaktifkan")
+                }
                 is DownloadState.Completed -> {
                     Text(
                         text = "Model siap digunakan!",
@@ -233,7 +254,7 @@ fun ModelGateScreen(
                         Text("Mulai Tanya AI")
                     }
                 }
-                is DownloadState.Error -> {
+                is DownloadState.ChecksumError -> {
                     Text(
                         text = state.message,
                         style = MaterialTheme.typography.bodySmall,
@@ -241,7 +262,25 @@ fun ModelGateScreen(
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(Spacing.sm))
-                    AppPrimaryButton(onClick = { viewModel.startModelDownload(selectedModel) }) {
+                    AppPrimaryButton(
+                        onClick = { viewModel.startModelDownload(selectedModel) },
+                        enabled = selectedModel.hasVerifiedManifest
+                    ) {
+                        Text("Coba Lagi")
+                    }
+                }
+                is DownloadState.Failed -> {
+                    Text(
+                        text = state.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(Spacing.sm))
+                    AppPrimaryButton(
+                        onClick = { viewModel.startModelDownload(selectedModel) },
+                        enabled = selectedModel.hasVerifiedManifest
+                    ) {
                         Text("Coba Lagi")
                     }
                 }
@@ -271,11 +310,21 @@ fun ModelGateScreen(
 
                     AppPrimaryButton(
                         onClick = { viewModel.startModelDownload(selectedModel) },
+                        enabled = selectedModel.hasVerifiedManifest,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(imageVector = Icons.Rounded.CloudDownload, contentDescription = null)
                         Spacer(modifier = Modifier.width(Spacing.sm))
                         Text("Unduh Model (${selectedModel.sizeDescription})")
+                    }
+                    if (!selectedModel.hasVerifiedManifest) {
+                        Spacer(modifier = Modifier.height(Spacing.xs))
+                        Text(
+                            text = "Model diblokir sampai manifest SHA-256 terverifikasi tersedia.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }

@@ -177,3 +177,37 @@ data class ChatMessageEntity(
     val citationsJson: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "quiz_questions")
+data class QuizQuestionEntity(
+    @PrimaryKey
+    val id: Int,
+    val prompt: String,
+    @ColumnInfo(name = "arabic_snippet")
+    val arabicSnippet: String,
+    val reference: String,
+    @ColumnInfo(name = "options_json")
+    val optionsJson: String,
+    @ColumnInfo(name = "correct_index")
+    val correctIndex: Int,
+    val explanation: String,
+    @ColumnInfo(name = "source_id")
+    val sourceId: String,
+    @ColumnInfo(name = "source_revision")
+    val sourceRevision: String
+)
+
+@Entity(
+    tableName = "quiz_attempts",
+    indices = [Index(value = ["question_id"], name = "idx_quiz_attempt_question")]
+)
+data class QuizAttemptEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    @ColumnInfo(name = "question_id")
+    val questionId: Int,
+    @ColumnInfo(name = "selected_index")
+    val selectedIndex: Int,
+    val isCorrect: Boolean,
+    val timestamp: Long = System.currentTimeMillis()
+)

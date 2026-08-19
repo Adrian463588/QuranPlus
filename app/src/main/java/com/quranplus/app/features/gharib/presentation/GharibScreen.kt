@@ -1,6 +1,5 @@
 package com.quranplus.app.features.gharib.presentation
 
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,7 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoStories
-import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.AlertDialog
@@ -41,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,7 +48,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -56,8 +55,10 @@ import androidx.compose.ui.unit.sp
 import com.quranplus.app.core.audio.AudioPlayerManager
 import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
+import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
+import com.quranplus.app.core.utils.SurahMapper
 import com.quranplus.app.features.gharib.domain.GharibDataRepository
 import com.quranplus.app.features.gharib.domain.GharibReading
 import com.quranplus.app.features.gharib.domain.GharibType
@@ -69,9 +70,30 @@ fun GharibScreen(
     onNavigateToAyah: (surahNumber: Int, ayahNumber: Int) -> Unit,
     onBackClick: () -> Unit
 ) {
+    if (!GharibDataRepository.RECORD_LEVEL_REVIEW_COMPLETE) {
+        Scaffold(
+            topBar = {
+                AppTopBar(
+                    title = "Ensiklopedia Bacaan Gharib",
+                    subtitle = "Belum tersedia untuk distribusi",
+                    onBackClick = onBackClick
+                )
+            }
+        ) { padding ->
+            AppEmptyState(
+                icon = Icons.Rounded.AutoStories,
+                title = "Gharib masih diblokir",
+                description = "Data referensi menunggu review per-record dan verifikasi provenance sebelum ditampilkan."
+                    .plus(" Audio asli juga harus tersedia sebelum playback diaktifkan."),
+                modifier = Modifier.padding(padding)
+            )
+        }
+        return
+    }
+
     var selectedFilter by remember { mutableStateOf("ALL") }
     var selectedSajdahItem by remember { mutableStateOf<GharibReading?>(null) }
-    val context = LocalContext.current
+    val selectedQari by audioPlayerManager.selectedQari.collectAsStateWithLifecycle()
 
     val filters = listOf(
         "ALL" to "Semua",
@@ -138,15 +160,24 @@ fun GharibScreen(
                 items(filteredList, key = { it.id }) { reading ->
                     GharibCardItem(
                         reading = reading,
-                        onPlayAudio = {
-                            audioPlayerManager.playAyah(
-                                surahNumber = reading.surahNumber,
-                                surahName = reading.surahName,
-                                ayahNumber = reading.ayahNumber,
-                                totalAyahsInSurah = 200
-                            )
-                            Toast.makeText(context, "Memutar QS. ${reading.surahName}:${reading.ayahNumber}", Toast.LENGTH_SHORT).show()
-                        },
+                        onPlayAudio = SurahMapper.findSurah(reading.surahName)
+                            ?.takeIf {
+                                audioPlayerManager.getAyahAudioUrl(
+                                    selectedQari,
+                                    reading.surahNumber,
+                                    reading.ayahNumber
+                                ) != null
+                            }
+                            ?.let { surah ->
+                                {
+                                    audioPlayerManager.playAyah(
+                                        surahNumber = reading.surahNumber,
+                                        surahName = reading.surahName,
+                                        ayahNumber = reading.ayahNumber,
+                                        totalAyahsInSurah = surah.ayahCount
+                                    )
+                                }
+                            },
                         onNavigate = {
                             onNavigateToAyah(reading.surahNumber, reading.ayahNumber)
                         },
@@ -231,7 +262,7 @@ fun GharibScreen(
 @Composable
 fun GharibCardItem(
     reading: GharibReading,
-    onPlayAudio: () -> Unit,
+    onPlayAudio: (() -> Unit)?,
     onNavigate: () -> Unit,
     onShowSajdahDialog: () -> Unit
 ) {
@@ -357,10 +388,13 @@ fun GharibCardItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    OutlinedButton(onClick = onPlayAudio) {
+                    OutlinedButton(
+                        onClick = { onPlayAudio?.invoke() },
+                        enabled = onPlayAudio != null
+                    ) {
                         Icon(imageVector = Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Putar Audio")
+                        Text(if (onPlayAudio != null) "Putar Audio" else "Audio belum tersedia")
                     }
 
                     if (reading.ruleType == GharibType.AYAT_SAJDAH) {
@@ -371,7 +405,7 @@ fun GharibCardItem(
                 }
 
                 AppPrimaryButton(onClick = onNavigate) {
-                    Icon(imageVector = Icons.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(imageVector = Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Buka Ayat")
                 }

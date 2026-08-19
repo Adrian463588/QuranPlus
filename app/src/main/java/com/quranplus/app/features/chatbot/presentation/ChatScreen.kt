@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,7 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material3.Card
@@ -38,9 +39,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,10 +69,11 @@ fun ChatScreen(
     preferencesManager: PreferencesManager,
     onNavigateToAyah: (Int, Int) -> Unit
 ) {
-    val messages by viewModel.messages.collectAsState()
-    val isStreaming by viewModel.isStreaming.collectAsState()
-    val streamingContent by viewModel.streamingContent.collectAsState()
-    val selectedPersona by preferencesManager.selectedPersona.collectAsState(initial = AiPersona.USTADZ)
+    val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val isStreaming by viewModel.isStreaming.collectAsStateWithLifecycle()
+    val streamingContent by viewModel.streamingContent.collectAsStateWithLifecycle()
+    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val selectedPersona by preferencesManager.selectedPersona.collectAsStateWithLifecycle(initialValue = AiPersona.USTADZ)
 
     var inputPrompt by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -130,17 +133,45 @@ fun ChatScreen(
                     }
 
                     // Live Streaming Bubble
-                    if (isStreaming && streamingContent.isNotEmpty()) {
+                    if (isStreaming) {
                         item {
-                            ChatBubbleItem(
-                                message = ChatMessage(
-                                    conversationId = "stream",
-                                    role = MessageRole.ASSISTANT,
-                                    content = streamingContent,
-                                    isStreaming = true
-                                ),
-                                onCitationClick = {}
-                            )
+                            if (streamingContent.isNotEmpty()) {
+                                ChatBubbleItem(
+                                    message = ChatMessage(
+                                        conversationId = "stream",
+                                        role = MessageRole.ASSISTANT,
+                                        content = streamingContent,
+                                        isStreaming = true
+                                    ),
+                                    onCitationClick = {}
+                                )
+                            } else {
+                                StreamingIndicator()
+                            }
+                        }
+                    }
+                }
+            }
+
+            errorMessage?.let { message ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = message,
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        TextButton(onClick = viewModel::clearError) {
+                            Text("Tutup")
                         }
                     }
                 }
@@ -194,6 +225,20 @@ fun ChatScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StreamingIndicator() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        Text("Menyiapkan jawaban dari rujukan terverifikasi...", style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -297,11 +342,12 @@ fun CitationChip(
             .clip(MaterialTheme.shapes.extraSmall)
             .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
+            .heightIn(min = 48.dp)
             .padding(horizontal = Spacing.sm, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons.Rounded.MenuBook,
+            imageVector = Icons.AutoMirrored.Rounded.MenuBook,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(14.dp)

@@ -23,7 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Card
@@ -38,7 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,8 +65,8 @@ fun SurahListScreen(
     onSurahClick: (Int) -> Unit,
     onSearchClick: () -> Unit
 ) {
-    val surahState by viewModel.surahListState.collectAsState()
-    val lastRead by viewModel.lastReadState.collectAsState()
+    val surahState by viewModel.surahListState.collectAsStateWithLifecycle()
+    val lastRead by viewModel.lastReadState.collectAsStateWithLifecycle()
     var showTajwidSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
@@ -138,28 +138,28 @@ fun SurahListScreen(
                 }
                 is UiState.Error -> {
                     AppEmptyState(
-                        icon = Icons.Rounded.MenuBook,
+                        icon = Icons.AutoMirrored.Rounded.MenuBook,
                         title = "Gagal Memuat Surah",
                         description = state.message
                     )
                 }
                 UiState.Empty -> {
                     AppEmptyState(
-                        icon = Icons.Rounded.MenuBook,
+                        icon = Icons.AutoMirrored.Rounded.MenuBook,
                         title = "Data Surah Kosong",
                         description = "Database Al-Qur'an belum memiliki data yang dapat dibaca."
                     )
                 }
                 is UiState.Blocked -> {
                     AppEmptyState(
-                        icon = Icons.Rounded.MenuBook,
+                        icon = Icons.AutoMirrored.Rounded.MenuBook,
                         title = "Surah Tidak Tersedia",
                         description = state.reason
                     )
                 }
                 UiState.Idle -> {
                     AppEmptyState(
-                        icon = Icons.Rounded.MenuBook,
+                        icon = Icons.AutoMirrored.Rounded.MenuBook,
                         title = "Memuat Surah",
                         description = "Data Al-Qur'an sedang disiapkan."
                     )

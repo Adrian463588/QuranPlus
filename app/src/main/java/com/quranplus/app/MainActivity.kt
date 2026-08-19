@@ -2,6 +2,7 @@ package com.quranplus.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -11,8 +12,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -24,6 +27,7 @@ import androidx.navigation.navArgument
 import com.quranplus.app.core.audio.AudioPlayerManager
 import com.quranplus.app.core.ui.components.AdaptiveNavigationScaffold
 import com.quranplus.app.core.ui.components.AppDestination
+import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.theme.QuranPlusTheme
 import com.quranplus.app.features.audio.presentation.AudioManagerScreen
 import com.quranplus.app.features.chatbot.data.ModelRepository
@@ -36,6 +40,7 @@ import com.quranplus.app.features.quran.presentation.QuranReaderScreen
 import com.quranplus.app.features.quran.presentation.QuranViewModel
 import com.quranplus.app.features.quran.presentation.SearchScreen
 import com.quranplus.app.features.quran.presentation.SurahListScreen
+import com.quranplus.app.features.rag.presentation.RagDocumentViewModel
 import com.quranplus.app.features.settings.data.PreferencesManager
 import com.quranplus.app.features.settings.presentation.SettingsScreen
 import com.quranplus.app.features.settings.presentation.SettingsViewModel
@@ -43,15 +48,25 @@ import com.quranplus.app.features.tahsin.presentation.LessonDetailScreen
 import com.quranplus.app.features.tahsin.presentation.TahsinHomeScreen
 import com.quranplus.app.features.tahsin.presentation.TahsinQuizScreen
 import com.quranplus.app.features.tahsin.presentation.TahsinViewModel
+import com.quranplus.app.features.tahsin.presentation.QuizViewModel
 import com.quranplus.app.features.waqaf.presentation.WaqafGuideScreen
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
 
     private val preferencesManager: PreferencesManager by inject()
     private val modelRepository: ModelRepository by inject()
     private val audioPlayerManager: AudioPlayerManager by inject()
+    private val ragDocumentViewModel: RagDocumentViewModel by viewModel()
+    private val openDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            ragDocumentViewModel.importDocument(it, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,7 +74,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val isDarkMode by preferencesManager.isDarkMode.collectAsState(initial = true)
+            val isDarkMode by preferencesManager.isDarkMode.collectAsStateWithLifecycle(initialValue = true)
             val windowSizeClass = calculateWindowSizeClass(this)
 
             QuranPlusTheme(darkTheme = isDarkMode) {
@@ -67,7 +82,13 @@ class MainActivity : ComponentActivity() {
                     widthSizeClass = windowSizeClass.widthSizeClass,
                     preferencesManager = preferencesManager,
                     modelRepository = modelRepository,
-                    audioPlayerManager = audioPlayerManager
+                    audioPlayerManager = audioPlayerManager,
+                    ragDocumentViewModel = ragDocumentViewModel,
+                    onRequestRagDocument = {
+                        openDocumentLauncher.launch(
+                            arrayOf("text/plain", "text/markdown", "application/json", "application/pdf")
+                        )
+                    }
                 )
             }
         }
@@ -79,7 +100,9 @@ fun AppMain(
     widthSizeClass: WindowWidthSizeClass,
     preferencesManager: PreferencesManager,
     modelRepository: ModelRepository,
-    audioPlayerManager: AudioPlayerManager
+    audioPlayerManager: AudioPlayerManager,
+    ragDocumentViewModel: RagDocumentViewModel,
+    onRequestRagDocument: () -> Unit
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -88,6 +111,7 @@ fun AppMain(
     val quranViewModel: QuranViewModel = koinViewModel()
     val chatViewModel: ChatViewModel = koinViewModel()
     val tahsinViewModel: TahsinViewModel = koinViewModel()
+    val quizViewModel: QuizViewModel = koinViewModel()
     val settingsViewModel: SettingsViewModel = koinViewModel()
 
     AdaptiveNavigationScaffold(
@@ -108,10 +132,13 @@ fun AppMain(
             quranViewModel = quranViewModel,
             chatViewModel = chatViewModel,
             tahsinViewModel = tahsinViewModel,
+            quizViewModel = quizViewModel,
             settingsViewModel = settingsViewModel,
             preferencesManager = preferencesManager,
             modelRepository = modelRepository,
-            audioPlayerManager = audioPlayerManager
+            audioPlayerManager = audioPlayerManager,
+            ragDocumentViewModel = ragDocumentViewModel,
+            onRequestRagDocument = onRequestRagDocument
         )
     }
 }
@@ -122,12 +149,15 @@ fun AppNavHost(
     quranViewModel: QuranViewModel,
     chatViewModel: ChatViewModel,
     tahsinViewModel: TahsinViewModel,
+    quizViewModel: QuizViewModel,
     settingsViewModel: SettingsViewModel,
     preferencesManager: PreferencesManager,
     modelRepository: ModelRepository,
-    audioPlayerManager: AudioPlayerManager
+    audioPlayerManager: AudioPlayerManager,
+    ragDocumentViewModel: RagDocumentViewModel,
+    onRequestRagDocument: () -> Unit
 ) {
-    val isModelReady by chatViewModel.isModelReady.collectAsState()
+    val isModelReady by chatViewModel.isModelReady.collectAsStateWithLifecycle()
 
     NavHost(
         navController = navController,
@@ -160,16 +190,22 @@ fun AppNavHost(
                 }
             )
         ) { backStackEntry ->
-            val surahNumber = backStackEntry.arguments?.getInt("surahNumber") ?: 1
-            val initialAyah = backStackEntry.arguments?.getInt("initialAyah") ?: 1
-            QuranReaderScreen(
-                surahNumber = surahNumber,
-                initialAyahNumber = initialAyah,
-                viewModel = quranViewModel,
-                preferencesManager = preferencesManager,
-                audioPlayerManager = audioPlayerManager,
-                onBackClick = { navController.popBackStack() }
-            )
+            val surahNumber = backStackEntry.arguments?.getInt("surahNumber")
+                ?.takeIf { it in 1..114 }
+            val initialAyah = backStackEntry.arguments?.getInt("initialAyah")
+                ?.takeIf { it > 0 }
+            if (surahNumber == null || initialAyah == null) {
+                RouteArgumentError("Tujuan reader tidak memiliki surah atau ayat yang valid")
+            } else {
+                QuranReaderScreen(
+                    surahNumber = surahNumber,
+                    initialAyahNumber = initialAyah,
+                    viewModel = quranViewModel,
+                    preferencesManager = preferencesManager,
+                    audioPlayerManager = audioPlayerManager,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
 
         composable("quran_search") {
@@ -218,20 +254,25 @@ fun AppNavHost(
             route = "tahsin_detail/{lessonId}",
             arguments = listOf(navArgument("lessonId") { type = NavType.IntType })
         ) { backStackEntry ->
-            val lessonId = backStackEntry.arguments?.getInt("lessonId") ?: 1
-            LessonDetailScreen(
-                lessonId = lessonId,
-                viewModel = tahsinViewModel,
-                audioPlayerManager = audioPlayerManager,
-                onNavigateToAyah = { surahNumber, ayahNumber ->
-                    navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
-                },
-                onBackClick = { navController.popBackStack() }
-            )
+            val lessonId = backStackEntry.arguments?.getInt("lessonId")?.takeIf { it > 0 }
+            if (lessonId == null) {
+                RouteArgumentError("Tujuan Tahsin tidak memiliki lesson yang valid")
+            } else {
+                LessonDetailScreen(
+                    lessonId = lessonId,
+                    viewModel = tahsinViewModel,
+                    audioPlayerManager = audioPlayerManager,
+                    onNavigateToAyah = { surahNumber, ayahNumber ->
+                        navController.navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
+                    },
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
 
         composable("tahsin_quiz") {
             TahsinQuizScreen(
+                viewModel = quizViewModel,
                 onBackClick = { navController.popBackStack() }
             )
         }
@@ -278,8 +319,19 @@ fun AppNavHost(
                 onNavigateToAudioManager = { navController.navigate("audio_manager") },
                 onNavigateToWaqafGuide = { navController.navigate("waqaf_guide") },
                 onNavigateToGharib = { navController.navigate("gharib_directory") },
-                onNavigateToQuiz = { navController.navigate("tahsin_quiz") }
+                onNavigateToQuiz = { navController.navigate("tahsin_quiz") },
+                ragDocumentViewModel = ragDocumentViewModel,
+                onRequestRagDocument = onRequestRagDocument
             )
         }
     }
+}
+
+@Composable
+private fun RouteArgumentError(message: String) {
+    AppEmptyState(
+        icon = Icons.Rounded.ErrorOutline,
+        title = "Tujuan tidak tersedia",
+        description = message
+    )
 }

@@ -1,0 +1,30 @@
+{
+  "status": "reference-reviewed-not-bundled",
+  "bundled_record_count": 0,
+  "unverified_legacy_assets_removed": true,
+  "source": {
+    "repository": "https://github.com/AhmedBaset/hadith-json.git",
+    "revision": "70b83d6",
+    "package_version": "1.3.0",
+    "collections": [
+      "bukhari",
+      "muslim",
+      "abu-dawud",
+      "tirmidhi"
+    ],
+    "license_status": "verify-before-distribution",
+    "record_grade_policy": "unknown-unless-source-record-provides-grade"
+  },
+  "runtime_policy": {
+    "bundled_corpus": false,
+    "bundled_raw_reference": false,
+    "required_before_import": [
+      "source revision and license verified",
+      "schema and duplicate identifiers validated",
+      "source SHA-256 recorded",
+      "record-level grading preserved",
+      "embedding model and tokenizer SHA-256 match runtime",
+      "vector dimension and coverage verified"
+    ]
+  }
+}

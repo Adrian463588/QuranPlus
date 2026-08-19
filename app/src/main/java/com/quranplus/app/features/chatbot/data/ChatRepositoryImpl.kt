@@ -33,6 +33,7 @@ class ChatRepositoryImpl(
                         else -> MessageRole.SYSTEM
                     },
                     content = entity.content,
+                    citations = CitationJsonCodec.decode(entity.citationsJson),
                     timestamp = entity.timestamp
                 )
             }
@@ -46,6 +47,9 @@ class ChatRepositoryImpl(
                 conversationId = message.conversationId,
                 role = message.role.name.lowercase(),
                 content = message.content,
+                citationsJson = message.citations
+                    .takeIf { it.isNotEmpty() }
+                    ?.let(CitationJsonCodec::encode),
                 timestamp = message.timestamp
             )
         )

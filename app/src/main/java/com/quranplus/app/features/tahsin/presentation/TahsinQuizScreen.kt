@@ -35,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,85 +50,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quranplus.app.core.ui.components.AppPrimaryButton
+import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
 
-data class QuizQuestion(
-    val id: Int,
-    val prompt: String,
-    val arabicSnippet: String,
-    val reference: String,
-    val options: List<String>,
-    val correctIndex: Int,
-    val explanation: String
-)
-
-object QuizQuestionBank {
-    val QUESTIONS = listOf(
-        QuizQuestion(
-            id = 1,
-            prompt = "Apa hukum tajwid pada potongan ayat berikut?",
-            arabicSnippet = "مِنْ شَرِّ مَا خَلَقَ",
-            reference = "QS. Al-Falaq: 2",
-            options = listOf("Idgham Bighunnah", "Ikhfa Haqiqi", "Izhar Halqi", "Iqlab"),
-            correctIndex = 1,
-            explanation = "Nun sukun (نْ) bertemu huruf Syin (ش) yang merupakan salah satu dari 15 huruf Ikhfa, dibaca samar disertai dengung 2 harakat."
-        ),
-        QuizQuestion(
-            id = 2,
-            prompt = "Berapakah jumlah harakat untuk Mad Wajib Muttashil?",
-            arabicSnippet = "إِذَا جَاءَ نَصْرُ اللَّهِ",
-            reference = "QS. An-Nasr: 1",
-            options = listOf("2 Harakat", "4–5 Harakat", "6 Harakat", "1 Harakat"),
-            correctIndex = 1,
-            explanation = "Mad Wajib Muttashil terjadi ketika huruf Mad bertemu Hamzah dalam satu kata bersambung, wajib dibaca 4 sampai 5 harakat."
-        ),
-        QuizQuestion(
-            id = 3,
-            prompt = "Apa tindakan yang dianjurkan ketika menemukan tanda waqaf (م)?",
-            arabicSnippet = "الْوَقْفُ اللَّازِمُ (م)",
-            reference = "Tanda Waqaf Mushaf",
-            options = listOf("Dilarang berhenti", "Diharuskan / Wajib berhenti", "Lebih baik lanjut", "Berhenti di salah satu titik"),
-            correctIndex = 1,
-            explanation = "Tanda 'م' adalah Waqaf Lazim, di mana pembaca diharuskan berhenti agar tidak merusak kesempurnaan makna ayat."
-        ),
-        QuizQuestion(
-            id = 4,
-            prompt = "Apa hukum bacaan pada lafaz 'Kallaa Layumbadzanna' berikut?",
-            arabicSnippet = "لَيُنْبَذَنَّ فِي الْحُطَمَةِ",
-            reference = "QS. Al-Humazah: 4",
-            options = listOf("Ikhfa Syafawi", "Idgham Bilaghunnah", "Iqlab", "Ghunnah"),
-            correctIndex = 2,
-            explanation = "Nun sukun bertemu Ba (ب) sehingga bunyi Nun diganti menjadi bunyi Mim samar disertai dengung 2 harakat (Iqlab)."
-        ),
-        QuizQuestion(
-            id = 5,
-            prompt = "Bagaimanakah cara membaca huruf Qalqalah sukun di akhir ayat (Waqaf)?",
-            arabicSnippet = "قُلْ هُوَ اللَّهُ أَحَدٌ ۝",
-            reference = "QS. Al-Ikhlas: 1",
-            options = listOf("Qalqalah Sughra (Ringan)", "Qalqalah Kubra (Pantulan Kuat)", "Tanpa Pantulan", "Dengung 2 Harakat"),
-            correctIndex = 1,
-            explanation = "Huruf Qalqalah (Dal) yang diwaqafkan di akhir ayat dibaca dengan Qalqalah Kubra (pantulan lebih kuat dan jelas)."
-        ),
-        QuizQuestion(
-            id = 6,
-            prompt = "Apa keunikan bacaan pada kata 'Majreehaa' di QS. Hud: 41?",
-            arabicSnippet = "بِسْمِ اللَّهِ مَجْرٜىٰهَا",
-            reference = "QS. Hud: 41",
-            options = listOf("Isymam", "Tashil", "Imalah", "Naql"),
-            correctIndex = 2,
-            explanation = "Imalah adalah memiringkan bunyi fathah ke arah kasrah (dibaca 'Majreehaa')."
-        )
-    )
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TahsinQuizScreen(
+    viewModel: QuizViewModel,
     onBackClick: () -> Unit
 ) {
-    val questions = remember { QuizQuestionBank.QUESTIONS }
+    val quizState by viewModel.uiState.collectAsStateWithLifecycle()
+    val questions = (quizState as? QuizUiState.Success)?.questions.orEmpty()
     var currentIndex by remember { mutableIntStateOf(0) }
     var selectedOptionIndex by remember { mutableStateOf<Int?>(null) }
     var isSubmitted by remember { mutableStateOf(false) }
@@ -330,9 +265,15 @@ fun TahsinQuizScreen(
                 if (!isSubmitted) {
                     AppPrimaryButton(
                         onClick = {
-                            if (selectedOptionIndex != null) {
+                            val selectedIndex = selectedOptionIndex
+                            if (selectedIndex != null) {
                                 isSubmitted = true
-                                if (selectedOptionIndex == currentQuestion.correctIndex) {
+                                viewModel.recordAttempt(
+                                    questionId = currentQuestion.id,
+                                    selectedIndex = selectedIndex,
+                                    isCorrect = selectedIndex == currentQuestion.correctIndex
+                                )
+                                if (selectedIndex == currentQuestion.correctIndex) {
                                     score += 10
                                 }
                             }
@@ -361,6 +302,18 @@ fun TahsinQuizScreen(
 
                 Spacer(modifier = Modifier.height(Spacing.xl))
             }
+        } else {
+            val (title, description) = when (val state = quizState) {
+                QuizUiState.Loading -> "Menyiapkan bank soal" to "Bank soal sedang dimuat dari Room."
+                QuizUiState.Empty -> "Bank soal belum tersedia" to "Kuis diblokir sampai question bank dengan sumber dan revisi terverifikasi diimpor."
+                is QuizUiState.Error -> "Bank soal gagal dimuat" to state.message
+                is QuizUiState.Success -> "Bank soal kosong" to "Tidak ada soal valid setelah validasi schema."
+            }
+            AppEmptyState(
+                icon = Icons.Rounded.Quiz,
+                title = title,
+                description = description
+            )
         }
     }
 }

@@ -34,7 +34,7 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,8 +59,8 @@ fun TahsinHomeScreen(
     onLessonClick: (Int) -> Unit,
     onQuizClick: () -> Unit = {}
 ) {
-    val selectedCategory by viewModel.selectedCategory.collectAsState()
-    val lessonsState by viewModel.lessonsState.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val lessonsState by viewModel.lessonsState.collectAsStateWithLifecycle()
     val categories = TahsinCategory.entries
 
     Scaffold(
@@ -230,4 +230,3 @@ fun TahsinLessonRow(
         }
     }
 }
-
