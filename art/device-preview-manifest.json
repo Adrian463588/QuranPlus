@@ -1,36 +1,86 @@
 {
-  "schema_version": "device-preview-manifest-1",
-  "source_commit_sha": "7f707d6658490bda6ab70ea028a22e8808bf3f49",
-  "build_variant": "debug",
-  "apk": "app/build/outputs/apk/debug/app-debug.apk",
-  "apk_sha256": "4D1DD72461365863DA6150AEC46EB5C6D0222206D06A7B508466F0392FC1AE89",
+  "schema_version": "device-preview-manifest-2",
   "device_serial": "RRCN3008VYE",
   "device_model": "SM-G988B",
   "android_api": 33,
-  "resolution_px": "1440x3200",
-  "density_override": "560",
-  "font_scale": 1.0,
-  "orientation": "portrait",
-  "window_class": "compact",
+  "physical_resolution_px": "1440x3200",
+  "physical_density": "420",
+  "build_variant": "debug",
+  "current_apk": {
+    "path": "app/build/outputs/apk/debug/app-debug.apk",
+    "source_commit_sha": "5af898cf5352dba7e8322b807a122b4ca88f26fe",
+    "sha256": "fe44720d736aa48829a3df70fc23cf2f63fdfce54b7688892ac884a6951415cd"
+  },
   "capture_command": "adb -s RRCN3008VYE exec-out screencap -p",
-  "screens": [
-    { "path": "art/device-sm-g988b-home.png", "route": "quran_home", "device_verified": true },
-    { "path": "art/device-sm-g988b-reader.png", "route": "quran_reader/3", "device_verified": true },
-    { "path": "art/device-sm-g988b-ayah-actions.png", "route": "ayah_action_sheet", "device_verified": true },
-    { "path": "art/device-sm-g988b-bookmarks.png", "route": "bookmarks_home", "device_verified": true },
-    { "path": "art/device-sm-g988b-chat-gate.png", "route": "chat_model_gate", "device_verified": true },
-    { "path": "art/device-sm-g988b-tahsin.png", "route": "tahsin_home", "device_verified": true },
-    { "path": "art/device-sm-g988b-quiz.png", "route": "tahsin_quiz_blocked", "device_verified": true },
-    { "path": "art/device-sm-g988b-settings.png", "route": "settings_home", "device_verified": true },
-    { "path": "art/device-sm-g988b-search.png", "route": "quran_search_allah", "device_verified": true }
+  "preview_sets": [
+    {
+      "id": "current-adaptive-reader",
+      "source_commit_sha": "5af898cf5352dba7e8322b807a122b4ca88f26fe",
+      "apk_sha256": "fe44720d736aa48829a3df70fc23cf2f63fdfce54b7688892ac884a6951415cd",
+      "screens": [
+        {
+          "path": "art/device-sm-g988b-home.png",
+          "route": "quran_home",
+          "window_class": "compact",
+          "resolution_px": "1440x3200",
+          "density": "560 override",
+          "font_scale": 1.0,
+          "orientation": "portrait",
+          "capture_mode": "physical device",
+          "captured_at": "2026-08-19T17:32:03+07:00",
+          "device_verified": true
+        },
+        {
+          "path": "art/device-sm-g988b-medium.png",
+          "route": "quran_home",
+          "window_class": "medium",
+          "resolution_px": "2200x3200",
+          "density": "560 override",
+          "font_scale": 1.0,
+          "orientation": "portrait",
+          "capture_mode": "reversible wm size override",
+          "captured_at": "2026-08-19T17:32:19+07:00",
+          "device_verified": true
+        },
+        {
+          "path": "art/device-sm-g988b-expanded.png",
+          "route": "quran_home",
+          "window_class": "expanded",
+          "resolution_px": "2880x3200",
+          "density": "420 physical",
+          "font_scale": 1.0,
+          "orientation": "portrait",
+          "capture_mode": "reversible wm size and density override",
+          "captured_at": "2026-08-19T17:32:36+07:00",
+          "device_verified": true
+        }
+      ]
+    },
+    {
+      "id": "legacy-route-smoke",
+      "source_commit_sha": "7f707d6658490bda6ab70ea028a22e8808bf3f49",
+      "apk_sha256": "4D1DD72461365863DA6150AEC46EB5C6D0222206D06A7B508466F0392FC1AE89",
+      "capture_scope": "SM-G988B compact portrait smoke evidence",
+      "screens": [
+        { "path": "art/device-sm-g988b-reader.png", "route": "quran_reader/3", "device_verified": true },
+        { "path": "art/device-sm-g988b-ayah-actions.png", "route": "ayah_action_sheet", "device_verified": true },
+        { "path": "art/device-sm-g988b-bookmarks.png", "route": "bookmarks_home", "device_verified": true },
+        { "path": "art/device-sm-g988b-chat-gate.png", "route": "chat_model_gate", "device_verified": true },
+        { "path": "art/device-sm-g988b-tahsin.png", "route": "tahsin_home", "device_verified": true },
+        { "path": "art/device-sm-g988b-quiz.png", "route": "tahsin_quiz_blocked", "device_verified": true },
+        { "path": "art/device-sm-g988b-settings.png", "route": "settings_home", "device_verified": true },
+        { "path": "art/device-sm-g988b-search.png", "route": "quran_search_allah", "device_verified": true }
+      ]
+    }
   ],
-  "captured_at": "2026-08-19T16:18:43+07:00",
-  "acceptance_scope": "SM-G988B compact portrait smoke evidence only",
+  "acceptance_scope": "SM-G988B physical compact portrait plus reversible medium/expanded window smoke evidence",
   "not_proven": [
-    "medium and expanded adaptive panes",
     "landscape and foldable layouts",
-    "200 percent font scale and TalkBack journey",
+    "200 percent font scale, TalkBack, and IME journey",
     "Poco device acceptance",
-    "performance, audio asset, verified RAG model, corpus, and vector-index gates"
-  ]
+    "cold-start, jank, memory, storage, embedding latency, and first-token latency benchmarks",
+    "verified audio assets and playback",
+    "verified RAG model, hadith corpus, and sqlite-vec index"
+  ],
+  "repository_scope": "Internal docs, reference projects, archives, model files, and local instruction Markdown are excluded from GitHub."
 }

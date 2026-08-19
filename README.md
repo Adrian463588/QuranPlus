@@ -9,7 +9,7 @@ Sprint 2 is under implementation and acceptance. This repository does not claim 
 - Quran reader with Arabic text, translation, transliteration, Tajwid annotation, Waqaf parsing, search, bookmarks, notes, and exact last-read ayah state.
 - Quran search uses FTS5 with Arabic/Latin/translation queries, an optional surah filter, and result highlighting; it has no `LIKE` fallback.
 - Tahsin lessons backed by Room and exact Quran links.
-- Material 3 adaptive navigation for compact, medium, and expanded window classes.
+- Material 3 adaptive navigation plus Quran list/detail panes for compact, medium, and expanded window classes.
 - Local RAG pipeline contracts with fail-closed model, embedding, citation, and source states.
 - SAF import validation for UTF-8 TXT, Markdown, and schema-validated JSON. PDF is rejected until a verified text extractor exists.
 
@@ -21,7 +21,7 @@ Status is intentionally evidence-based. `blocked` is not treated as `complete`.
 
 | ID | Status |
 | --- | --- |
-| F-01 | Partial: reader, surah navigation, exact last-read; juz/page, immersive, and device gates pending |
+| F-01 | Partial: reader, exact ayah last-read with juz/page, page/juz navigation, immersive mode, and adaptive list/detail; landscape/accessibility/device matrix pending |
 | F-02 | Partial: verified text, translation/transliteration, and 18–48sp font controls; word-level provenance pending |
 | F-03 | Partial: ayah action wiring; verified audio asset gate pending |
 | F-04 | Partial: 15-rule parser/annotation; corpus parity review pending |
@@ -84,11 +84,15 @@ Physical acceptance is separate from these gates. The first target is Samsung SM
 
 ## Preview evidence
 
-The following previews were captured from the debug APK with `adb exec-out screencap -p` on a Samsung `SM-G988B` (Android 13, compact portrait, 100% font scale). The exact source commit and capture metadata are recorded in the [preview manifest](art/device-preview-manifest.json). They are device smoke evidence, not proof of every adaptive width or release gate.
+The current adaptive previews were captured from the debug APK with `adb exec-out screencap -p` on a Samsung `SM-G988B` (Android 13, 100% font scale). Compact is physical-device evidence; medium and expanded use reversible `wm size`/density overrides on the same device. The exact APK SHA, source commit, window class, and capture metadata are recorded in the [preview manifest](art/device-preview-manifest.json). They are smoke evidence, not proof of landscape, foldable, accessibility, performance, audio, or RAG release gates.
 
 | Quran home | Reader | Ayah actions |
 | --- | --- | --- |
 | ![Quran home](art/device-sm-g988b-home.png) | ![Quran reader](art/device-sm-g988b-reader.png) | ![Ayah actions](art/device-sm-g988b-ayah-actions.png) |
+
+| Compact | Medium adaptive pane | Expanded adaptive pane |
+| --- | --- | --- |
+| ![Compact Quran home](art/device-sm-g988b-home.png) | ![Medium Quran list and detail](art/device-sm-g988b-medium.png) | ![Expanded Quran list and detail](art/device-sm-g988b-expanded.png) |
 
 | Bookmarks | Search | Chat model gate |
 | --- | --- | --- |

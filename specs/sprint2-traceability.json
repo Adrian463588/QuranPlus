@@ -9,13 +9,13 @@
     "local docs/Reference.md"
   ],
   "features": {
-    "F-01": "implemented-bundled-quran-device-gate-pending",
+    "F-01": "partial-reader-exact-last-read-page-juz-immersive-adaptive-device-matrix-pending",
     "F-02": "partial-word-level-provenance-pending",
     "F-03": "implemented-action-wiring-device-gate-pending",
-    "F-04": "partial-parser-corpus-parity-pending",
+    "F-04": "partial-bracket-source-parser-15-rule-corpus-parity-pending",
     "F-05": "partial-audio-asset-gated",
     "F-06": "implemented-parser-catalog-ui-test-pending",
-    "F-07": "implemented-corpus-evidence-pending",
+    "F-07": "partial-waqaf-annotation-corpus-evidence-pending",
     "F-08": "partial-source-attribution-pending",
     "F-09": "blocked-record-level-lineage-review-pending",
     "F-10": "blocked-verified-audio-manifest-pending",
