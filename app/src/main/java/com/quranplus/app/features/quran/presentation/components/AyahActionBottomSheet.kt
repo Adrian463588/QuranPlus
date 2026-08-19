@@ -255,16 +255,16 @@ fun AyahActionBottomSheet(
                 ) {
                     Column(modifier = Modifier.padding(Spacing.md)) {
                         Text(
-                            text = "Tafsir Ringkas Kemenag RI:",
+                            text = "Tafsir terverifikasi:",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(
-                            text = ayah.translationId.ifBlank { "Tafsir untuk ayat ini sedang dipersiapkan." },
+                            text = "Tafsir terverifikasi belum tersedia di korpus aplikasi.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 22.sp
                         )
                     }

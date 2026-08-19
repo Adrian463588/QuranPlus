@@ -176,8 +176,9 @@ fun TahsinLessonRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Adaptive Arabic Letter Badge (Never Clips)
-            val badgeText = lesson.letterArabic.ifBlank { lesson.title.take(2) }
+            val badgeText = lesson.letterArabic.takeIf { it.isNotBlank() }
             val fontSize = when {
+                badgeText == null -> 18f
                 badgeText.length <= 3 -> 18f
                 badgeText.length <= 6 -> 14f
                 else -> 12f
@@ -190,13 +191,21 @@ fun TahsinLessonRow(
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = badgeText,
-                    style = getQuranArabicStyle(fontSize),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1
-                )
+                if (badgeText != null) {
+                    Text(
+                        text = badgeText,
+                        style = getQuranArabicStyle(fontSize),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.School,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(Spacing.md))

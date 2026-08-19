@@ -172,7 +172,7 @@ fun AppNavHost(
             SurahListScreen(
                 viewModel = quranViewModel,
                 onSurahClick = { surahNumber ->
-                    navController.navigate("quran_reader/$surahNumber")
+                    navController.navigate("quran_reader/$surahNumber?initialAyah=1")
                 },
                 onSearchClick = {
                     navController.navigate("quran_search")
@@ -186,7 +186,6 @@ fun AppNavHost(
                 navArgument("surahNumber") { type = NavType.IntType },
                 navArgument("initialAyah") {
                     type = NavType.IntType
-                    defaultValue = 1
                 }
             )
         ) { backStackEntry ->
