@@ -143,7 +143,27 @@ fun SurahListScreen(
                         description = state.message
                     )
                 }
-                else -> {}
+                UiState.Empty -> {
+                    AppEmptyState(
+                        icon = Icons.Rounded.MenuBook,
+                        title = "Data Surah Kosong",
+                        description = "Database Al-Qur'an belum memiliki data yang dapat dibaca."
+                    )
+                }
+                is UiState.Blocked -> {
+                    AppEmptyState(
+                        icon = Icons.Rounded.MenuBook,
+                        title = "Surah Tidak Tersedia",
+                        description = state.reason
+                    )
+                }
+                UiState.Idle -> {
+                    AppEmptyState(
+                        icon = Icons.Rounded.MenuBook,
+                        title = "Memuat Surah",
+                        description = "Data Al-Qur'an sedang disiapkan."
+                    )
+                }
             }
         }
 

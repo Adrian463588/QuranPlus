@@ -6,7 +6,7 @@ import com.quranplus.app.features.chatbot.domain.ChatMessage
 import com.quranplus.app.features.chatbot.domain.ChatRepository
 import com.quranplus.app.features.chatbot.domain.MessageRole
 import com.quranplus.app.features.chatbot.domain.RagGenerationResult
-import com.quranplus.app.features.rag.data.TfLiteEmbeddingService
+import com.quranplus.app.features.rag.data.EmbeddingService
 import com.quranplus.app.features.rag.domain.RagPipeline
 import com.quranplus.app.features.rag.domain.VectorRetriever
 import com.quranplus.app.features.settings.data.AiPersona
@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.map
 
 class ChatRepositoryImpl(
     private val chatDao: ChatDao,
-    private val embeddingService: TfLiteEmbeddingService,
+    private val embeddingService: EmbeddingService,
     private val vectorRetriever: VectorRetriever,
     private val ragPipeline: RagPipeline,
     private val llmRunner: LiteRtLmRunner

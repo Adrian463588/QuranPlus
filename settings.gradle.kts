@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "QuranPlus"
 include(":app")
+include(":shared")

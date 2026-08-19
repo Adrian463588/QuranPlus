@@ -10,6 +10,7 @@ import com.quranplus.app.features.quran.domain.Bookmark
 import com.quranplus.app.features.quran.domain.LastRead
 import com.quranplus.app.features.quran.domain.QuranRepository
 import com.quranplus.app.features.quran.domain.Surah
+import androidx.sqlite.db.SimpleSQLiteQuery
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -75,8 +76,24 @@ class QuranRepositoryImpl(
         val cleanQuery = query.trim()
         if (cleanQuery.isBlank()) return emptyList()
 
-        val results = runCatching { quranDao.searchAyahsFts(cleanQuery) }
-            .getOrElse { quranDao.searchAyahsLike(cleanQuery) }
+        val ftsExpression = cleanQuery
+            .split(Regex("\\s+"))
+            .filter(String::isNotBlank)
+            .joinToString(" AND ") { token ->
+                "\"${token.replace("\"", "\"\"")}\"*"
+            }
+        val results = quranDao.searchAyahsFts(
+            SimpleSQLiteQuery(
+                """
+                SELECT a.* FROM ayahs AS a
+                JOIN ayahs_fts5 AS f ON a.id = f.rowid
+                WHERE ayahs_fts5 MATCH ?
+                ORDER BY a.surah_id ASC, a.ayah_number ASC
+                LIMIT ?
+                """.trimIndent(),
+                arrayOf(ftsExpression, 50)
+            )
+        )
 
         return results.map { entity ->
             Ayah(

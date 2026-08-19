@@ -22,14 +22,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-sealed interface UiState<out T> {
-    data object Idle : UiState<Nothing>
-    data object Loading : UiState<Nothing>
-    data class Success<T>(val data: T) : UiState<T>
-    data class Error(val message: String) : UiState<Nothing>
-}
 
 class QuranViewModel(
     private val getSurahListUseCase: GetSurahListUseCase,
@@ -45,7 +40,7 @@ class QuranViewModel(
 
     val surahListState: StateFlow<UiState<List<Surah>>> = getSurahListUseCase()
         .map<List<Surah>, UiState<List<Surah>>> { list ->
-            if (list.isEmpty()) UiState.Loading else UiState.Success(list)
+            if (list.isEmpty()) UiState.Empty else UiState.Success(list)
         }
         .catch { emit(UiState.Error(it.localizedMessage ?: "Gagal memuat daftar surah")) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState.Loading)
@@ -67,24 +62,33 @@ class QuranViewModel(
     private val _searchState = MutableStateFlow<UiState<List<Ayah>>>(UiState.Idle)
     val searchState: StateFlow<UiState<List<Ayah>>> = _searchState.asStateFlow()
 
+    private var detailJob: Job? = null
+    private var searchJob: Job? = null
+    private var lastSavedRead: String? = null
+
     fun loadSurahDetail(surahNumber: Int) {
-        viewModelScope.launch {
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
             _currentAyahsState.value = UiState.Loading
             val surah = getSurahDetailUseCase(surahNumber)
+            if (surah == null) {
+                _currentSurah.value = null
+                _currentAyahsState.value = UiState.Error("Surah tidak ditemukan")
+                return@launch
+            }
             _currentSurah.value = surah
 
             getAyahsBySurahUseCase(surahNumber)
                 .catch { _currentAyahsState.value = UiState.Error(it.localizedMessage ?: "Gagal memuat ayat") }
                 .collect { ayahs ->
-                    _currentAyahsState.value = UiState.Success(ayahs)
-                    if (surah != null && ayahs.isNotEmpty()) {
-                        saveLastReadUseCase(surahNumber, surah.nameLatin, 1)
-                    }
+                    _currentAyahsState.value = if (ayahs.isEmpty()) UiState.Empty else UiState.Success(ayahs)
                 }
         }
     }
 
     fun onAyahVisible(surahNumber: Int, surahName: String, ayahNumber: Int) {
+        if (ayahNumber < 1 || lastSavedRead == "$surahNumber:$ayahNumber") return
+        lastSavedRead = "$surahNumber:$ayahNumber"
         viewModelScope.launch {
             saveLastReadUseCase(surahNumber, surahName, ayahNumber)
         }
@@ -110,15 +114,17 @@ class QuranViewModel(
     }
 
     fun searchQuran(query: String) {
+        searchJob?.cancel()
         if (query.isBlank()) {
             _searchState.value = UiState.Idle
             return
         }
-        viewModelScope.launch {
+        searchJob = viewModelScope.launch {
+            delay(250)
             _searchState.value = UiState.Loading
             try {
                 val results = searchQuranUseCase(query)
-                _searchState.value = UiState.Success(results)
+                _searchState.value = if (results.isEmpty()) UiState.Empty else UiState.Success(results)
             } catch (e: Exception) {
                 _searchState.value = UiState.Error(e.localizedMessage ?: "Pencarian gagal")
             }

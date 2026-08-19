@@ -2,8 +2,10 @@ package com.quranplus.app.core.database
 
 import android.content.Context
 import androidx.room.Database
+import androidx.room.migration.Migration
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.quranplus.app.core.database.dao.BookmarkDao
 import com.quranplus.app.core.database.dao.ChatDao
 import com.quranplus.app.core.database.dao.HadithDao
@@ -12,7 +14,6 @@ import com.quranplus.app.core.database.dao.LastReadDao
 import com.quranplus.app.core.database.dao.QuranDao
 import com.quranplus.app.core.database.dao.TahsinDao
 import com.quranplus.app.core.database.entity.AyahEntity
-import com.quranplus.app.core.database.entity.AyahFtsEntity
 import com.quranplus.app.core.database.entity.BookmarkEntity
 import com.quranplus.app.core.database.entity.ChatMessageEntity
 import com.quranplus.app.core.database.entity.HadithEntity
@@ -25,7 +26,6 @@ import com.quranplus.app.core.database.entity.TahsinLessonEntity
     entities = [
         SurahEntity::class,
         AyahEntity::class,
-        AyahFtsEntity::class,
         BookmarkEntity::class,
         LastReadEntity::class,
         TahsinLessonEntity::class,
@@ -33,7 +33,7 @@ import com.quranplus.app.core.database.entity.TahsinLessonEntity
         KnowledgeChunkEntity::class,
         ChatMessageEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class QuranDatabase : RoomDatabase() {
@@ -76,8 +76,35 @@ abstract class QuranDatabase : RoomDatabase() {
             }
 
             return builder
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_1_2)
                 .build()
+        }
+
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                createFts5(database)
+            }
+        }
+
+        private fun createFts5(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE VIRTUAL TABLE IF NOT EXISTS ayahs_fts5 USING fts5(
+                    rowid UNINDEXED,
+                    translation_id,
+                    translation_en,
+                    transliteration,
+                    text_arabic
+                )
+                """.trimIndent()
+            )
+            database.execSQL("DELETE FROM ayahs_fts5")
+            database.execSQL(
+                """
+                INSERT INTO ayahs_fts5(rowid, translation_id, translation_en, transliteration, text_arabic)
+                SELECT id, translation_id, translation_en, transliteration, text_arabic FROM ayahs
+                """.trimIndent()
+            )
         }
     }
 }

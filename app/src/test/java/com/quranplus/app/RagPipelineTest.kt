@@ -10,13 +10,7 @@ class RagPipelineTest {
 
     @Test
     fun GIVEN_questionAndCitations_WHEN_buildAugmentedPrompt_THEN_containsGroundTruthAndPersona() {
-        val pipeline = RagPipeline(object : com.quranplus.app.features.rag.domain.VectorRetriever {
-            override suspend fun retrieveTopK(
-                query: String,
-                queryEmbedding: FloatArray,
-                k: Int
-            ): List<RetrievedCitation> = emptyList()
-        })
+        val pipeline = RagPipeline()
 
         val citations = listOf(
             RetrievedCitation(

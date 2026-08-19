@@ -2,7 +2,6 @@ package com.quranplus.app.core.database.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
-import androidx.room.Fts4
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -49,21 +48,6 @@ data class AyahEntity(
     val page: Int = 1,
     @ColumnInfo(name = "tajwid_tags")
     val tajwidTags: String? = null
-)
-
-@Fts4
-@Entity(tableName = "ayahs_fts")
-data class AyahFtsEntity(
-    @PrimaryKey
-    @ColumnInfo(name = "rowid")
-    val id: Long,
-    @ColumnInfo(name = "translation_id")
-    val translationId: String,
-    @ColumnInfo(name = "translation_en")
-    val translationEn: String,
-    val transliteration: String,
-    @ColumnInfo(name = "text_arabic")
-    val textArabic: String
 )
 
 @Entity(tableName = "bookmarks")

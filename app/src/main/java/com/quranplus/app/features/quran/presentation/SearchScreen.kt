@@ -151,6 +151,20 @@ fun SearchScreen(
                         description = state.message
                     )
                 }
+                UiState.Empty -> {
+                    AppEmptyState(
+                        icon = Icons.Rounded.Search,
+                        title = "Tidak Ditemukan",
+                        description = "Tidak ada ayat yang cocok dengan kata kunci \"$searchQuery\"."
+                    )
+                }
+                is UiState.Blocked -> {
+                    AppEmptyState(
+                        icon = Icons.Rounded.Search,
+                        title = "Pencarian Tidak Tersedia",
+                        description = state.reason
+                    )
+                }
             }
         }
     }

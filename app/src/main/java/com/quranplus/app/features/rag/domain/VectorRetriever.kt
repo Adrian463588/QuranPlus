@@ -12,5 +12,10 @@ data class RetrievedCitation(
 )
 
 interface VectorRetriever {
-    suspend fun retrieveTopK(query: String, queryEmbedding: FloatArray, k: Int = 5): List<RetrievedCitation>
+    suspend fun retrieveTopK(
+        query: String,
+        queryEmbedding: FloatArray,
+        k: Int = 5,
+        minScore: Float = 0.35f
+    ): List<RetrievedCitation>
 }

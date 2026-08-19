@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.quranplus.app"
-        minSdk = 26
+        minSdk = 32
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
@@ -71,7 +71,9 @@ dependencies {
     // Core & Lifecycle
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(project(":shared"))
 
     // Compose
     implementation(libs.androidx.activity.compose)
@@ -94,6 +96,12 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    // Background work, verified embeddings, and media playback
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.onnxruntime.android)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
 
     // Kotlin Coroutines
     implementation(libs.kotlinx.coroutines.android)

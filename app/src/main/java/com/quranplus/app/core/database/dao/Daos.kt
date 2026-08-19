@@ -5,7 +5,9 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.RawQuery
 import androidx.room.Update
+import androidx.sqlite.db.SupportSQLiteQuery
 import com.quranplus.app.core.database.entity.AyahEntity
 import com.quranplus.app.core.database.entity.BookmarkEntity
 import com.quranplus.app.core.database.entity.ChatMessageEntity
@@ -30,22 +32,8 @@ interface QuranDao {
     @Query("SELECT * FROM ayahs WHERE surah_id = :surahNumber AND ayah_number = :ayahNumber LIMIT 1")
     suspend fun getAyah(surahNumber: Int, ayahNumber: Int): AyahEntity?
 
-    @Query("""
-        SELECT ayahs.* FROM ayahs 
-        JOIN ayahs_fts ON ayahs.id = ayahs_fts.rowid 
-        WHERE ayahs_fts MATCH :query
-        LIMIT :limit
-    """)
-    suspend fun searchAyahsFts(query: String, limit: Int = 50): List<AyahEntity>
-
-    @Query("""
-        SELECT * FROM ayahs 
-        WHERE translation_id LIKE '%' || :query || '%' 
-           OR text_arabic LIKE '%' || :query || '%' 
-           OR transliteration LIKE '%' || :query || '%'
-        LIMIT :limit
-    """)
-    suspend fun searchAyahsLike(query: String, limit: Int = 50): List<AyahEntity>
+    @RawQuery(observedEntities = [AyahEntity::class])
+    suspend fun searchAyahsFts(query: SupportSQLiteQuery): List<AyahEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSurahs(surahs: List<SurahEntity>)
@@ -58,6 +46,9 @@ interface QuranDao {
 interface BookmarkDao {
     @Query("SELECT * FROM bookmarks ORDER BY timestamp DESC")
     fun getAllBookmarks(): Flow<List<BookmarkEntity>>
+
+    @Query("SELECT * FROM bookmarks ORDER BY surah_id ASC, ayah_number ASC")
+    fun getAllBookmarksBySurah(): Flow<List<BookmarkEntity>>
 
     @Query("SELECT EXISTS(SELECT 1 FROM bookmarks WHERE surah_id = :surahNumber AND ayah_number = :ayahNumber)")
     fun isBookmarked(surahNumber: Int, ayahNumber: Int): Flow<Boolean>
@@ -76,6 +67,9 @@ interface BookmarkDao {
 
     @Query("DELETE FROM bookmarks WHERE id = :id")
     suspend fun deleteBookmarkById(id: Long)
+
+    @Query("UPDATE bookmarks SET note = :note WHERE id = :id")
+    suspend fun updateNote(id: Long, note: String?)
 }
 
 @Dao

@@ -1,10 +1,10 @@
 # 📖 Quran Plus — Offline Quran, Tajwid Engine & On-Device RAG AI Assistant
 
 <p align="center">
-  <img src="docs/screenshot_quran_main.png" width="240" alt="Quran Plus Home" />
-  <img src="docs/screenshot_quran_reader.png" width="240" alt="Quran Reader Screen" />
-  <img src="docs/screenshot_ayah_actions.png" width="240" alt="Ayah Action Bottom Sheet" />
-  <img src="docs/screenshot_tahsin_makharij.png" width="240" alt="Tahsin & Makharij Screen" />
+  <img src="art/screenshot_quran_main.png" width="240" alt="Quran Plus Home" />
+  <img src="art/screenshot_quran_reader.png" width="240" alt="Quran Reader Screen" />
+  <img src="art/screenshot_ayah_actions.png" width="240" alt="Ayah Action Bottom Sheet" />
+  <img src="art/screenshot_tahsin_makharij.png" width="240" alt="Tahsin & Makharij Screen" />
 </p>
 
 <p align="center">
@@ -17,19 +17,19 @@
 
 | Surah Index & Last Read | Mushaf Reader (Two-Letter Tajwid) | Interactive Ayah Action Sheet |
 |:---:|:---:|:---:|
-| ![Surah List](docs/screenshot_quran_main.png) | ![Quran Reader](docs/screenshot_quran_reader.png) | ![Ayah Actions](docs/screenshot_ayah_actions.png) |
+| ![Surah List](art/screenshot_quran_main.png) | ![Quran Reader](art/screenshot_quran_reader.png) | ![Ayah Actions](art/screenshot_ayah_actions.png) |
 
 | Makharij al-Huruf | Hukum Tajwid Catalog | Tajwid & Waqaf Quiz |
 |:---:|:---:|:---:|
-| ![Makharij](docs/screenshot_tahsin_makharij.png) | ![Hukum Tajwid](docs/screenshot_tahsin_tajwid.png) | ![Quiz Screen](docs/screenshot_tahsin_quiz.png) |
+| ![Makharij](art/screenshot_tahsin_makharij.png) | ![Hukum Tajwid](art/screenshot_tahsin_tajwid.png) | ![Quiz Screen](art/screenshot_tahsin_quiz.png) |
 
 | Bacaan Gharib Encyclopedia | Isymam Lip Movement Diagram | Waqaf & Ibtida' Guide |
 |:---:|:---:|:---:|
-| ![Gharib](docs/screenshot_gharib_encyclopedia.png) | ![Isymam](docs/screenshot_gharib_isymam.png) | ![Waqaf Guide](docs/screenshot_waqaf_guide.png) |
+| ![Gharib](art/screenshot_gharib_encyclopedia.png) | ![Isymam](art/screenshot_gharib_isymam.png) | ![Waqaf Guide](art/screenshot_waqaf_guide.png) |
 
 | Offline Murottal Manager | Settings & Tilawah Preferences | Tahsin Lesson & Audio Pronunciation |
 |:---:|:---:|:---:|
-| ![Audio Manager](docs/screenshot_audio_manager.png) | ![Settings](docs/screenshot_settings.png) | ![Tahsin Lesson Detail](docs/screenshot_lesson_detail.png) |
+| ![Audio Manager](art/screenshot_audio_manager.png) | ![Settings](art/screenshot_settings.png) | ![Tahsin Lesson Detail](art/screenshot_lesson_detail.png) |
 
 ---
 

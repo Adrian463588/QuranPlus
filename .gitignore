@@ -1,13 +1,103 @@
-*.iml
-.gradle
-/local.properties
-/.idea/
-.DS_Store
-/build
-/app/build
-/captures
-.externalNativeBuild
-.cxx
+# ==============================================================================
+# Quran Plus — Enterprise DevSecOps .gitignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Dokumentasi Internal, Spesifikasi, dan Proyek Referensi
+# ------------------------------------------------------------------------------
+docs/
+docsSprint2/
+PRD.md
+AGENTS.md
+DESIGN.md
+ANTISLOP.md
+*.md.bak
+
+# ------------------------------------------------------------------------------
+# 2. AI Models, Weights, Embeddings & Vector Databases
+# ------------------------------------------------------------------------------
+*.litertlm
+*.task
+*.gguf
+*.onnx
+*.tflite
+!app/src/main/assets/embedding/all-MiniLM-L6-v2.tflite
+*.bin
+*.pt
+*.safetensors
+*.vec0
+*.sqlite
+*.db
+!app/src/main/assets/databases/quranplus.db
+*.db-shm
+*.db-wal
+
+# ------------------------------------------------------------------------------
+# 3. Scripts, Cache, Dataset & Python Artifacts
+# ------------------------------------------------------------------------------
+scripts/cache/
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+*.json.bak
+
+# ------------------------------------------------------------------------------
+# 4. Security, Secrets & Keystores (CRITICAL DevSecOps)
+# ------------------------------------------------------------------------------
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+google-services.json
+GoogleService-Info.plist
 local.properties
+.env
+.env.*
+secrets.xml
+signing.properties
+
+# ------------------------------------------------------------------------------
+# 5. Arsip, Compressed & Binary Blobs
+# ------------------------------------------------------------------------------
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+*.part
+*.tmp
+
+# ------------------------------------------------------------------------------
+# 6. Android & Gradle Build Artifacts
+# ------------------------------------------------------------------------------
+.gradle/
+build/
+app/build/
+*/build/
+captures/
+.externalNativeBuild/
+.cxx/
 *.apk
 *.aab
+*.dex
+*.class
+
+# ------------------------------------------------------------------------------
+# 7. IDE & Sistem Operasi
+# ------------------------------------------------------------------------------
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini

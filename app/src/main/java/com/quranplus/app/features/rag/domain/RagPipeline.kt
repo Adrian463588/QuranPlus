@@ -2,9 +2,9 @@ package com.quranplus.app.features.rag.domain
 
 import com.quranplus.app.features.settings.data.AiPersona
 
-class RagPipeline(
-    private val vectorRetriever: VectorRetriever
-) {
+class GroundingUnavailable(message: String) : IllegalStateException(message)
+
+class RagPipeline {
 
     fun buildAugmentedPrompt(
         question: String,
@@ -12,6 +12,11 @@ class RagPipeline(
         customPrompt: String?,
         citations: List<RetrievedCitation>
     ): String {
+        if (citations.isEmpty()) {
+            throw GroundingUnavailable(
+                "Tidak ada rujukan terverifikasi untuk pertanyaan ini. Jawaban tidak dibuat."
+            )
+        }
         val systemDirective = if (persona == AiPersona.CUSTOM && !customPrompt.isNullOrBlank()) {
             customPrompt
         } else {

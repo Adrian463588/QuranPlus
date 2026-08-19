@@ -23,7 +23,8 @@ import com.quranplus.app.features.quran.domain.SaveLastReadUseCase
 import com.quranplus.app.features.quran.domain.SearchQuranUseCase
 import com.quranplus.app.features.quran.domain.ToggleBookmarkUseCase
 import com.quranplus.app.features.quran.presentation.QuranViewModel
-import com.quranplus.app.features.rag.data.TfLiteEmbeddingService
+import com.quranplus.app.features.rag.data.EmbeddingService
+import com.quranplus.app.features.rag.data.OnnxEmbeddingService
 import com.quranplus.app.features.rag.data.VectorRetrieverImpl
 import com.quranplus.app.features.rag.domain.RagPipeline
 import com.quranplus.app.features.rag.domain.VectorRetriever
@@ -54,9 +55,9 @@ val appModule = module {
     single { PreferencesManager(androidContext()) }
     single { com.quranplus.app.core.audio.AudioPlayerManager(androidContext()) }
     single { ResumableDownloader(androidContext()) }
-    single { TfLiteEmbeddingService(androidContext()) }
-    single<VectorRetriever> { VectorRetrieverImpl(get(), get(), get()) }
-    single { RagPipeline(get()) }
+    single<EmbeddingService> { OnnxEmbeddingService(androidContext()) }
+    single<VectorRetriever> { VectorRetrieverImpl(get()) }
+    single { RagPipeline() }
     single { ModelRepository(androidContext()) }
     single { LiteRtLmRunner(androidContext(), get()) }
 
