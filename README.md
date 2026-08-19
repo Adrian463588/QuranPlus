@@ -34,7 +34,7 @@ Status is intentionally evidence-based. `blocked` is not treated as `complete`.
 | F-11 | Partial: resumable/checksum state machine; verified asset and worker tests pending |
 | F-12 | Blocked: verified Room question bank pending |
 | F-13 | Blocked: verified ONNX corpus/vector index/LiteRT model pending |
-| F-14 | Partial: citation persistence and source links; tests pending |
+| F-14 | Partial: citation persistence and Quran deep-link codec/instrumentation pass; Hadith citations remain non-clickable until a valid target route exists |
 | F-15 | Partial: persona DataStore restoration; device evidence pending |
 | F-16 | Partial: Room lessons; source audit and device evidence pending |
 
@@ -76,29 +76,30 @@ rtk proxy .\gradlew.bat :app:compileDebugKotlin
 rtk proxy .\gradlew.bat :app:lintDebug
 rtk proxy .\gradlew.bat :app:testDebugUnitTest
 rtk proxy .\gradlew.bat :app:assembleDebug
+rtk proxy .\gradlew.bat :app:assembleRelease
 rtk proxy .\gradlew.bat :app:connectedDebugAndroidTest
 rtk proxy python scripts/build_database.py  # expected fail-closed guard
 ```
 
-Physical acceptance is separate from these gates. The first target is Samsung SM-G988B; Poco evidence is a separate gate. Until install, launch, journey, accessibility, rotation, IME, 200% font, performance, and screenshot evidence are recorded, device acceptance is not claimed.
+Physical acceptance is separate from these gates. The current debug APK was installed and launched on Samsung SM-G988B (Android 13), `MainActivity` was resumed, the UI hierarchy was dumped, and the fatal-log check was clean. The latest connected instrumentation run completed 12/12 on SM-G988B. The Poco run is a separate gate and was blocked by `INSTALL_FAILED_USER_RESTRICTED`; it is not claimed as accepted. Accessibility, rotation, IME, 200% font, performance, audio, and RAG acceptance remain unproven.
 
 ## Preview evidence
 
-The current adaptive previews were captured from the debug APK with `adb exec-out screencap -p` on a Samsung `SM-G988B` (Android 13, 100% font scale). Compact is physical-device evidence; medium and expanded use reversible `wm size`/density overrides on the same device. The exact APK SHA, source commit, window class, and capture metadata are recorded in the [preview manifest](art/device-preview-manifest.json). They are smoke evidence, not proof of landscape, foldable, accessibility, performance, audio, or RAG release gates.
+The current adaptive previews were captured from the final debug APK with `adb exec-out screencap -p` on a Samsung `SM-G988B` (Android 13, 100% font scale). Compact is physical-device evidence; medium and expanded use reversible `wm size` overrides on the same device. The exact APK SHA, source commit, window class, and capture metadata are recorded in the [preview manifest](art/device-preview-manifest.json). They are smoke evidence, not proof of landscape, foldable, accessibility, performance, audio, or RAG release gates.
 
 | Quran home | Reader | Ayah actions |
 | --- | --- | --- |
-| ![Quran home](art/device-sm-g988b-home.png) | ![Quran reader](art/device-sm-g988b-reader.png) | ![Ayah actions](art/device-sm-g988b-ayah-actions.png) |
+| ![Quran home](art/device-sm-g988b-current-compact.png) | ![Quran reader](art/device-sm-g988b-current-reader.png) | ![Ayah actions](art/device-sm-g988b-current-ayah-actions.png) |
 
 | Compact | Medium adaptive pane | Expanded adaptive pane |
 | --- | --- | --- |
-| ![Compact Quran home](art/device-sm-g988b-home.png) | ![Medium Quran list and detail](art/device-sm-g988b-medium.png) | ![Expanded Quran list and detail](art/device-sm-g988b-expanded.png) |
+| ![Compact Quran home](art/device-sm-g988b-current-compact.png) | ![Medium Quran list and detail](art/device-sm-g988b-current-medium.png) | ![Expanded Quran list and detail](art/device-sm-g988b-current-expanded.png) |
 
-| Bookmarks | Search | Chat model gate |
+| Historical bookmarks | Historical search | Historical chat model gate |
 | --- | --- | --- |
 | ![Bookmarks](art/device-sm-g988b-bookmarks.png) | ![Search](art/device-sm-g988b-search.png) | ![Chat model gate](art/device-sm-g988b-chat-gate.png) |
 
-| Tahsin | Quiz blocked state | Settings |
+| Historical Tahsin | Historical quiz blocked state | Historical settings |
 | --- | --- | --- |
 | ![Tahsin](art/device-sm-g988b-tahsin.png) | ![Quiz blocked state](art/device-sm-g988b-quiz.png) | ![Settings](art/device-sm-g988b-settings.png) |
 
@@ -110,5 +111,6 @@ Machine-readable capture details: [`art/device-preview-manifest.json`](art/devic
 - Review `git diff --cached`, run secret scans, and stage an explicit allowlist. Do not use blind `git add .` in this data-heavy repository.
 - Do not claim feature completion from browser previews, fake executors, static screenshots, or compile-only evidence.
 - Source/license review is required before distributing Quran translations, hadith, audio, fonts, model files, or derived indexes.
+- Release builds enable R8/resource shrinking, the manifest disables backup extraction, and audio/model download paths fail closed unless HTTPS, checksum, and provenance checks pass.
 
 License and third-party attribution remain a release gate until verified source manifests are complete.

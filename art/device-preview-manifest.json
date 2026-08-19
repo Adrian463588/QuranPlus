@@ -1,25 +1,28 @@
 {
-  "schema_version": "device-preview-manifest-2",
-  "device_serial": "RRCN3008VYE",
+  "schema_version": "device-preview-manifest-3",
   "device_model": "SM-G988B",
   "android_api": 33,
   "physical_resolution_px": "1440x3200",
   "physical_density": "420",
+  "capture_density": "560 override",
   "build_variant": "debug",
   "current_apk": {
     "path": "app/build/outputs/apk/debug/app-debug.apk",
-    "source_commit_sha": "5af898cf5352dba7e8322b807a122b4ca88f26fe",
-    "sha256": "fe44720d736aa48829a3df70fc23cf2f63fdfce54b7688892ac884a6951415cd"
+    "source_commit_sha": "d224ac025c5a29508ecab23b9cdcc5714a564d6d",
+    "sha256": "d777458749e3f854083df6523aa771b18d66d2c1cd568af97b4ac96e90cadc06"
   },
-  "capture_command": "adb -s RRCN3008VYE exec-out screencap -p",
+  "capture_command": "adb exec-out screencap -p",
   "preview_sets": [
     {
-      "id": "current-adaptive-reader",
-      "source_commit_sha": "5af898cf5352dba7e8322b807a122b4ca88f26fe",
-      "apk_sha256": "fe44720d736aa48829a3df70fc23cf2f63fdfce54b7688892ac884a6951415cd",
+      "id": "current-local-hardening",
+      "status": "current",
+      "source_commit_sha": "d224ac025c5a29508ecab23b9cdcc5714a564d6d",
+      "apk_sha256": "d777458749e3f854083df6523aa771b18d66d2c1cd568af97b4ac96e90cadc06",
+      "device_model": "SM-G988B",
+      "android_api": 33,
       "screens": [
         {
-          "path": "art/device-sm-g988b-home.png",
+          "path": "art/device-sm-g988b-current-compact.png",
           "route": "quran_home",
           "window_class": "compact",
           "resolution_px": "1440x3200",
@@ -27,11 +30,35 @@
           "font_scale": 1.0,
           "orientation": "portrait",
           "capture_mode": "physical device",
-          "captured_at": "2026-08-19T17:32:03+07:00",
+          "captured_at": "2026-08-19T19:14:00+07:00",
           "device_verified": true
         },
         {
-          "path": "art/device-sm-g988b-medium.png",
+          "path": "art/device-sm-g988b-current-reader.png",
+          "route": "quran_reader/1",
+          "window_class": "compact",
+          "resolution_px": "1440x3200",
+          "density": "560 override",
+          "font_scale": 1.0,
+          "orientation": "portrait",
+          "capture_mode": "physical device",
+          "captured_at": "2026-08-19T19:15:00+07:00",
+          "device_verified": true
+        },
+        {
+          "path": "art/device-sm-g988b-current-ayah-actions.png",
+          "route": "ayah_action_sheet",
+          "window_class": "compact",
+          "resolution_px": "1440x3200",
+          "density": "560 override",
+          "font_scale": 1.0,
+          "orientation": "portrait",
+          "capture_mode": "physical device",
+          "captured_at": "2026-08-19T19:15:00+07:00",
+          "device_verified": true
+        },
+        {
+          "path": "art/device-sm-g988b-current-medium.png",
           "route": "quran_home",
           "window_class": "medium",
           "resolution_px": "2200x3200",
@@ -39,25 +66,26 @@
           "font_scale": 1.0,
           "orientation": "portrait",
           "capture_mode": "reversible wm size override",
-          "captured_at": "2026-08-19T17:32:19+07:00",
+          "captured_at": "2026-08-19T19:16:00+07:00",
           "device_verified": true
         },
         {
-          "path": "art/device-sm-g988b-expanded.png",
+          "path": "art/device-sm-g988b-current-expanded.png",
           "route": "quran_home",
           "window_class": "expanded",
           "resolution_px": "2880x3200",
-          "density": "420 physical",
+          "density": "560 override",
           "font_scale": 1.0,
           "orientation": "portrait",
-          "capture_mode": "reversible wm size and density override",
-          "captured_at": "2026-08-19T17:32:36+07:00",
+          "capture_mode": "reversible wm size override",
+          "captured_at": "2026-08-19T19:16:00+07:00",
           "device_verified": true
         }
       ]
     },
     {
       "id": "legacy-route-smoke",
+      "status": "historical",
       "source_commit_sha": "7f707d6658490bda6ab70ea028a22e8808bf3f49",
       "apk_sha256": "4D1DD72461365863DA6150AEC46EB5C6D0222206D06A7B508466F0392FC1AE89",
       "capture_scope": "SM-G988B compact portrait smoke evidence",
@@ -73,14 +101,14 @@
       ]
     }
   ],
-  "acceptance_scope": "SM-G988B physical compact portrait plus reversible medium/expanded window smoke evidence",
+  "acceptance_scope": "SM-G988B API 33 install/launch, compact portrait, and reversible medium/expanded window smoke evidence",
   "not_proven": [
     "landscape and foldable layouts",
     "200 percent font scale, TalkBack, and IME journey",
-    "Poco device acceptance",
+    "Poco device acceptance; current instrumentation rerun was blocked by INSTALL_FAILED_USER_RESTRICTED",
     "cold-start, jank, memory, storage, embedding latency, and first-token latency benchmarks",
     "verified audio assets and playback",
     "verified RAG model, hadith corpus, and sqlite-vec index"
   ],
-  "repository_scope": "Internal docs, reference projects, archives, model files, and local instruction Markdown are excluded from GitHub."
+  "repository_scope": "Internal docs, reference projects, archives, model files, and local instruction Markdown are excluded from GitHub and checked before release."
 }
