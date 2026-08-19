@@ -23,7 +23,9 @@ class ModelDownloadScheduler(
     private val modelDirectory = File(context.filesDir, "models")
 
     fun enqueue(model: ModelInfo): UUID {
-        require(model.hasVerifiedManifest) { "Model manifest belum diverifikasi" }
+        require(model.isDownloadable) {
+            "Model belum dapat diunduh: ${model.downloadBlocker}"
+        }
         val request = OneTimeWorkRequestBuilder<ModelDownloadWorker>()
             .setInputData(model.toWorkerData())
             .setConstraints(

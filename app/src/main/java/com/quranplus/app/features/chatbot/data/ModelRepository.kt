@@ -5,6 +5,11 @@ import com.quranplus.app.features.rag.data.SafAssetStore
 import org.json.JSONObject
 import java.io.File
 
+enum class ModelAssetRole {
+    CHATBOT,
+    EMBEDDING
+}
+
 data class ModelAssetManifest(
     val id: String,
     val name: String,
@@ -26,10 +31,24 @@ data class ModelAssetManifest(
     val tokenizerId: String = "",
     val tokenizerSha256: String? = null,
     val minimumRamMb: Int? = null,
-    val citation: String = ""
+    val citation: String = "",
+    val role: ModelAssetRole = ModelAssetRole.CHATBOT,
+    val embeddingDimension: Int? = null
 ) {
     val downloadUrl: String
         get() = artifactUrl
+
+    val isRuntimeCompatible: Boolean
+        get() = when (role) {
+            ModelAssetRole.CHATBOT ->
+                format.equals("litertlm", ignoreCase = true) &&
+                    runtime.equals("LiteRT-LM", ignoreCase = true)
+
+            ModelAssetRole.EMBEDDING ->
+                format.equals("onnx", ignoreCase = true) &&
+                    runtime.equals("ONNX Runtime", ignoreCase = true) &&
+                    embeddingDimension == 384
+        }
 
     val hasVerifiedManifest: Boolean
         get() = sha256?.matches(SHA256_PATTERN) == true &&
@@ -48,6 +67,37 @@ data class ModelAssetManifest(
             tokenizerId.isNotBlank() &&
             tokenizerSha256?.matches(SHA256_PATTERN) == true &&
             citation.isNotBlank()
+
+    val isDownloadable: Boolean
+        get() = role == ModelAssetRole.CHATBOT &&
+            isRuntimeCompatible &&
+            hasVerifiedManifest
+
+    val downloadBlocker: String
+        get() = when {
+            role == ModelAssetRole.EMBEDDING ->
+                "Embedding tidak dapat dipasang dari katalog chatbot. Index saat ini membutuhkan ONNX 384-dimensi dan asset pendamping terverifikasi."
+
+            !isRuntimeCompatible ->
+                "Runtime belum didukung aplikasi: $format melalui $runtime. Aplikasi memakai LiteRT-LM."
+
+            artifactUrl.isBlank() ->
+                "Artifact belum tersedia pada manifest immutable."
+
+            revision.isBlank() ->
+                "Revision immutable belum tersedia."
+
+            licenseStatus != VERIFIED_LICENSE_STATUS ->
+                "Status lisensi belum diverifikasi atau belum diterima."
+
+            sha256?.matches(SHA256_PATTERN) != true ->
+                "SHA-256 artifact belum diverifikasi."
+
+            tokenizerSha256?.matches(SHA256_PATTERN) != true ->
+                "SHA-256 tokenizer belum diverifikasi."
+
+            else -> "Manifest model belum lengkap."
+        }
 
     private companion object {
         const val VERIFIED_LICENSE_STATUS = "verified"
@@ -114,6 +164,74 @@ class ModelRepository(
             sourceUrl = "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct",
             licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0",
             licenseStatus = "unverified"
+        ),
+        ModelInfo(
+            id = "alif-islamic-v4-base",
+            name = "Alif Islamic v4 Base (candidate)",
+            filename = "alif-islamic-v4-base.task",
+            sizeDescription = "Sekitar 903 MB (sumber model)",
+            ramRequirement = "Kebutuhan RAM belum diverifikasi untuk perangkat aplikasi",
+            sourceUrl = "https://huggingface.co/ahmedtamseer3/alif-islamic-v4-base",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0",
+            format = "task",
+            runtime = "MediaPipe/LiteRT",
+            licenseStatus = "unverified",
+            citation = "Alif Islamic v4 Base model card; kualitas fiqh dan artifact immutable wajib direview"
+        ),
+        ModelInfo(
+            id = "qwen2.5-1.5b-instruct-duoneural",
+            name = "Qwen2.5 1.5B Instruct (GGUF candidate)",
+            filename = "qwen2.5-1.5b-instruct.gguf",
+            sizeDescription = "Ukuran artifact belum diverifikasi",
+            ramRequirement = "Kebutuhan RAM belum diverifikasi",
+            sourceUrl = "https://huggingface.co/DuoNeural/Qwen2.5-1.5B-Instruct-LiteRT",
+            format = "gguf",
+            runtime = "llama.cpp",
+            licenseStatus = "unverified",
+            citation = "DuoNeural model card; artifact, lisensi turunan, dan runtime wajib direview"
+        ),
+        ModelInfo(
+            id = "gemma3-1b-it-mnn-candidate",
+            name = "Gemma 3 1B IT (MNN candidate)",
+            filename = "gemma-3-1b-it.mnn",
+            sizeDescription = "Ukuran artifact belum diverifikasi",
+            ramRequirement = "Kebutuhan RAM belum diverifikasi",
+            sourceUrl = "https://huggingface.co/darkmaniac7/Gemma-3-1B-IT-MNN",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0",
+            format = "mnn",
+            runtime = "MNN",
+            licenseStatus = "unverified",
+            citation = "MNN community model card; compatibility dan safety profile wajib direview"
+        ),
+        ModelInfo(
+            id = "qwen3-embedding-0.6b",
+            name = "Qwen3 Embedding 0.6B (RAG candidate)",
+            filename = "qwen3-embedding-0.6b",
+            sizeDescription = "Sekitar 1.21 GB (model card)",
+            ramRequirement = "Kebutuhan RAM belum diverifikasi",
+            sourceUrl = "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0",
+            format = "safetensors",
+            runtime = "Transformers",
+            licenseStatus = "unverified",
+            citation = "Qwen3 Embedding model card; pipeline ONNX dan dimensi index wajib direview",
+            role = ModelAssetRole.EMBEDDING,
+            embeddingDimension = 1024
+        ),
+        ModelInfo(
+            id = "all-minilm-l6-v2-onnx",
+            name = "all-MiniLM-L6-v2 (ONNX RAG)",
+            filename = "all-MiniLM-L6-v2.onnx",
+            sizeDescription = "Artifact dan asset tokenizer belum dipin",
+            ramRequirement = "Kebutuhan RAM belum diverifikasi",
+            sourceUrl = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0",
+            format = "onnx",
+            runtime = "ONNX Runtime",
+            licenseStatus = "unverified",
+            citation = "Sentence Transformers all-MiniLM-L6-v2 model card; model, tokenizer, dan checksum wajib dipin",
+            role = ModelAssetRole.EMBEDDING,
+            embeddingDimension = 384
         )
     )
 
@@ -147,7 +265,7 @@ class ModelRepository(
 
     suspend fun restoreVerifiedModelsFromSaf() {
         availableModelConfigs
-            .filter { !isModelReady(it) }
+            .filter { it.isDownloadable && !isModelReady(it) }
             .forEach { model ->
                 val destination = getModelFile(model.filename)
                 runCatching {
@@ -185,6 +303,8 @@ class ModelRepository(
             .put("tokenizer_id", modelInfo.tokenizerId)
             .put("tokenizer_sha256", modelInfo.tokenizerSha256)
             .put("minimum_ram_mb", modelInfo.minimumRamMb)
+            .put("role", modelInfo.role.name)
+            .put("embedding_dimension", modelInfo.embeddingDimension)
             .put("citation", modelInfo.citation)
         safAssetStore.publishText(
             text = manifestJson.toString(),
@@ -194,7 +314,7 @@ class ModelRepository(
     }
 
     fun isModelReady(modelInfo: ModelInfo): Boolean {
-        if (!modelInfo.hasVerifiedManifest) return false
+        if (!modelInfo.isDownloadable) return false
         val file = getModelFile(modelInfo.filename)
         return file.isFile && file.length() > 0L &&
             calculateSha256(file).equals(modelInfo.sha256, ignoreCase = true)

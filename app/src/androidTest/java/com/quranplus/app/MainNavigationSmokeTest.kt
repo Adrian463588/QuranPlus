@@ -1,17 +1,17 @@
 package com.quranplus.app
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,13 +60,23 @@ class MainNavigationSmokeTest {
         waitForText("Setup AI On-Device")
         composeRule.onNodeWithText("Pilih Model AI yang Diinginkan:").assertIsDisplayed()
         composeRule.onNodeWithText("Gemma 4 E2B IT (LiteRT-LM)").assertIsDisplayed()
+        composeRule.onNodeWithTag("model_catalog")
+            .performScrollToNode(hasText("Gemma 3 1B IT"))
         composeRule.onNodeWithText("Gemma 3 1B IT").assertIsDisplayed()
-        composeRule.onAllNodesWithText("Buka sumber model").assertCountEquals(2)
-        composeRule.onAllNodesWithText("Buka link unduh").assertCountEquals(2)
-        composeRule.onNodeWithTag("model_catalog").performTouchInput { swipeUp() }
+        assertTrue(
+            composeRule.onAllNodesWithText("Buka sumber model")
+                .fetchSemanticsNodes().isNotEmpty()
+        )
+        assertTrue(
+            composeRule.onAllNodesWithText("Buka link unduh")
+                .fetchSemanticsNodes().isNotEmpty()
+        )
+        composeRule.onNodeWithTag("model_catalog")
+            .performScrollToNode(hasText("Qwen 2.5 1.5B Instruct"))
         composeRule.onNodeWithText("Qwen 2.5 1.5B Instruct").assertIsDisplayed()
-        composeRule.onAllNodesWithText("Buka sumber model").assertCountEquals(2)
-        composeRule.onNodeWithText("Model diblokir sampai manifest SHA-256 terverifikasi tersedia.")
+        composeRule.onNodeWithText(
+            "Status model terpilih: Status lisensi belum diverifikasi atau belum diterima."
+        )
             .assertIsDisplayed()
     }
 

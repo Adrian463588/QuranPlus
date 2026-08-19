@@ -51,6 +51,7 @@ import com.quranplus.app.core.network.DownloadState
 import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
+import com.quranplus.app.features.chatbot.data.ModelAssetRole
 import com.quranplus.app.features.chatbot.data.ModelInfo
 import com.quranplus.app.features.chatbot.data.ModelRepository
 import com.quranplus.app.features.chatbot.data.AiBlocker
@@ -66,7 +67,12 @@ fun ModelGateScreen(
 ) {
     val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
     val aiReadiness by readiness.collectAsStateWithLifecycle()
-    val availableModels = remember { modelRepository.availableModelConfigs }
+    val availableModels = remember {
+        modelRepository.availableModelConfigs.filter { it.role == ModelAssetRole.CHATBOT }
+    }
+    val embeddingModels = remember {
+        modelRepository.availableModelConfigs.filter { it.role == ModelAssetRole.EMBEDDING }
+    }
 
     if (availableModels.isEmpty()) {
         Scaffold(
@@ -315,7 +321,7 @@ fun ModelGateScreen(
                     Spacer(modifier = Modifier.height(Spacing.sm))
                     AppPrimaryButton(
                         onClick = { viewModel.startModelDownload(selectedModel) },
-                        enabled = selectedModel.hasVerifiedManifest
+                        enabled = selectedModel.isDownloadable
                     ) {
                         Text("Coba Lagi")
                     }
@@ -330,7 +336,7 @@ fun ModelGateScreen(
                     Spacer(modifier = Modifier.height(Spacing.sm))
                     AppPrimaryButton(
                         onClick = { viewModel.startModelDownload(selectedModel) },
-                        enabled = selectedModel.hasVerifiedManifest
+                        enabled = selectedModel.isDownloadable
                     ) {
                         Text("Coba Lagi")
                     }
@@ -350,12 +356,38 @@ fun ModelGateScreen(
                             .testTag("model_catalog"),
                         verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
-                        items(availableModels) { model ->
+                        item {
+                            Text(
+                                text = "Model chatbot",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        items(
+                            items = availableModels,
+                            key = { model -> model.id }
+                        ) { model ->
                             ModelSelectCard(
                                 model = model,
                                 isSelected = model.id == selectedModel.id,
                                 onClick = { selectedModel = model }
                             )
+                        }
+                        if (embeddingModels.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Embedding RAG",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(top = Spacing.sm)
+                                )
+                            }
+                            items(
+                                items = embeddingModels,
+                                key = { model -> model.id }
+                            ) { model ->
+                                ModelCatalogCard(model = model)
+                            }
                         }
                     }
 
@@ -363,17 +395,17 @@ fun ModelGateScreen(
 
                     AppPrimaryButton(
                         onClick = { viewModel.startModelDownload(selectedModel) },
-                        enabled = selectedModel.hasVerifiedManifest,
+                        enabled = selectedModel.isDownloadable,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(imageVector = Icons.Rounded.CloudDownload, contentDescription = null)
                         Spacer(modifier = Modifier.width(Spacing.sm))
                         Text("Unduh Model (${selectedModel.sizeDescription})")
                     }
-                    if (!selectedModel.hasVerifiedManifest) {
+                    if (!selectedModel.isDownloadable) {
                         Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(
-                            text = "Model diblokir sampai manifest SHA-256 terverifikasi tersedia.",
+                            text = "Status model terpilih: ${selectedModel.downloadBlocker}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center
@@ -399,11 +431,13 @@ fun ModelSelectCard(
     model: ModelInfo,
     isSelected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isInteractive: Boolean = true
 ) {
     val uriHandler = LocalUriHandler.current
     Card(
         onClick = onClick,
+        enabled = isInteractive,
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
@@ -447,6 +481,28 @@ fun ModelSelectCard(
                     text = "Ukuran: ${model.sizeDescription} • ${model.ramRequirement}",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Format: ${model.format} • Runtime: ${model.runtime}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+                Text(
+                    text = if (model.isDownloadable) {
+                        "Manifest lengkap; unduhan melewati gate aplikasi."
+                    } else {
+                        model.downloadBlocker
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (model.isDownloadable) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     if (model.downloadUrl.startsWith("https://")) {
@@ -496,4 +552,15 @@ fun ModelSelectCard(
             }
         }
     }
+}
+
+@Composable
+fun ModelCatalogCard(model: ModelInfo, modifier: Modifier = Modifier) {
+    ModelSelectCard(
+        model = model,
+        isSelected = false,
+        onClick = {},
+        modifier = modifier,
+        isInteractive = false
+    )
 }

@@ -6,6 +6,7 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.quranplus.app.core.ui.components.AdaptiveNavigationScaffold
 import com.quranplus.app.core.ui.theme.QuranPlusTheme
@@ -36,6 +37,7 @@ class AdaptiveNavigationSemanticsTest {
 
         composeRule.onNodeWithText("Al-Qur'an").assertIsDisplayed()
         composeRule.onNodeWithText("Tahsin").assertIsDisplayed()
+        composeRule.onNodeWithText("Bookmark").performScrollTo()
         composeRule.onNodeWithText("Bookmark").assertIsDisplayed()
     }
 

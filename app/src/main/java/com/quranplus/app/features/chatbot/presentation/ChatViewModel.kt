@@ -75,9 +75,9 @@ class ChatViewModel(
     }
 
     fun startModelDownload(modelInfo: ModelInfo) {
-        if (!modelInfo.hasVerifiedManifest || modelInfo.sha256.isNullOrBlank()) {
+        if (!modelInfo.isDownloadable || modelInfo.sha256.isNullOrBlank()) {
             _downloadState.value = DownloadState.Failed(
-                "Unduhan belum tersedia: manifest SHA-256 model belum diverifikasi."
+                "Unduhan belum tersedia: ${modelInfo.downloadBlocker}"
             )
             return
         }

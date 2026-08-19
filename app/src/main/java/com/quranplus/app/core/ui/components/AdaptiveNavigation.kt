@@ -174,7 +174,9 @@ fun AdaptiveNavigationScaffold(
                     modifier = Modifier.fillMaxHeight()
                 ) {
                     Spacer(modifier = Modifier.height(Spacing.md))
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState())
+                    ) {
                         destinations.forEach { dest ->
                             val selected = isDestinationSelected(currentRoute, dest)
                             NavigationRailItem(

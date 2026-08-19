@@ -99,7 +99,7 @@ class ModelDownloadWorker(
             it.id.isNotBlank() &&
                 it.name.isNotBlank() &&
                 it.filename == File(it.filename).name &&
-                it.hasVerifiedManifest
+                it.isDownloadable
         }
     }
 
