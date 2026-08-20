@@ -110,7 +110,7 @@ val UthmanFontFamily = FontFamily(
  */
 fun getQuranArabicStyle(fontSizeSp: Float = 28f): TextStyle {
     return TextStyle(
-        fontFamily = QuranFontFamily,
+        fontFamily = UthmanFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = fontSizeSp.sp,
         lineHeight = (fontSizeSp * 2.0f).sp, // Generous line spacing for tashkeel/harakat

@@ -4,6 +4,7 @@ import androidx.compose.ui.text.AnnotatedString
 import com.quranplus.app.core.utils.WaqafParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WaqafParserTest {
@@ -72,6 +73,33 @@ class WaqafParserTest {
 
         assertEquals(1, result.count { it == WaqafParser.AYAH_END_SYM.single() })
         assertEquals("بِسْمِ ۝١ ", result)
+    }
+
+    @Test
+    fun GIVEN_annotatedAyah_WHEN_removingEndMarkerForBadge_THEN_keepsQuranTextOnly() {
+        val source = WaqafParser.annotateWaqafMarkers(
+            AnnotatedString("الْحَمْدُ " + WaqafParser.formatAyahEndMarker(2))
+        )
+
+        val result = WaqafParser.removeAyahEndMarker(source)
+
+        assertEquals("الْحَمْدُ", result.text)
+    }
+
+    @Test
+    fun GIVEN_ayahWithInternalWaqaf_WHEN_removingEndMarkerForBadge_THEN_preservesWaqaf() {
+        val source = WaqafParser.annotateWaqafMarkers(
+            AnnotatedString("لَا رَيْبَ ${WaqafParser.WAQAF_MUANAQAH_SYM} فِيهِ " +
+                WaqafParser.formatAyahEndMarker(2))
+        )
+
+        val result = WaqafParser.removeAyahEndMarker(source)
+
+        assertTrue(result.text.contains(WaqafParser.WAQAF_MUANAQAH_SYM))
+        assertEquals(
+            1,
+            result.getStringAnnotations(WaqafParser.WAQAF_ANNOTATION, 0, result.length).size
+        )
     }
 
     @Test

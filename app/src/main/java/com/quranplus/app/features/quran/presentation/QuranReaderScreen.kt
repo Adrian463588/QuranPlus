@@ -4,6 +4,7 @@ import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -836,6 +837,7 @@ fun AyahReaderItem(
             } else {
                 WordByWordAyah(
                     words = wordByWord,
+                    ayahNumber = ayah.ayahNumber,
                     annotatedAyah = annotatedArabic,
                     fontSizeSp = fontSizeSp,
                     showTransliteration = showTransliteration,
@@ -846,38 +848,63 @@ fun AyahReaderItem(
                 )
             }
         } else {
-            // Standard Line-by-Line Uthmani Text with End of Ayah glyph
-            ClickableText(
-                text = annotatedArabic,
-                style = getQuranArabicStyle(fontSizeSp).copy(
-                    textAlign = TextAlign.End,
-                    lineHeight = (fontSizeSp * 1.8f).sp
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics {
-                        contentDescription = "Teks Arab ayat ${ayah.ayahNumber}. Ketuk tanda atau warna Tajwid untuk detail."
-                    },
-                onClick = { offset ->
-                    if (annotatedArabic.text.isEmpty()) return@ClickableText
-                    val safeOffset = offset.coerceIn(0, annotatedArabic.text.lastIndex)
-                    annotatedArabic
-                        .getStringAnnotations(WaqafParser.WAQAF_ANNOTATION, safeOffset, safeOffset + 1)
-                        .firstOrNull()
-                        ?.let { annotation ->
-                            WaqafParser.findRuleBySymbol(annotation.item.first())?.let(onWaqafClick)
-                            return@ClickableText
+            // Keep the ayah number in a dedicated marker badge. U+06DD is
+            // retained in the annotated source for alignment, but its digit
+            // shaping is not reliable across Android font fallbacks.
+            val displayArabic = remember(annotatedArabic) {
+                WaqafParser.removeAyahEndMarker(annotatedArabic)
+            }
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AyahEndMarker(
+                        ayahNumber = ayah.ayahNumber,
+                        fontSizeSp = fontSizeSp,
+                        modifier = Modifier.padding(end = Spacing.xs)
+                    )
+                    ClickableText(
+                        text = displayArabic,
+                        style = getQuranArabicStyle(fontSizeSp).copy(
+                            textAlign = TextAlign.End,
+                            lineHeight = (fontSizeSp * 1.8f).sp
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics {
+                                contentDescription = "Teks Arab ayat ${ayah.ayahNumber}. Ketuk tanda atau warna Tajwid untuk detail."
+                            },
+                        onClick = { offset ->
+                            if (displayArabic.text.isEmpty()) return@ClickableText
+                            val safeOffset = offset.coerceIn(0, displayArabic.text.lastIndex)
+                            displayArabic
+                                .getStringAnnotations(
+                                    WaqafParser.WAQAF_ANNOTATION,
+                                    safeOffset,
+                                    safeOffset + 1
+                                )
+                                .firstOrNull()
+                                ?.let { annotation ->
+                                    WaqafParser.findRuleBySymbol(annotation.item.first())?.let(onWaqafClick)
+                                    return@ClickableText
+                                }
+                            displayArabic
+                                .getStringAnnotations(
+                                    TajwidParser.TAJWID_ANNOTATION,
+                                    safeOffset,
+                                    safeOffset + 1
+                                )
+                                .firstOrNull()
+                                ?.let { annotation ->
+                                    runCatching { TajwidParser.TajwidType.valueOf(annotation.item) }
+                                        .getOrNull()
+                                        ?.let(onTajwidClick)
+                                }
                         }
-                    annotatedArabic
-                        .getStringAnnotations(TajwidParser.TAJWID_ANNOTATION, safeOffset, safeOffset + 1)
-                        .firstOrNull()
-                        ?.let { annotation ->
-                            runCatching { TajwidParser.TajwidType.valueOf(annotation.item) }
-                                .getOrNull()
-                                ?.let(onTajwidClick)
-                        }
+                    )
                 }
-            )
+            }
         }
 
         if (!isWordByWordMode) {
@@ -960,6 +987,7 @@ internal data class WordRenderSlice(
 @Composable
 private fun WordByWordAyah(
     words: List<WordByWord>,
+    ayahNumber: Int,
     annotatedAyah: AnnotatedString,
     fontSizeSp: Float,
     showTransliteration: Boolean,
@@ -971,9 +999,6 @@ private fun WordByWordAyah(
     var selectedWordIndex by remember(words) { mutableIntStateOf(-1) }
     val slices = remember(words, annotatedAyah) {
         buildWordRenderSlices(words, annotatedAyah)
-    }
-    val ayahEndMarker = remember(annotatedAyah) {
-        extractAyahEndMarker(annotatedAyah)
     }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         if (slices == null) {
@@ -1094,22 +1119,56 @@ private fun WordByWordAyah(
                     }
                 }
             }
-            ayahEndMarker?.let { marker ->
-                Text(
-                    text = marker,
-                    style = getQuranArabicStyle(fontSizeSp).copy(
-                        textAlign = TextAlign.End
-                    ),
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .defaultMinSize(minHeight = 48.dp)
-                        .semantics {
-                            contentDescription = "Penanda akhir ayat"
-                        }
-                )
+                        .padding(top = Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AyahEndMarker(
+                        ayahNumber = ayahNumber,
+                        fontSizeSp = fontSizeSp
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
             }
         }
+    }
+}
+
+@Composable
+private fun AyahEndMarker(
+    ayahNumber: Int,
+    fontSizeSp: Float,
+    modifier: Modifier = Modifier
+) {
+    val markerSize = (fontSizeSp * 1.7f).coerceIn(48f, 72f).dp
+    val numberSize = (fontSizeSp * 0.52f).coerceIn(14f, 22f)
+    Box(
+        modifier = modifier
+            .size(markerSize)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.secondary,
+                shape = CircleShape
+            )
+            .semantics {
+                contentDescription =
+                    "Penanda akhir ayat ${WaqafParser.toArabicDigits(ayahNumber)}. Boleh berhenti."
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = WaqafParser.toArabicDigits(ayahNumber),
+            style = getQuranArabicStyle(numberSize).copy(
+                textAlign = TextAlign.Center,
+                lineHeight = numberSize.sp
+            ),
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

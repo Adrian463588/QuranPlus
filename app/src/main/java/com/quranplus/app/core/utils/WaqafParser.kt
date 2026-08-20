@@ -175,6 +175,23 @@ object WaqafParser {
     }
 
     /**
+     * Removes the Unicode end-of-ayah sequence before rendering a separate
+     * marker badge. This avoids relying on font shaping to place the digit
+     * inside U+06DD while preserving all Tajwid/Waqaf annotations before it.
+     */
+    fun removeAyahEndMarker(text: AnnotatedString): AnnotatedString {
+        val markerStart = text
+            .getStringAnnotations(AYAH_END_ANNOTATION, 0, text.length)
+            .firstOrNull()
+            ?.start
+            ?: text.text.indexOf(AYAH_END_SYM)
+
+        if (markerStart < 0) return text
+        val visibleEnd = text.text.substring(0, markerStart).trimEnd().length
+        return text.subSequence(0, visibleEnd)
+    }
+
+    /**
      * Adds annotations only when a reviewed catalog can resolve each marker.
      * Glyph presence by itself is insufficient evidence for a semantic rule.
      */
