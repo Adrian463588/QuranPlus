@@ -1,10 +1,10 @@
 {
-  "schema_version": "device-preview-manifest-6",
+  "schema_version": "device-preview-manifest-7",
   "build_variant": "debug",
   "current_apk": {
     "path": "app/build/outputs/apk/debug/app-debug.apk",
-    "source_commit_sha": "facb243169621fb551abf87b68c6a96d637b43d6",
-    "sha256": "6BCA3AABBD02DADA8FB8755D1180F0D234435CE08063B7614DA01B3022CA1106",
+    "source_commit_sha": "d6d2155f7cae1a593feef499ef02ac187a8a7628",
+    "sha256": "9C74F33E93C168EE374A4F8B041EC7186DFBE57477BD5159C8CBD36F43C31509",
     "size_bytes": 245425178
   },
   "capture_command": "adb -s <serial> exec-out screencap -p",
@@ -80,13 +80,13 @@
       "sha256": "8C4A6675ECE9DB5CFCF7BE4DE52AEA19AD7AC32921381CB8E66990B0C963E53A"
     }
   ],
-  "acceptance_scope": "Debug APK install/launch and 19/19 instrumentation tests on RRCN3008VYE (Samsung SM-G988B, API 33); current portrait Quran home, reader Tajwid/Waqaf, word-by-word, Hadist bundle download/SAF relink/restore with Indonesian translation, ModelGate, sqlite-vec self-test/round-trip, and five-slot navigation.",
+  "acceptance_scope": "Debug APK install/launch and 19/19 instrumentation tests on RRCN3008VYE (Samsung SM-G988B, API 33); current portrait Quran home, reader Tajwid/Waqaf, word-by-word, Hadist bundle download/SAF relink/restore with Indonesian translation, ModelGate, sqlite-vec self-test/round-trip, Quran/Hadist/user-document source coverage contract, grounded prompt coverage, and five-slot navigation.",
   "not_proven": [
     "QSWSEMRKNFZ9LJRC was not connected for this acceptance run",
     "Landscape, font scale 200 percent, TalkBack, and IME journeys in this current capture",
     "Verified audio assets and playback",
     "Hadith distribution license, grading, completeness, and bundled text",
-    "Downloaded local LLM, tokenizer, ONNX embedding asset, imported Hadith corpus, and production sqlite-vec corpus index",
+    "Downloaded local LLM, tokenizer, ONNX embedding asset, and full production sqlite-vec embedding pass over the restored Hadith corpus and user documents",
     "Physical uninstall/reinstall and SAF relink on a second installation",
     "Production-signed release artifact"
   ],
