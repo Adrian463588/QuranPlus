@@ -92,7 +92,9 @@ class ModelDownloadWorker(
                 runCatching { ModelAssetRole.valueOf(role) }.getOrNull()
             } ?: ModelAssetRole.CHATBOT,
             embeddingDimension = inputData.getInt(KEY_EMBEDDING_DIMENSION, -1)
-                .takeIf { it > 0 }
+                .takeIf { it > 0 },
+            licenseId = inputData.getString(KEY_LICENSE_ID).orEmpty(),
+            licenseUrl = inputData.getString(KEY_LICENSE_URL).orEmpty()
         )
         return model.takeIf {
             it.id.isNotBlank() &&
@@ -124,6 +126,8 @@ class ModelDownloadWorker(
         const val KEY_RUNTIME = "model_runtime"
         const val KEY_ROLE = "model_role"
         const val KEY_EMBEDDING_DIMENSION = "model_embedding_dimension"
+        const val KEY_LICENSE_ID = "model_license_id"
+        const val KEY_LICENSE_URL = "model_license_url"
         const val KEY_STAGE = "stage"
         const val KEY_REASON = "reason"
         const val KEY_BYTES_DOWNLOADED = "bytes_downloaded"

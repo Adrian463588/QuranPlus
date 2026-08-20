@@ -62,13 +62,15 @@ class SafAssetStore(
         require(filename == File(filename).name) { "Nama asset tidak boleh mengandung path" }
         val root = linkedRootOrThrow()
         val directory = createDirectoryPath(root, relativeDirectory)
-        directory.findFile(filename)?.delete()
+        directory.findFile("$filename.part")?.delete()
         val temporary = directory.createFile(mimeType, "$filename.part")
             ?: throw IllegalStateException("Provider SAF tidak dapat membuat file sementara")
         try {
             resolver.openOutputStream(temporary.uri, "w")?.use { output ->
                 source.inputStream().use { input -> input.copyTo(output) }
             } ?: error("Provider SAF tidak membuka output stream")
+            // Keep the previously active asset until the new candidate is complete.
+            directory.findFile(filename)?.delete()
             if (!temporary.renameTo(filename)) {
                 throw IllegalStateException("Provider SAF tidak mendukung publish atomik")
             }
@@ -78,6 +80,28 @@ class SafAssetStore(
             temporary.delete()
             throw error
         }
+    }
+
+    suspend fun verifyFile(
+        uri: Uri,
+        expectedSizeBytes: Long,
+        expectedSha256: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (expectedSizeBytes <= 0L || !expectedSha256.matches(SHA256_PATTERN)) return@withContext false
+        val digest = MessageDigest.getInstance("SHA-256")
+        var totalBytes = 0L
+        resolver.openInputStream(uri)?.use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                totalBytes += read
+                digest.update(buffer, 0, read)
+            }
+        } ?: return@withContext false
+        totalBytes == expectedSizeBytes &&
+            digest.digest().joinToString("") { "%02x".format(it) }
+                .equals(expectedSha256, ignoreCase = true)
     }
 
     suspend fun publishText(
@@ -111,6 +135,7 @@ class SafAssetStore(
                 temporary.outputStream().use { output -> input.copyTo(output) }
             } ?: error("Provider SAF tidak membuka input stream")
             if (!sha256(temporary).equals(expectedSha256, ignoreCase = true)) return@withContext false
+            if (destination.exists() && !destination.delete()) return@withContext false
             temporary.renameTo(destination)
         } finally {
             temporary.delete()
@@ -166,5 +191,9 @@ class SafAssetStore(
             }
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private companion object {
+        val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
     }
 }

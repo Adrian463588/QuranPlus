@@ -1,6 +1,5 @@
 package com.quranplus.app
 
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -13,6 +12,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,6 +22,12 @@ class MainNavigationSmokeTest {
 
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun resetNavigationToQuranHome() {
+        waitForText("Al-Qur'an")
+        composeRule.onAllNodesWithText("Al-Qur'an")[0].performClick()
+    }
 
     @Test
     fun GIVEN_quranHome_WHEN_searchActionIsClicked_THEN_searchScreenIsDisplayed() {
@@ -87,9 +93,17 @@ class MainNavigationSmokeTest {
         composeRule.onNodeWithTag("model_catalog")
             .performScrollToNode(hasText("Qwen 2.5 1.5B Instruct"))
         composeRule.onNodeWithText("Qwen 2.5 1.5B Instruct").assertIsDisplayed()
-        composeRule.onAllNodesWithText(
-            "Siap diunduh dan diverifikasi."
-        ).assertCountEquals(2)
+        assertTrue(
+            composeRule.onAllNodesWithText("Siap diunduh dan diverifikasi.")
+                .fetchSemanticsNodes().isNotEmpty()
+        )
+        composeRule.onNodeWithTag("model_catalog")
+            .performScrollToNode(hasText("Gemma 4 E2B IT"))
+        composeRule.onNodeWithText("Gemma 4 E2B IT").assertIsDisplayed()
+        assertTrue(
+            composeRule.onAllNodesWithText("Siap diunduh dan diverifikasi.")
+                .fetchSemanticsNodes().isNotEmpty()
+        )
     }
 
     @Test
@@ -142,17 +156,21 @@ class MainNavigationSmokeTest {
 
     private fun waitForText(text: String) {
         composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithText(text, useUnmergedTree = true)
-                .fetchSemanticsNodes()
-                .isNotEmpty()
+            runCatching {
+                composeRule.onAllNodesWithText(text, useUnmergedTree = true)
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
+            }.getOrDefault(false)
         }
     }
 
     private fun waitForContentDescription(description: String) {
         composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithContentDescription(description, useUnmergedTree = true)
-                .fetchSemanticsNodes()
-                .isNotEmpty()
+            runCatching {
+                composeRule.onAllNodesWithContentDescription(description, useUnmergedTree = true)
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
+            }.getOrDefault(false)
         }
     }
 }

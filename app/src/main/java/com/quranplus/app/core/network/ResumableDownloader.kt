@@ -95,7 +95,11 @@ class ResumableDownloader(
         }
 
         val tempFile = File(parent, "${targetDestination.name}.tmp")
-        val existingBytes = tempFile.length()
+        var existingBytes = tempFile.length()
+        if (expectedSizeBytes != null && existingBytes > expectedSizeBytes) {
+            tempFile.delete()
+            existingBytes = 0L
+        }
 
         try {
             val requestBuilder = Request.Builder().url(url)
@@ -105,8 +109,17 @@ class ResumableDownloader(
 
             client.newCall(requestBuilder.build()).execute().use { response ->
                 val append = existingBytes > 0L && response.code == 206
+                if (existingBytes > 0L && response.code == 416) {
+                    tempFile.delete()
+                    emit(DownloadState.Paused("Rentang resume tidak berlaku; file sementara diulang"))
+                    return@flow
+                }
                 if (!response.isSuccessful && response.code != 206) {
-                    emit(DownloadState.Failed("Gagal mengunduh: HTTP ${response.code}"))
+                    if (response.code == 408 || response.code == 429 || response.code in 500..599) {
+                        emit(DownloadState.Paused("Server belum siap (${response.code}); unduhan akan dicoba lagi"))
+                    } else {
+                        emit(DownloadState.Failed("Gagal mengunduh: HTTP ${response.code}"))
+                    }
                     return@flow
                 }
                 if (existingBytes > 0L && response.code == 200) {

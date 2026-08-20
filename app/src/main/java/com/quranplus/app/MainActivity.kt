@@ -43,6 +43,7 @@ import com.quranplus.app.features.quran.presentation.QuranViewModel
 import com.quranplus.app.features.quran.presentation.SearchScreen
 import com.quranplus.app.features.quran.presentation.SurahListScreen
 import com.quranplus.app.features.rag.presentation.RagDocumentViewModel
+import com.quranplus.app.features.rag.presentation.RagImportState
 import com.quranplus.app.features.settings.data.PreferencesManager
 import com.quranplus.app.features.settings.presentation.MoreScreen
 import com.quranplus.app.features.settings.presentation.SettingsScreen
@@ -191,6 +192,8 @@ fun AppNavHost(
     onRequestRagDocumentFile: () -> Unit
 ) {
     val isModelReady by chatViewModel.isModelReady.collectAsStateWithLifecycle()
+    val ragState by ragDocumentViewModel.state.collectAsStateWithLifecycle()
+    val isSafStorageReady = ragState is RagImportState.StorageLinked
 
     NavHost(
         navController = navController,
@@ -298,7 +301,9 @@ fun AppNavHost(
                     viewModel = chatViewModel,
                     modelRepository = modelRepository,
                     onModelReady = { chatViewModel.checkModelStatus() },
-                    readiness = chatViewModel.readiness
+                    readiness = chatViewModel.readiness,
+                    onRequestStorage = onRequestRagDocument,
+                    isStorageReady = isSafStorageReady
                 )
             }
         }

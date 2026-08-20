@@ -58,7 +58,9 @@ class ModelDownloadScheduler(
         "model_format" to format,
         "model_runtime" to runtime,
         "model_role" to role.name,
-        "model_embedding_dimension" to (embeddingDimension ?: -1)
+        "model_embedding_dimension" to (embeddingDimension ?: -1),
+        "model_license_id" to licenseId,
+        "model_license_url" to licenseUrl
     )
 
     private fun WorkInfo?.toDownloadState(model: ModelInfo): DownloadState {

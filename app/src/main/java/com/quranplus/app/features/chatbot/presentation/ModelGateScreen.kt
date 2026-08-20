@@ -63,7 +63,9 @@ fun ModelGateScreen(
     viewModel: ChatViewModel,
     modelRepository: ModelRepository,
     onModelReady: () -> Unit,
-    readiness: StateFlow<AiReadiness>
+    readiness: StateFlow<AiReadiness>,
+    onRequestStorage: (() -> Unit)? = null,
+    isStorageReady: Boolean = false
 ) {
     val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
     val aiReadiness by readiness.collectAsStateWithLifecycle()
@@ -114,6 +116,12 @@ fun ModelGateScreen(
     var selectedModel by remember {
         mutableStateOf(availableModels.firstOrNull { it.isRecommended } ?: availableModels.first())
     }
+    val canDownload = selectedModel.isDownloadable && isStorageReady
+    val completedModel = (downloadState as? DownloadState.Completed)
+        ?.file
+        ?.name
+        ?.let { filename -> (availableModels + embeddingModels).firstOrNull { it.filename == filename } }
+        ?: selectedModel
 
     Scaffold(
         topBar = {
@@ -163,6 +171,17 @@ fun ModelGateScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
+
+            if (onRequestStorage != null) {
+                TextButton(
+                    onClick = onRequestStorage,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("select_saf_folder")
+                ) {
+                    Text("Pilih atau ubah folder SAF penyimpanan")
+                }
+            }
 
             Spacer(modifier = Modifier.height(Spacing.lg))
 
@@ -301,7 +320,7 @@ fun ModelGateScreen(
                 }
                 is DownloadState.Completed -> {
                     Text(
-                        text = if (selectedModel.role == ModelAssetRole.EMBEDDING) {
+                        text = if (completedModel.role == ModelAssetRole.EMBEDDING) {
                             "Embedder siap digunakan"
                         } else {
                             "Model siap digunakan"
@@ -313,7 +332,7 @@ fun ModelGateScreen(
                     Spacer(modifier = Modifier.height(Spacing.md))
                     AppPrimaryButton(onClick = onModelReady) {
                         Text(
-                            if (selectedModel.role == ModelAssetRole.EMBEDDING) {
+                            if (completedModel.role == ModelAssetRole.EMBEDDING) {
                                 "Periksa kesiapan AI"
                             } else {
                                 "Mulai Tanya AI"
@@ -409,14 +428,22 @@ fun ModelGateScreen(
 
                     AppPrimaryButton(
                         onClick = { viewModel.startModelDownload(selectedModel) },
-                        enabled = selectedModel.isDownloadable,
+                        enabled = canDownload,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(imageVector = Icons.Rounded.CloudDownload, contentDescription = null)
                         Spacer(modifier = Modifier.width(Spacing.sm))
                         Text("Unduh Asset (${selectedModel.sizeDescription})")
                     }
-                    if (!selectedModel.isDownloadable) {
+                    if (!isStorageReady) {
+                        Spacer(modifier = Modifier.height(Spacing.xs))
+                        Text(
+                            text = "Folder SAF belum dipilih atau tidak dapat diakses.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center
+                        )
+                    } else if (!selectedModel.isDownloadable) {
                         Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(
                             text = "Status model terpilih: ${selectedModel.downloadBlocker}",
@@ -514,6 +541,17 @@ fun ModelSelectCard(
                         MaterialTheme.colorScheme.error
                     }
                 )
+                if (model.isDownloadable) {
+                    Text(
+                        text = "SHA-256 tersedia • Lisensi: ${model.licenseId}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     if (model.downloadUrl.startsWith("https://")) {
                         TextButton(
@@ -543,9 +581,24 @@ fun ModelSelectCard(
                         )
                     ) {
                         Text("Buka sumber model")
+                        }
+                    }
+                    if (model.licenseUrl.startsWith("https://")) {
+                        TextButton(
+                            onClick = { uriHandler.openUri(model.licenseUrl) },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                }
+                            )
+                        ) {
+                            Text("Lihat lisensi")
+                        }
                     }
                 }
-            }
         }
     }
 }

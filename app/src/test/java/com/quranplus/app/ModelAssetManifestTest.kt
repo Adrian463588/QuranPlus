@@ -27,12 +27,14 @@ class ModelAssetManifestTest {
             id = "qwen",
             name = "Qwen",
             filename = "qwen.task",
-            artifactUrl = "https://example.com/qwen.task",
-            sourceUrl = "https://example.com/source",
+            artifactUrl = "https://example.com/resolve/0123456789abcdef0123456789abcdef01234567/qwen.task",
+            sourceUrl = "https://example.com/tree/0123456789abcdef0123456789abcdef01234567",
             sha256 = "a".repeat(64),
             sizeBytes = 10,
             format = "task",
-            runtime = "LiteRT-LM"
+            runtime = "LiteRT-LM",
+            licenseId = "Apache-2.0",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
         )
 
         assertTrue(manifest.hasVerifiedManifest)
@@ -50,7 +52,9 @@ class ModelAssetManifestTest {
             sha256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
             sizeBytes = 2_588_147_712L,
             format = "litertlm",
-            runtime = "LiteRT-LM"
+            runtime = "LiteRT-LM",
+            licenseId = "Gemma Terms",
+            licenseUrl = "https://ai.google.dev/gemma/terms"
         )
 
         assertTrue(manifest.isRuntimeCompatible)
@@ -64,14 +68,16 @@ class ModelAssetManifestTest {
             id = "minilm",
             name = "all-MiniLM-L6-v2",
             filename = "model.onnx",
-            artifactUrl = "https://example.com/model.onnx",
-            sourceUrl = "https://example.com/source",
+            artifactUrl = "https://example.com/resolve/0123456789abcdef0123456789abcdef01234567/model.onnx",
+            sourceUrl = "https://example.com/tree/0123456789abcdef0123456789abcdef01234567",
             sha256 = "b".repeat(64),
             sizeBytes = 10,
             format = "onnx",
             runtime = "ONNX Runtime",
             role = ModelAssetRole.EMBEDDING,
-            embeddingDimension = 384
+            embeddingDimension = 384,
+            licenseId = "Apache-2.0",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
         )
 
         assertTrue(manifest.isRuntimeCompatible)
@@ -90,6 +96,26 @@ class ModelAssetManifestTest {
             sizeBytes = 10,
             format = "gguf",
             runtime = "llama.cpp"
+        )
+
+        assertFalse(manifest.isRuntimeCompatible)
+        assertFalse(manifest.isDownloadable)
+    }
+
+    @Test
+    fun GIVEN_mediapipeTask_WHEN_litertLmIsTheOnlyRuntime_THEN_downloadRemainsBlocked() {
+        val manifest = ModelAssetManifest(
+            id = "alif",
+            name = "Alif Islamic v4 Base",
+            filename = "alif.task",
+            artifactUrl = "https://example.com/resolve/0123456789abcdef0123456789abcdef01234567/alif.task",
+            sourceUrl = "https://example.com/tree/0123456789abcdef0123456789abcdef01234567",
+            sha256 = "d".repeat(64),
+            sizeBytes = 10,
+            format = "task",
+            runtime = "MediaPipe LLM",
+            licenseId = "Apache-2.0",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
         )
 
         assertFalse(manifest.isRuntimeCompatible)
