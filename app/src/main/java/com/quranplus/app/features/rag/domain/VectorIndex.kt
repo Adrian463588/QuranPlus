@@ -27,6 +27,14 @@ data class VectorMatch(
     val ayahNumber: Int? = null
 )
 
+data class VectorIndexCoverage(
+    val recordCount: Int,
+    val sourceTypes: Set<String>
+) {
+    val isPopulated: Boolean
+        get() = recordCount > 0
+}
+
 sealed interface IndexCorpusResult {
     data class Indexed(val recordCount: Int) : IndexCorpusResult
     data class Blocked(val reason: String) : IndexCorpusResult
@@ -34,6 +42,7 @@ sealed interface IndexCorpusResult {
 
 interface VectorIndex {
     suspend fun isReady(): Boolean
+    suspend fun coverage(): VectorIndexCoverage = VectorIndexCoverage(0, emptySet())
     suspend fun replace(records: List<VectorRecord>): Int
     suspend fun search(queryEmbedding: FloatArray, k: Int): List<VectorMatch>
 }

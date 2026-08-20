@@ -100,7 +100,7 @@ val appModule = module {
     single { RagCorpusIndexer(get(), get(), get()) }
     single { RagPipeline() }
     single { ModelRepository(androidContext(), get()) }
-    single { AiReadinessChecker(get(), get(), get()) }
+    single { AiReadinessChecker(get(), get(), get(), get()) }
     single { LiteRtLmRunner(androidContext(), get()) }
     single { SafAssetStore(androidContext(), get()) }
     single { SafDocumentImporter(androidContext(), get(), get()) }

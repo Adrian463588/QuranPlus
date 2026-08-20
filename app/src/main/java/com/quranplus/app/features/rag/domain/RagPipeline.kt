@@ -25,7 +25,7 @@ class RagPipeline {
 
         val contextBuilder = StringBuilder()
         if (citations.isNotEmpty()) {
-            contextBuilder.append("=== RUJUKAN DALIL AL-QUR'AN DAN AS-SUNNAH (GROUND TRUTH) ===\n\n")
+            contextBuilder.append("=== RUJUKAN AL-QUR'AN, AS-SUNNAH, DAN DOKUMEN RAG LOKAL ===\n\n")
             citations.forEachIndexed { idx, cite ->
                 contextBuilder.append("[Dalil ${idx + 1}: ${cite.title}]\n")
                 contextBuilder.append("${cite.textSnippet}\n")
@@ -42,7 +42,7 @@ class RagPipeline {
 
             $contextBuilder
             Instruksi Khusus:
-            Jawablah pertanyaan berikut dengan berlandaskan dalil-dalil di atas. Sertakan nomor surah/ayat atau nomor hadits dalam penjelasan Anda secara jelas dan santun.
+            Jawablah hanya berdasarkan rujukan lokal di atas. Sertakan nomor surah/ayat, nomor hadits, atau identitas dokumen dalam penjelasan Anda secara jelas dan santun. Jika rujukan tidak cukup, nyatakan bahwa rujukan lokal belum memadai.
 
             Pertanyaan: $question
 

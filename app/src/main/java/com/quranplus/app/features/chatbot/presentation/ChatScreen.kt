@@ -90,7 +90,7 @@ fun ChatScreen(
         topBar = {
             AppTopBar(
                 title = "Tanya AI (${selectedPersona.title})",
-                subtitle = "Ground truth: Al-Qur'an & As-Sunnah",
+                subtitle = "Ground truth: Al-Qur'an, As-Sunnah & RAG lokal",
                 actions = {
                     IconButton(onClick = { viewModel.clearChat() }) {
                         Icon(imageVector = Icons.Rounded.DeleteOutline, contentDescription = "Hapus Riwayat")

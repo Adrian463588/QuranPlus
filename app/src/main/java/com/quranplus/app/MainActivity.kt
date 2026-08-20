@@ -14,6 +14,7 @@ import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
@@ -43,6 +44,7 @@ import com.quranplus.app.features.quran.presentation.QuranViewModel
 import com.quranplus.app.features.quran.presentation.SearchScreen
 import com.quranplus.app.features.quran.presentation.SurahListScreen
 import com.quranplus.app.features.rag.presentation.RagDocumentViewModel
+import com.quranplus.app.features.rag.presentation.RagImportState
 import com.quranplus.app.features.settings.data.PreferencesManager
 import com.quranplus.app.features.settings.presentation.MoreScreen
 import com.quranplus.app.features.settings.presentation.SettingsScreen
@@ -192,6 +194,16 @@ fun AppNavHost(
 ) {
     val isModelReady by chatViewModel.isModelReady.collectAsStateWithLifecycle()
     val isSafStorageReady by ragDocumentViewModel.storageStatus.collectAsStateWithLifecycle()
+    val ragState by ragDocumentViewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(ragState) {
+        if (ragState is RagImportState.Indexing ||
+            ragState is RagImportState.Indexed ||
+            ragState is RagImportState.IndexBlocked
+        ) {
+            chatViewModel.checkModelStatus()
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -290,6 +302,9 @@ fun AppNavHost(
 
         // --- 3. Tanya AI (Chatbot RAG) Navigation ---
         composable(AppDestination.CHAT.route) {
+            LaunchedEffect(Unit) {
+                ragDocumentViewModel.ensureIndex()
+            }
             if (isModelReady) {
                 ChatScreen(
                     viewModel = chatViewModel,
@@ -302,7 +317,10 @@ fun AppNavHost(
                 ModelGateScreen(
                     viewModel = chatViewModel,
                     modelRepository = modelRepository,
-                    onModelReady = { chatViewModel.checkModelStatus() },
+                    onModelReady = {
+                        ragDocumentViewModel.buildIndex()
+                        chatViewModel.checkModelStatus()
+                    },
                     readiness = chatViewModel.readiness,
                     onRequestStorage = onRequestRagDocument,
                     isStorageReady = isSafStorageReady?.isAccessible == true

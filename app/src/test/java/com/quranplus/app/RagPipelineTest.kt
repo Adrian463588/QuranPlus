@@ -22,6 +22,25 @@ class RagPipelineTest {
                 score = 0.92f,
                 surahNumber = 2,
                 ayahNumber = 183
+            ),
+            RetrievedCitation(
+                sourceId = "hadith_bukhari_1",
+                sourceType = "hadith",
+                title = "Sahih al-Bukhari",
+                reference = "Sahih al-Bukhari no. 1",
+                textSnippet = "إنما الأعمال بالنيات",
+                score = 0.88f,
+                collection = "bukhari",
+                identifier = "1"
+            ),
+            RetrievedCitation(
+                sourceId = "local-doc-1#0",
+                sourceType = "user_document",
+                title = "Catatan Tahsin lokal",
+                reference = "catatan-tahsin",
+                textSnippet = "Makharijul huruf perlu dipelajari dengan talaqqi",
+                score = 0.81f,
+                identifier = "local-doc-1"
             )
         )
 
@@ -33,6 +52,9 @@ class RagPipelineTest {
         )
 
         assertTrue(prompt.contains("QS. Al-Baqarah: 183"))
+        assertTrue(prompt.contains("Sahih al-Bukhari no. 1"))
+        assertTrue(prompt.contains("catatan-tahsin"))
+        assertTrue(prompt.contains("DOKUMEN RAG LOKAL"))
         assertTrue(prompt.contains("Apa hukum puasa Ramadhan?"))
         assertTrue(prompt.contains("Ustadz"))
     }

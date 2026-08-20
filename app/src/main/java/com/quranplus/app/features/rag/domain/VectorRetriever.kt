@@ -17,6 +17,8 @@ data class RetrievedCitation(
 interface VectorRetriever {
     suspend fun isIndexReady(): Boolean = false
 
+    suspend fun indexedSourceTypes(): Set<String> = emptySet()
+
     suspend fun retrieveTopK(
         query: String,
         queryEmbedding: FloatArray,

@@ -8,7 +8,10 @@ class VectorRetrieverImpl(
     private val vectorIndex: VectorIndex
 ) : VectorRetriever {
 
-    override suspend fun isIndexReady(): Boolean = vectorIndex.isReady()
+    override suspend fun isIndexReady(): Boolean = vectorIndex.coverage().isPopulated
+
+    override suspend fun indexedSourceTypes(): Set<String> =
+        vectorIndex.coverage().sourceTypes
 
     override suspend fun retrieveTopK(
         query: String,

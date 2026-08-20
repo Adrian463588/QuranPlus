@@ -12,6 +12,7 @@ import com.quranplus.app.features.rag.data.RagCorpusIndexer
 import com.quranplus.app.features.rag.domain.IndexCorpusResult
 import com.quranplus.app.features.hadith.data.HadithReferenceImporter
 import com.quranplus.app.features.hadith.data.HadithBundleManager
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +45,10 @@ class RagDocumentViewModel(
     private val _storageStatus = MutableStateFlow<SafStorageStatus?>(null)
     val storageStatus: StateFlow<SafStorageStatus?> = _storageStatus.asStateFlow()
 
+    private var indexJob: Job? = null
+    private var indexRequested = false
+    private var indexCompleted = false
+
     init {
         refreshStorageStatus()
     }
@@ -72,7 +77,10 @@ class RagDocumentViewModel(
                     it.localizedMessage ?: "Folder SAF tidak dapat digunakan"
                 )
             }
-            if (result.isSuccess) hadithBundleManager.restoreFromSaf()
+            if (result.isSuccess) {
+                hadithBundleManager.restoreFromSaf()
+                buildIndex()
+            }
         }
     }
 
@@ -81,11 +89,18 @@ class RagDocumentViewModel(
             _state.value = RagImportState.Importing
             runCatching { importer.persistPermission(uri, grantFlags) }
             val hadithSummary = runCatching { hadithReferenceImporter.import(uri) }.getOrNull()
+            if (hadithSummary != null) {
+                _state.value = RagImportState.HadithImported(
+                    hadithSummary.title,
+                    hadithSummary.recordCount
+                )
+                buildIndex()
+                return@launch
+            }
             when (val result = importer.import(uri)) {
                 is SafImportResult.StoredAwaitingEmbedding -> {
-                    _state.value = hadithSummary?.let {
-                        RagImportState.HadithImported(it.title, it.recordCount)
-                    } ?: RagImportState.StoredAwaitingEmbedding(result.metadata)
+                    _state.value = RagImportState.StoredAwaitingEmbedding(result.metadata)
+                    buildIndex()
                 }
                 is SafImportResult.Unsupported -> _state.value = RagImportState.Unsupported(result.reason)
                 is SafImportResult.Error -> _state.value = RagImportState.Error(result.reason)
@@ -94,13 +109,40 @@ class RagDocumentViewModel(
     }
 
     fun buildIndex() {
-        viewModelScope.launch {
-            _state.value = RagImportState.Indexing
-            when (val result = runCatching { corpusIndexer.index() }
-                .getOrElse { IndexCorpusResult.Blocked("INDEX_UNAVAILABLE") }) {
-                is IndexCorpusResult.Indexed -> _state.value = RagImportState.Indexed(result.recordCount)
-                is IndexCorpusResult.Blocked -> _state.value = RagImportState.IndexBlocked(result.reason)
+        indexCompleted = false
+        requestIndex()
+    }
+
+    fun ensureIndex() {
+        if (indexCompleted) return
+        requestIndex()
+    }
+
+    private fun requestIndex() {
+        indexRequested = true
+        if (indexJob?.isActive == true) return
+
+        indexJob = viewModelScope.launch {
+            while (indexRequested) {
+                indexRequested = false
+                _state.value = RagImportState.Indexing
+                val result = runCatching {
+                    hadithBundleManager.restoreFromSaf()
+                    corpusIndexer.index()
+                }.getOrElse { IndexCorpusResult.Blocked("INDEX_UNAVAILABLE") }
+                when (result) {
+                    is IndexCorpusResult.Indexed -> {
+                        indexCompleted = true
+                        _state.value = RagImportState.Indexed(result.recordCount)
+                    }
+                    is IndexCorpusResult.Blocked -> {
+                        indexCompleted = false
+                        _state.value = RagImportState.IndexBlocked(result.reason)
+                    }
+                }
             }
+            indexJob = null
         }
     }
+
 }

@@ -123,25 +123,53 @@ class QuranDatabaseInstrumentedTest {
     fun GIVEN_verifiedVectorIndex_WHEN_replacingAndSearching_THEN_returnsNearestCitation() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val index = SqliteVecVectorIndex(QuranDatabase.getInstance(context))
-        val embedding = FloatArray(384).apply { this[0] = 1f }
-        val record = VectorRecord(
-            sourceId = "test-quran-1",
-            sourceType = "quran",
-            collectionId = "quran",
-            chunkIndex = 0,
-            text = "Alhamdulillah",
-            embedding = embedding,
-            title = "Al-Fatihah",
-            reference = "QS. Al-Fatihah:1"
+        val quranEmbedding = FloatArray(384).apply { this[0] = 1f }
+        val hadithEmbedding = FloatArray(384).apply { this[1] = 1f }
+        val documentEmbedding = FloatArray(384).apply { this[2] = 1f }
+        val records = listOf(
+            VectorRecord(
+                sourceId = "test-quran-1",
+                sourceType = "quran",
+                collectionId = "quran",
+                chunkIndex = 0,
+                text = "Alhamdulillah",
+                embedding = quranEmbedding,
+                title = "Al-Fatihah",
+                reference = "QS. Al-Fatihah:1"
+            ),
+            VectorRecord(
+                sourceId = "test-hadith-1",
+                sourceType = "hadith",
+                collectionId = "bukhari",
+                chunkIndex = 0,
+                text = "Niat adalah dasar amal",
+                embedding = hadithEmbedding,
+                title = "Sahih al-Bukhari",
+                reference = "Sahih al-Bukhari no. 1"
+            ),
+            VectorRecord(
+                sourceId = "test-document-1",
+                sourceType = "user_document",
+                collectionId = "user_document",
+                chunkIndex = 0,
+                text = "Catatan RAG lokal",
+                embedding = documentEmbedding,
+                title = "Dokumen lokal",
+                reference = "dokumen-lokal"
+            )
         )
 
         try {
-            assertEquals(1, index.replace(listOf(record)))
-            val matches = index.search(embedding, k = 1)
+            assertEquals(3, index.replace(records))
+            val coverage = index.coverage()
+            assertEquals(3, coverage.recordCount)
+            assertEquals(setOf("quran", "hadith", "user_document"), coverage.sourceTypes)
+
+            val matches = index.search(quranEmbedding, k = 1)
 
             assertEquals(1, matches.size)
-            assertEquals(record.sourceId, matches.single().sourceId)
-            assertEquals(record.reference, matches.single().reference)
+            assertEquals(records.first().sourceId, matches.single().sourceId)
+            assertEquals(records.first().reference, matches.single().reference)
         } finally {
             QuranDatabase.getInstance(context).useWriterConnection { connection ->
                 connection.usePrepared("DELETE FROM quranplus_vectors") { statement -> statement.step() }

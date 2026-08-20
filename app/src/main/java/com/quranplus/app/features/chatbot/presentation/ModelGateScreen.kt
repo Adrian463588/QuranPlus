@@ -464,6 +464,7 @@ private fun blockerLabel(blocker: AiBlocker): String = when (blocker) {
     AiBlocker.MODEL_UNAVAILABLE -> "MODEL_UNAVAILABLE"
     AiBlocker.EMBEDDER_UNAVAILABLE -> "EMBEDDER_UNAVAILABLE"
     AiBlocker.INDEX_UNAVAILABLE -> "INDEX_UNAVAILABLE"
+    AiBlocker.CORPUS_UNAVAILABLE -> "CORPUS_UNAVAILABLE"
 }
 
 @OptIn(ExperimentalLayoutApi::class)

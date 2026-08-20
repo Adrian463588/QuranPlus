@@ -6,6 +6,7 @@ import androidx.room.useReaderConnection
 import androidx.room.useWriterConnection
 import com.quranplus.app.core.database.QuranDatabase
 import com.quranplus.app.features.rag.domain.VectorIndex
+import com.quranplus.app.features.rag.domain.VectorIndexCoverage
 import com.quranplus.app.features.rag.domain.VectorMatch
 import com.quranplus.app.features.rag.domain.VectorRecord
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,23 @@ class SqliteVecVectorIndex(
                 isReady(connection)
             }
         }.getOrDefault(false)
+    }
+
+    override suspend fun coverage(): VectorIndexCoverage = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!isReady()) return@runCatching VectorIndexCoverage(0, emptySet())
+            database.useReaderConnection { connection ->
+                connection.usePrepared(COVERAGE_SQL) { statement ->
+                    var recordCount = 0
+                    val sourceTypes = linkedSetOf<String>()
+                    while (statement.step()) {
+                        sourceTypes += statement.getText(0)
+                        recordCount += statement.getInt(1)
+                    }
+                    VectorIndexCoverage(recordCount, sourceTypes)
+                }
+            }
+        }.getOrDefault(VectorIndexCoverage(0, emptySet()))
     }
 
     override suspend fun replace(records: List<VectorRecord>): Int = withContext(Dispatchers.IO) {
@@ -156,6 +174,11 @@ class SqliteVecVectorIndex(
                 identifier, text_content, distance, surah_number, ayah_number
             FROM quranplus_vectors
             WHERE embedding MATCH vec_f32(?) AND k = ?
+        """
+        const val COVERAGE_SQL = """
+            SELECT source_type, COUNT(*)
+            FROM quranplus_vectors
+            GROUP BY source_type
         """
     }
 }
