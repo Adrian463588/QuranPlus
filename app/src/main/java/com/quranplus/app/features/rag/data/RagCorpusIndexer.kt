@@ -52,7 +52,7 @@ class RagCorpusIndexer(
         }
 
         database.hadithDao().getAllHadiths().forEach { hadith ->
-            val text = listOf(hadith.textArabic, hadith.translationEn)
+            val text = listOf(hadith.textArabic, hadith.translationId, hadith.translationEn)
                 .filter(String::isNotBlank)
                 .joinToString("\n")
             appendChunks(

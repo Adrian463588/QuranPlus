@@ -183,6 +183,12 @@ interface HadithDao {
     @Query("SELECT COUNT(*) FROM hadiths WHERE length(trim(translation_id)) > 0")
     suspend fun countHadithsWithIndonesianTranslation(): Int
 
+    @Query("DELETE FROM hadiths WHERE collection_id = :collectionId")
+    suspend fun deleteHadithsForCollection(collectionId: String)
+
+    @Query("DELETE FROM hadith_chapters WHERE collection_id = :collectionId")
+    suspend fun deleteChaptersForCollection(collectionId: String)
+
     @Query("SELECT collection_id FROM hadiths GROUP BY collection_id ORDER BY collection_id ASC")
     fun getCollectionIds(): Flow<List<String>>
 

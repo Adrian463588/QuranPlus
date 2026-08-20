@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -20,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,19 +36,31 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.quranplus.app.R
 import com.quranplus.app.core.ui.components.AppEmptyState
+import com.quranplus.app.core.ui.components.AppOutlinedButton
+import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
+import com.quranplus.app.features.hadith.data.HadithBundleWorkState
 import com.quranplus.app.features.hadith.domain.HadithCollection
 import com.quranplus.app.features.hadith.domain.HadithCollectionSection
 import com.quranplus.app.features.hadith.domain.HadithRecord
 import com.quranplus.app.features.hadith.domain.sectionedHadithCollections
 
 @Composable
-fun HadithScreen(viewModel: HadithViewModel) {
+fun HadithScreen(
+    viewModel: HadithViewModel,
+    onRequestStorage: () -> Unit,
+    onBundleReadyForAi: () -> Unit
+) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     val selectedCollection by viewModel.selectedCollection.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val bundleState by viewModel.bundleState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(viewModel) {
+        viewModel.bundleReadyEvents.collect { onBundleReadyForAi() }
+    }
 
     Scaffold(
         topBar = {
@@ -69,6 +83,12 @@ fun HadithScreen(viewModel: HadithViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 label = { Text(stringResource(R.string.hadith_search_label)) }
+            )
+            HadithBundleSection(
+                state = bundleState,
+                onRequestStorage = onRequestStorage,
+                onDownload = viewModel::startBundleDownload,
+                modifier = Modifier.fillMaxWidth()
             )
             when (val current = state) {
                 HadithUiState.Catalog -> HadithCollectionCatalog(
@@ -108,6 +128,99 @@ fun HadithScreen(viewModel: HadithViewModel) {
                     modifier = Modifier.weight(1f)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun HadithBundleSection(
+    state: HadithBundleUiState,
+    onRequestStorage: () -> Unit,
+    onDownload: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+    ) {
+        Text(
+            text = stringResource(R.string.hadith_bundle_title),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = stringResource(R.string.hadith_bundle_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        when (val workState = state.workState) {
+            is HadithBundleWorkState.Downloading -> {
+                if (workState.totalBytes > 0L) {
+                    LinearProgressIndicator(
+                        progress = { workState.progressPercentage / 100f },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.hadith_bundle_downloading),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            HadithBundleWorkState.Importing -> Text(
+                text = stringResource(R.string.hadith_bundle_importing),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            HadithBundleWorkState.Queued -> Text(
+                text = stringResource(R.string.hadith_bundle_queued),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            HadithBundleWorkState.Completed,
+            HadithBundleWorkState.Idle,
+            is HadithBundleWorkState.Failed -> Unit
+        }
+        if (state.localRecordCount > 0) {
+            Text(
+                text = stringResource(
+                    R.string.hadith_bundle_installed,
+                    state.localCollectionCount,
+                    state.localRecordCount
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        when {
+            !state.storageLinked -> AppPrimaryButton(
+                onClick = onRequestStorage,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.hadith_bundle_choose_folder))
+            }
+            state.workState is HadithBundleWorkState.Downloading ||
+                state.workState is HadithBundleWorkState.Importing ||
+                state.workState is HadithBundleWorkState.Queued -> Unit
+            else -> AppOutlinedButton(
+                onClick = onDownload,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (state.localRecordCount > 0) {
+                        stringResource(R.string.hadith_bundle_update)
+                    } else {
+                        stringResource(R.string.hadith_bundle_download)
+                    }
+                )
+            }
+        }
+        state.errorMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }

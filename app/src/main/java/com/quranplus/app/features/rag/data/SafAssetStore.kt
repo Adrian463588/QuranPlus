@@ -118,6 +118,14 @@ class SafAssetStore(
         }
     }
 
+    suspend fun listFiles(relativeDirectory: String): List<Uri> = withContext(Dispatchers.IO) {
+        val root = linkedRootOrThrow()
+        createDirectoryPath(root, relativeDirectory)
+            .listFiles()
+            .filter { it.isFile }
+            .map(DocumentFile::getUri)
+    }
+
     suspend fun materialize(
         relativePath: String,
         destination: File,

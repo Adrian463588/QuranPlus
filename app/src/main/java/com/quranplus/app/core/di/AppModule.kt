@@ -18,6 +18,9 @@ import com.quranplus.app.features.audio.data.AudioDownloadScheduler
 import com.quranplus.app.features.audio.presentation.AudioDownloadViewModel
 import com.quranplus.app.features.hadith.data.HadithRepositoryImpl
 import com.quranplus.app.features.hadith.data.HadithReferenceImporter
+import com.quranplus.app.features.hadith.data.HadithBundleDownloadScheduler
+import com.quranplus.app.features.hadith.data.HadithBundleImporter
+import com.quranplus.app.features.hadith.data.HadithBundleManager
 import com.quranplus.app.features.hadith.domain.GetHadithCollectionsUseCase
 import com.quranplus.app.features.hadith.domain.HadithRepository
 import com.quranplus.app.features.hadith.domain.SearchHadithUseCase
@@ -90,6 +93,7 @@ val appModule = module {
     single { com.quranplus.app.core.audio.AudioPlayerManager(androidContext()) }
     single { ResumableDownloader(androidContext()) }
     single { ModelDownloadScheduler(androidContext()) }
+    single { HadithBundleDownloadScheduler(androidContext()) }
     single<EmbeddingService> { OnnxEmbeddingService(androidContext(), get()) }
     single<VectorIndex> { SqliteVecVectorIndex(get()) }
     single<VectorRetriever> { VectorRetrieverImpl(get()) }
@@ -101,6 +105,8 @@ val appModule = module {
     single { SafAssetStore(androidContext(), get()) }
     single { SafDocumentImporter(androidContext(), get(), get()) }
     single { HadithReferenceImporter(androidContext(), get()) }
+    single { HadithBundleImporter(get(), get()) }
+    single { HadithBundleManager(get(), get(), get(), get()) }
 
     // Repositories
     single<QuranRepository> { QuranRepositoryImpl(get(), get(), get()) }
@@ -148,9 +154,9 @@ val appModule = module {
     viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { AudioDownloadViewModel(get()) }
     viewModel { ChatViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
-    viewModel { HadithViewModel(get(), get()) }
+    viewModel { HadithViewModel(get(), get(), get()) }
     viewModel { TahsinViewModel(get(), get(), get()) }
     viewModel { QuizViewModel(get(), get()) }
     viewModel { SettingsViewModel(get()) }
-    viewModel { RagDocumentViewModel(get(), get(), get(), get()) }
+    viewModel { RagDocumentViewModel(get(), get(), get(), get(), get()) }
 }

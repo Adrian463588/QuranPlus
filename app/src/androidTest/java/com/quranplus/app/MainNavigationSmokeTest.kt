@@ -69,14 +69,15 @@ class MainNavigationSmokeTest {
         composeRule.onNodeWithText("Hadist").performClick()
 
         waitForText("Hadist")
-        waitForText("Kutubus Sittah")
-        waitForText("Sahih al-Bukhari")
-        composeRule.onNodeWithText("Sahih al-Bukhari").performClick()
-        waitForText("Terjemahan Indonesia")
-        composeRule.onNodeWithText("Semua koleksi").performClick()
-        composeRule.onNodeWithTag("hadith_collection_catalog")
-            .performScrollToNode(hasText("Hadis Lainnya"))
-        waitForText("Hadis Lainnya")
+        waitForText("Bundle Hadist offline")
+        val hasCatalog = waitForAnyText("Kutubus Sittah", "Belum ada katalog hadist yang dimuat.")
+        assertTrue(hasCatalog)
+        if (nodeHasText("Kutubus Sittah")) {
+            waitForText("Sahih al-Bukhari")
+            composeRule.onNodeWithTag("hadith_collection_catalog")
+                .performScrollToNode(hasText("Hadis Lainnya"))
+            waitForText("Hadis Lainnya")
+        }
     }
 
     @Test
@@ -181,4 +182,17 @@ class MainNavigationSmokeTest {
             }.getOrDefault(false)
         }
     }
+
+    private fun waitForAnyText(vararg texts: String): Boolean {
+        composeRule.waitUntil(10_000) {
+            texts.any(::nodeHasText)
+        }
+        return texts.any(::nodeHasText)
+    }
+
+    private fun nodeHasText(text: String): Boolean = runCatching {
+        composeRule.onAllNodesWithText(text, useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            .isNotEmpty()
+    }.getOrDefault(false)
 }

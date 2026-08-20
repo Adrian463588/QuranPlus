@@ -9,7 +9,9 @@ import com.quranplus.app.core.database.entity.HadithCollectionEntity
 import com.quranplus.app.core.database.entity.HadithEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 data class HadithImportSummary(
     val collectionId: String,
@@ -17,52 +19,128 @@ data class HadithImportSummary(
     val recordCount: Int
 )
 
-/** Imports the actual hadith-json collection selected by the user through SAF. */
+/** Imports a real Hadist JSON source selected through SAF or extracted from the bundle. */
 class HadithReferenceImporter(
     private val context: Context,
     private val database: QuranDatabase
 ) {
     suspend fun import(uri: Uri): HadithImportSummary? = withContext(Dispatchers.IO) {
+        val displayName = queryDisplayName(uri) ?: uri.lastPathSegment ?: return@withContext null
         val json = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
             ?: return@withContext null
-        val document = runCatching { JSONObject(json) }.getOrNull() ?: return@withContext null
-        val hadiths = document.optJSONArray("hadiths") ?: return@withContext null
-        val chapters = document.optJSONArray("chapters") ?: return@withContext null
-        val metadata = document.optJSONObject("metadata")
-        val collectionId = collectionId(uri, document)
-        val titleArabic = metadata?.optJSONObject("arabic")?.optString("title").orEmpty()
-        val titleEnglish = metadata?.optJSONObject("english")?.optString("title")
-            .orEmpty().ifBlank { collectionId }
-        val records = buildRecords(collectionId, titleEnglish, hadiths)
-        if (records.isEmpty()) return@withContext null
-        val chapterEntities = buildChapters(collectionId, chapters)
+        importJson(json, displayName)
+    }
 
-        database.hadithDao().insertCollections(
+    suspend fun importFile(file: File, displayName: String = file.name): HadithImportSummary? =
+        withContext(Dispatchers.IO) {
+            if (!file.isFile) return@withContext null
+            importJson(file.readText(Charsets.UTF_8), displayName)
+        }
+
+    private suspend fun importJson(json: String, displayName: String): HadithImportSummary? {
+        val parsed = parseCollection(json, displayName) ?: return null
+        if (parsed.records.isEmpty()) return null
+
+        val dao = database.hadithDao()
+        dao.deleteHadithsForCollection(parsed.collectionId)
+        dao.deleteChaptersForCollection(parsed.collectionId)
+        dao.insertCollections(
             listOf(
                 HadithCollectionEntity(
-                    id = collectionId,
-                    titleArabic = titleArabic,
-                    titleEnglish = titleEnglish,
-                    sourceRevision = "",
+                    id = parsed.collectionId,
+                    titleArabic = parsed.titleArabic,
+                    titleEnglish = parsed.title,
+                    sourceRevision = parsed.sourceRevision,
                     sourceSha256 = "",
                     licenseStatus = "reference",
                     gradeStatus = "not_provided",
-                    recordCount = records.size,
-                    chapterCount = chapterEntities.size,
-                    isComplete = records.size == hadiths.length(),
-                    bundleAllowed = false
+                    recordCount = parsed.records.size,
+                    chapterCount = parsed.chapters.size,
+                    isComplete = parsed.isComplete,
+                    bundleAllowed = parsed.isBundle
                 )
             )
         )
-        database.hadithDao().insertChapters(chapterEntities)
-        records.chunked(BATCH_SIZE).forEach { database.hadithDao().insertHadiths(it) }
-        HadithImportSummary(collectionId, titleEnglish, records.size)
+        dao.insertChapters(parsed.chapters)
+        parsed.records.chunked(BATCH_SIZE).forEach { batch -> dao.insertHadiths(batch) }
+        return HadithImportSummary(parsed.collectionId, parsed.title, parsed.records.size)
     }
 
-    private fun buildRecords(
+    private fun parseCollection(json: String, displayName: String): ParsedCollection? {
+        val array = runCatching { JSONArray(json) }.getOrNull()
+        if (array != null) return parseIndonesianBundle(array, displayName)
+
+        val document = runCatching { JSONObject(json) }.getOrNull() ?: return null
+        val hadiths = document.optJSONArray("hadiths") ?: return null
+        val chapters = document.optJSONArray("chapters") ?: JSONArray()
+        val metadata = document.optJSONObject("metadata")
+        val collectionId = collectionId(displayName, document)
+        val titleArabic = metadata?.optJSONObject("arabic")?.optString("title").orEmpty()
+        val title = metadata?.optJSONObject("english")?.optString("title")
+            .orEmpty().ifBlank { displayTitle(collectionId) }
+        val records = buildReferenceRecords(collectionId, title, hadiths)
+        return ParsedCollection(
+            collectionId = collectionId,
+            title = title,
+            titleArabic = titleArabic,
+            records = records,
+            chapters = buildChapters(collectionId, chapters),
+            sourceRevision = "hadith-json-reference",
+            isComplete = records.size == hadiths.length(),
+            isBundle = false
+        )
+    }
+
+    private fun parseIndonesianBundle(
+        hadiths: JSONArray,
+        displayName: String
+    ): ParsedCollection? {
+        val collectionId = collectionIdFromFileName(displayName) ?: return null
+        val title = displayTitle(collectionId)
+        val records = buildList {
+            for (index in 0 until hadiths.length()) {
+                val record = hadiths.optJSONObject(index) ?: continue
+                val number = record.optInt("number")
+                val arabic = record.optString("arab")
+                val translation = record.optString("id")
+                if (number <= 0 || arabic.isBlank() || translation.isBlank()) continue
+                add(
+                    HadithEntity(
+                        id = stableBundleId(collectionId, number),
+                        collectionId = collectionId,
+                        hadithNumber = number,
+                        title = title,
+                        textArabic = arabic,
+                        translationId = translation,
+                        translationEn = "",
+                        reference = "$title no. $number",
+                        chapterId = null,
+                        sourceRevision = HADITH_BUNDLE_REVISION,
+                        sourceSha256 = "",
+                        licenseStatus = "reference",
+                        grade = null,
+                        language = "id",
+                        isComplete = true
+                    )
+                )
+            }
+        }.distinctBy { it.hadithNumber }.sortedBy { it.hadithNumber }
+        return ParsedCollection(
+            collectionId = collectionId,
+            title = title,
+            titleArabic = "",
+            records = records,
+            chapters = emptyList(),
+            sourceRevision = HADITH_BUNDLE_REVISION,
+            isComplete = records.size == hadiths.length(),
+            isBundle = true
+        )
+    }
+
+    private fun buildReferenceRecords(
         collectionId: String,
         title: String,
-        hadiths: org.json.JSONArray
+        hadiths: JSONArray
     ): List<HadithEntity> = buildList {
         for (index in 0 until hadiths.length()) {
             val record = hadiths.optJSONObject(index) ?: continue
@@ -87,11 +165,11 @@ class HadithReferenceImporter(
                         .joinToString("\n"),
                     reference = "$title no. $hadithNumber",
                     chapterId = record.optInt("chapterId").toString(),
-                    sourceRevision = "",
+                    sourceRevision = "hadith-json-reference",
                     sourceSha256 = "",
                     licenseStatus = "reference",
                     grade = null,
-                    language = "en",
+                    language = if (translationId.isBlank()) "en" else "id",
                     isComplete = translation.isNotBlank() || translationId.isNotBlank()
                 )
             )
@@ -106,30 +184,29 @@ class HadithReferenceImporter(
         record.optString("terjemahan")
     ).firstOrNull(String::isNotBlank).orEmpty()
 
-    private fun collectionId(uri: Uri, document: JSONObject): String {
-        val name = context.contentResolver.query(
+    private fun collectionId(displayName: String, document: JSONObject): String =
+        collectionIdFromFileName(displayName)
+            ?: document.optInt("id").takeIf { it > 0 }?.toString()
+            ?: displayName.substringAfterLast('/').substringAfterLast('\\')
+                .substringBeforeLast('.')
+                .lowercase()
+
+    private fun queryDisplayName(uri: Uri): String? {
+        context.contentResolver.query(
             uri,
             arrayOf(OpenableColumns.DISPLAY_NAME),
             null,
             null,
             null
-        )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
-            ?.lowercase()
-            .orEmpty()
-        val known = listOf(
-            "nawawi40", "qudsi40", "shahwaliullah40", "aladab_almufrad",
-            "bulugh_almaram", "mishkat_almasabih", "riyad_assalihin",
-            "shamail_muhammadiyah", "abudawud", "ahmed", "bukhari", "darimi",
-            "ibnmajah", "malik", "muslim", "nasai", "tirmidhi"
-        )
-        return known.firstOrNull { name.contains(it) }
-            ?: document.optInt("id").takeIf { it > 0 }?.toString()
-            ?: uri.lastPathSegment?.substringAfterLast('/').orEmpty()
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) return cursor.getString(0)
+        }
+        return null
     }
 
     private fun buildChapters(
         collectionId: String,
-        chapters: org.json.JSONArray
+        chapters: JSONArray
     ): List<HadithChapterEntity> = buildList {
         for (index in 0 until chapters.length()) {
             val chapter = chapters.optJSONObject(index) ?: continue
@@ -147,7 +224,68 @@ class HadithReferenceImporter(
         }
     }
 
-    private companion object {
-        const val BATCH_SIZE = 250
+    private data class ParsedCollection(
+        val collectionId: String,
+        val title: String,
+        val titleArabic: String,
+        val records: List<HadithEntity>,
+        val chapters: List<HadithChapterEntity>,
+        val sourceRevision: String,
+        val isComplete: Boolean,
+        val isBundle: Boolean
+    )
+
+    companion object {
+        const val HADITH_BUNDLE_REVISION = "gadingnst/hadith-api-master"
+        val BUNDLE_BOOK_NAMES = setOf(
+            "abu-daud.json",
+            "ahmad.json",
+            "bukhari.json",
+            "darimi.json",
+            "ibnu-majah.json",
+            "malik.json",
+            "muslim.json",
+            "nasai.json",
+            "tirmidzi.json"
+        )
+
+        fun collectionIdFromFileName(displayName: String): String? {
+            val filename = displayName.substringAfterLast('/').substringAfterLast('\\').lowercase()
+            val basename = filename.substringBeforeLast('.')
+            return when (basename) {
+                "abu-daud" -> "abudawud"
+                "ibnu-majah" -> "ibnmajah"
+                "tirmidzi" -> "tirmidhi"
+                in setOf("ahmad", "bukhari", "darimi", "malik", "muslim", "nasai") -> basename
+                else -> null
+            }
+        }
+
+        fun displayTitle(collectionId: String): String = when (collectionId) {
+            "abudawud" -> "Sunan Abu Dawud"
+            "tirmidhi" -> "Jami' al-Tirmidhi"
+            "ibnmajah" -> "Sunan Ibn Majah"
+            "bukhari" -> "Sahih al-Bukhari"
+            "muslim" -> "Sahih Muslim"
+            "nasai" -> "Sunan al-Nasa'i"
+            "ahmad" -> "Musnad Ahmad"
+            "darimi" -> "Sunan al-Darimi"
+            "malik" -> "Muwatta Malik"
+            else -> collectionId
+        }
+
+        private fun stableBundleId(collectionId: String, number: Int): Long {
+            val knownIds = listOf(
+                "bukhari", "muslim", "abudawud", "tirmidhi", "nasai",
+                "ibnmajah", "ahmad", "darimi", "malik"
+            )
+            val collectionKey = knownIds.indexOf(collectionId).takeIf { it >= 0 }
+                ?.plus(1)
+                ?.toLong()
+                ?: (1000L + (collectionId.hashCode().toUInt().toLong() % 9000L))
+            return collectionKey * 1_000_000L + number
+        }
+
+        private const val BATCH_SIZE = 250
     }
 }

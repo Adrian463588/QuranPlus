@@ -60,19 +60,21 @@ class ResumableDownloader(
     fun downloadFile(
         url: String,
         targetDestination: File,
-        expectedSha256: String,
+        expectedSha256: String? = null,
         expectedSizeBytes: Long? = null,
         expectedMd5: String? = null
     ): Flow<DownloadState> = flow {
         emit(DownloadState.Idle)
         val digestAlgorithm = when {
-            expectedSha256.matches(SHA256_PATTERN) -> "SHA-256"
+            expectedSha256?.matches(SHA256_PATTERN) == true -> "SHA-256"
             expectedMd5?.matches(MD5_PATTERN) == true -> "MD5"
             else -> null
         }
-        val expectedDigest = expectedSha256.takeIf { it.matches(SHA256_PATTERN) }
+        val expectedDigest = expectedSha256?.takeIf { it.matches(SHA256_PATTERN) }
             ?: expectedMd5?.takeIf { it.matches(MD5_PATTERN) }
-        if (digestAlgorithm == null || expectedDigest == null) {
+        if ((expectedSha256 != null || expectedMd5 != null) &&
+            (digestAlgorithm == null || expectedDigest == null)
+        ) {
             emit(DownloadState.Failed("Manifest checksum audio/model tidak valid atau belum tersedia"))
             return@flow
         }
@@ -180,11 +182,13 @@ class ResumableDownloader(
                 emit(DownloadState.ChecksumError("Verifikasi ukuran artifact gagal"))
                 return@flow
             }
-            val actualDigest = calculateDigest(tempFile, digestAlgorithm)
-            if (!actualDigest.equals(expectedDigest, ignoreCase = true)) {
-                tempFile.delete()
-                emit(DownloadState.ChecksumError("Verifikasi $digestAlgorithm gagal: integritas file rusak"))
-                return@flow
+            if (digestAlgorithm != null && expectedDigest != null) {
+                val actualDigest = calculateDigest(tempFile, digestAlgorithm)
+                if (!actualDigest.equals(expectedDigest, ignoreCase = true)) {
+                    tempFile.delete()
+                    emit(DownloadState.ChecksumError("Verifikasi $digestAlgorithm gagal: integritas file rusak"))
+                    return@flow
+                }
             }
 
             try {

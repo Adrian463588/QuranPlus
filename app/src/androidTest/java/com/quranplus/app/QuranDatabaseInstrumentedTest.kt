@@ -1,6 +1,8 @@
 package com.quranplus.app
 
 import androidx.sqlite.db.SimpleSQLiteQuery
+import android.database.sqlite.SQLiteDatabase
+import androidx.room.useWriterConnection
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.quranplus.app.core.database.QuranDatabase
@@ -17,6 +19,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class QuranDatabaseInstrumentedTest {
@@ -44,7 +47,8 @@ class QuranDatabaseInstrumentedTest {
         assertEquals(114, surahs.size)
         assertFalse(ayahs.isEmpty())
         assertTrue(searchResults.isNotEmpty())
-        assertTrue(database.hadithDao().getAllHadiths().isNotEmpty())
+        assertEquals(0, bundledTableCount(context, "hadiths"))
+        assertEquals(0, bundledTableCount(context, "hadith_collections"))
         assertEquals(77429, database.wordByWordDao().count())
         assertEquals(77429, database.wordByWordDao().countWithTransliteration())
         assertEquals(16, database.wordByWordDao().getWordsByAyah(10, 20).size)
@@ -57,7 +61,6 @@ class QuranDatabaseInstrumentedTest {
             database.wordByWordDao().getWordsByAyah(10, 20)
                 .all { it.translationId.isNotBlank() }
         )
-        assertEquals(17, database.hadithDao().getCollections().first().size)
         assertEquals(54, database.tahsinDao().countLessons())
         assertEquals(12, database.quizDao().getQuestions().first().size)
         assertEquals(0, database.knowledgeChunkDao().getChunksCount())
@@ -132,11 +135,37 @@ class QuranDatabaseInstrumentedTest {
             reference = "QS. Al-Fatihah:1"
         )
 
-        assertEquals(1, index.replace(listOf(record)))
-        val matches = index.search(embedding, k = 1)
+        try {
+            assertEquals(1, index.replace(listOf(record)))
+            val matches = index.search(embedding, k = 1)
 
-        assertEquals(1, matches.size)
-        assertEquals(record.sourceId, matches.single().sourceId)
-        assertEquals(record.reference, matches.single().reference)
+            assertEquals(1, matches.size)
+            assertEquals(record.sourceId, matches.single().sourceId)
+            assertEquals(record.reference, matches.single().reference)
+        } finally {
+            QuranDatabase.getInstance(context).useWriterConnection { connection ->
+                connection.usePrepared("DELETE FROM quranplus_vectors") { statement -> statement.step() }
+            }
+        }
+    }
+
+    private fun bundledTableCount(context: android.content.Context, table: String): Int {
+        val copy = File.createTempFile("quranplus-asset-", ".db", context.cacheDir)
+        return try {
+            context.assets.open("databases/quranplus.db").use { input ->
+                copy.outputStream().use { output -> input.copyTo(output) }
+            }
+            SQLiteDatabase.openDatabase(
+                copy.path,
+                null,
+                SQLiteDatabase.OPEN_READONLY
+            ).use { database ->
+                database.rawQuery("SELECT COUNT(*) FROM $table", null).use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getInt(0) else 0
+                }
+            }
+        } finally {
+            copy.delete()
+        }
     }
 }

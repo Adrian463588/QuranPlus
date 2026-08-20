@@ -3,6 +3,7 @@ package com.quranplus.app
 import android.app.Application
 import com.quranplus.app.core.di.appModule
 import com.quranplus.app.core.database.ReferenceAssetSynchronizer
+import com.quranplus.app.features.hadith.data.HadithBundleManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,6 +26,7 @@ class QuranPlusApp : Application() {
         }
         applicationScope.launch {
             koinApplication.koin.get<ReferenceAssetSynchronizer>().synchronize()
+            koinApplication.koin.get<HadithBundleManager>().restoreFromSaf()
         }
     }
 }

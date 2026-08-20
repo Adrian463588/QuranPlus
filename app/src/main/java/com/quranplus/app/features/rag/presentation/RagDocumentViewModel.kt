@@ -11,6 +11,7 @@ import com.quranplus.app.features.rag.data.SafStorageStatus
 import com.quranplus.app.features.rag.data.RagCorpusIndexer
 import com.quranplus.app.features.rag.domain.IndexCorpusResult
 import com.quranplus.app.features.hadith.data.HadithReferenceImporter
+import com.quranplus.app.features.hadith.data.HadithBundleManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,10 +35,14 @@ class RagDocumentViewModel(
     private val importer: SafDocumentImporter,
     private val assetStore: SafAssetStore,
     private val corpusIndexer: RagCorpusIndexer,
-    private val hadithReferenceImporter: HadithReferenceImporter
+    private val hadithReferenceImporter: HadithReferenceImporter,
+    private val hadithBundleManager: HadithBundleManager
 ) : ViewModel() {
     private val _state = MutableStateFlow<RagImportState>(RagImportState.Idle)
     val state: StateFlow<RagImportState> = _state.asStateFlow()
+
+    private val _storageStatus = MutableStateFlow<SafStorageStatus?>(null)
+    val storageStatus: StateFlow<SafStorageStatus?> = _storageStatus.asStateFlow()
 
     init {
         refreshStorageStatus()
@@ -45,19 +50,29 @@ class RagDocumentViewModel(
 
     fun refreshStorageStatus() {
         viewModelScope.launch {
-            runCatching { assetStore.getStatus() }
-                .onSuccess { status ->
-                    if (status.isAccessible) _state.value = RagImportState.StorageLinked(status)
-                }
+            val status = runCatching { assetStore.getStatus() }.getOrNull()
+            _storageStatus.value = status
+            if (status?.isAccessible == true) {
+                hadithBundleManager.restoreFromSaf()
+                _state.value = RagImportState.StorageLinked(status)
+            }
         }
     }
 
     fun linkStorageTree(uri: Uri, grantFlags: Int) {
         viewModelScope.launch {
             _state.value = RagImportState.LinkingStorage
-            runCatching { assetStore.linkTree(uri, grantFlags) }
-                .onSuccess { status -> _state.value = RagImportState.StorageLinked(status) }
-                .onFailure { _state.value = RagImportState.Error(it.localizedMessage ?: "Folder SAF tidak dapat digunakan") }
+            val result = runCatching { assetStore.linkTree(uri, grantFlags) }
+            result.onSuccess { status ->
+                _storageStatus.value = status
+                _state.value = RagImportState.StorageLinked(status)
+            }.onFailure {
+                _storageStatus.value = null
+                _state.value = RagImportState.Error(
+                    it.localizedMessage ?: "Folder SAF tidak dapat digunakan"
+                )
+            }
+            if (result.isSuccess) hadithBundleManager.restoreFromSaf()
         }
     }
 

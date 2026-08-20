@@ -7,8 +7,8 @@ Quran Plus adalah aplikasi Android offline-first berbasis Jetpack Compose, Clean
 - Quran: 114 surah, 6.236 ayat, tajwid `AnnotatedString`, waqaf, marker akhir ayat, pencarian FTS5, bookmark, dan reader responsive.
 - Word-by-word: 77.429 unit sumber untuk 6.236 ayat. Arabic, transliterasi Latin, dan makna English tersedia per kata dari [Islamic.app Word API](https://docs.islamic.app/api-reference/words), yang mendokumentasikan sumber Quran.com API v4. Unit komposit seperti `إِلْ يَاسِينَ` tetap ditampilkan sebagai satu makna sumber; transliterasi tidak dipotong secara heuristik. Terjemahan Indonesia belum dibundel karena sumber berlisensinya belum diverifikasi.
 - Tahsin: 54 materi Room-backed tentang makharij, sifat huruf, hukum tajwid, mad, dan waqaf. Contoh ayat diperbarui oleh `scripts/refresh_tahsin.py` dari teks Quran yang ada di database.
-- Hadist: katalog section/list dengan `Kutubus Sittah` dan `Hadis Lainnya`, pencarian, serta importer JSON melalui Settings. Empat koleksi offline yang sudah ada menampilkan terjemahan Indonesia nyata pada 6.333 record yang cocok dengan teks Arab sumber; record yang tidak cocok tidak dipaksa dipetakan dan menampilkan status unavailable/English. Terjemahan berasal dari [gadingnst/hadith-api](https://github.com/gadingnst/hadith-api), yang mendokumentasikan sumber Bahasa Indonesia dan lisensi repositori MIT. Koleksi lain tetap ditampilkan sebagai katalog dan hanya dapat dibaca jika kontennya benar-benar tersedia lokal atau diimpor pengguna.
-- RAG: index sqlite-vec memakai embedding nyata untuk Quran, Hadist yang diimpor, dan dokumen pengguna. Chunking memakai 512 kata dengan overlap 50; retrieval default top-k 5.
+- Hadist: APK hanya membawa schema dan metadata kosong; record tidak dibundel. Tombol `Download bundle Hadist` mengambil arsip 9 koleksi Arab–Indonesia dari [gadingnst/hadith-api](https://github.com/gadingnst/hadith-api), menyimpannya di SAF, mengimpor record nyata ke Room, dan memasukkannya ke corpus RAG. Section/list `Kutubus Sittah` dan `Hadis Lainnya`, pencarian, serta importer JSON tetap tersedia; katalog kosong sampai user mengunduh bundle.
+- RAG: index sqlite-vec memakai embedding nyata untuk Quran, Hadist hasil bundle/impor, dan dokumen pengguna. Teks Arab, `translation_id` Indonesia, dan English yang tersedia ikut di-embed. Chunking memakai 512 kata dengan overlap 50; retrieval default top-k 5.
 - AI: jawaban hanya dibuat ketika model chatbot, embedder, corpus, dan index siap. Selain itu UI menampilkan `MODEL_UNAVAILABLE`, `EMBEDDER_UNAVAILABLE`, atau `INDEX_UNAVAILABLE`.
 
 ## Model yang dapat diunduh
@@ -37,11 +37,12 @@ Pilih folder melalui `ACTION_OPEN_DOCUMENT_TREE` pada Settings. Aplikasi membuat
 QuranPlus/
 ├── models/
 ├── rag/source/
+│   └── hadith/
 ├── rag/index/
 └── manifests/
 ```
 
-Model dan dokumen RAG yang sudah dipublish berada di folder milik pengguna, bukan hanya `filesDir`, sehingga tidak ikut terhapus ketika aplikasi di-uninstall. Setelah install ulang, pilih folder yang sama untuk relink dan materialisasi cache internal. Unduhan memakai file sementara, HTTP Range, WorkManager, dan verifikasi SHA-256 sebelum dipublish.
+Model, bundle Hadist, dan dokumen RAG yang sudah dipublish berada di folder milik pengguna, bukan hanya `filesDir`, sehingga tidak ikut terhapus ketika aplikasi di-uninstall. Setelah install ulang, pilih folder yang sama untuk relink dan memulihkan Hadist ke Room; izin URI harus diberikan ulang bila Android sudah mencabut grant aplikasi. Unduhan memakai file sementara, HTTP Range, dan WorkManager; model tetap diverifikasi SHA-256, sedangkan bundle Hadist divalidasi berdasarkan struktur buku JSON sumber sebelum diimpor.
 
 ## Materi Tahsin
 

@@ -16,4 +16,13 @@
     <string name="hadith_translation_indonesian">Terjemahan Indonesia</string>
     <string name="hadith_translation_indonesian_unavailable">Terjemahan Indonesia belum tersedia pada sumber ini</string>
     <string name="hadith_translation_english">Terjemahan English (sumber)</string>
+    <string name="hadith_bundle_title">Bundle Hadist offline</string>
+    <string name="hadith_bundle_description">Unduh 9 koleksi Arab–Indonesia sekali. Data disimpan di folder SAF agar tetap ada setelah aplikasi dihapus.</string>
+    <string name="hadith_bundle_choose_folder">Pilih folder penyimpanan</string>
+    <string name="hadith_bundle_download">Download bundle Hadist</string>
+    <string name="hadith_bundle_update">Perbarui bundle Hadist</string>
+    <string name="hadith_bundle_downloading">Mengunduh bundle Hadist…</string>
+    <string name="hadith_bundle_importing">Menyimpan dan menyiapkan Hadist untuk AI…</string>
+    <string name="hadith_bundle_queued">Menunggu koneksi internet…</string>
+    <string name="hadith_bundle_installed">Tersedia: %1$d koleksi, %2$d hadist</string>
 </resources>

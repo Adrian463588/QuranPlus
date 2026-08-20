@@ -43,7 +43,6 @@ import com.quranplus.app.features.quran.presentation.QuranViewModel
 import com.quranplus.app.features.quran.presentation.SearchScreen
 import com.quranplus.app.features.quran.presentation.SurahListScreen
 import com.quranplus.app.features.rag.presentation.RagDocumentViewModel
-import com.quranplus.app.features.rag.presentation.RagImportState
 import com.quranplus.app.features.settings.data.PreferencesManager
 import com.quranplus.app.features.settings.presentation.MoreScreen
 import com.quranplus.app.features.settings.presentation.SettingsScreen
@@ -192,8 +191,7 @@ fun AppNavHost(
     onRequestRagDocumentFile: () -> Unit
 ) {
     val isModelReady by chatViewModel.isModelReady.collectAsStateWithLifecycle()
-    val ragState by ragDocumentViewModel.state.collectAsStateWithLifecycle()
-    val isSafStorageReady = ragState is RagImportState.StorageLinked
+    val isSafStorageReady by ragDocumentViewModel.storageStatus.collectAsStateWithLifecycle()
 
     NavHost(
         navController = navController,
@@ -263,7 +261,11 @@ fun AppNavHost(
 
         // --- 2. Tanya AI (Chatbot RAG) Navigation ---
         composable(AppDestination.HADITH.route) {
-            HadithScreen(viewModel = hadithViewModel)
+            HadithScreen(
+                viewModel = hadithViewModel,
+                onRequestStorage = onRequestRagDocument,
+                onBundleReadyForAi = ragDocumentViewModel::buildIndex
+            )
         }
 
         composable(AppDestination.MORE.route) {
@@ -303,7 +305,7 @@ fun AppNavHost(
                     onModelReady = { chatViewModel.checkModelStatus() },
                     readiness = chatViewModel.readiness,
                     onRequestStorage = onRequestRagDocument,
-                    isStorageReady = isSafStorageReady
+                    isStorageReady = isSafStorageReady?.isAccessible == true
                 )
             }
         }
