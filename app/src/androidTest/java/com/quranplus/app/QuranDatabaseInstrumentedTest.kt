@@ -53,7 +53,10 @@ class QuranDatabaseInstrumentedTest {
             database.wordByWordDao().getWordsByAyah(10, 20)
                 .all { !it.transliteration.isNullOrBlank() }
         )
-        assertTrue(database.wordByWordDao().getWordsByAyah(10, 20).all { it.translationId.isBlank() })
+        assertTrue(
+            database.wordByWordDao().getWordsByAyah(10, 20)
+                .all { it.translationId.isNotBlank() }
+        )
         assertEquals(17, database.hadithDao().getCollections().first().size)
         assertEquals(0, database.knowledgeChunkDao().getChunksCount())
     }

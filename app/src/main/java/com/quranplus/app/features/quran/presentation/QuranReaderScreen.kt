@@ -157,21 +157,6 @@ fun QuranReaderScreen(
     var selectedWaqafRule by remember { mutableStateOf<WaqafParser.WaqafRule?>(null) }
     var selectedTajwidRule by remember { mutableStateOf<TajwidParser.TajwidType?>(null) }
 
-    val hasWordIndonesianTranslation = ((wordByWordState as? UiState.Success<Map<Int, List<WordByWord>>>)
-        ?.data
-        ?.values
-        ?.any { words -> words.any { it.translationId != null } }
-        == true)
-    val wordTranslationMode = if (
-        isWordByWordMode &&
-        translationMode == TranslationMode.INDONESIAN &&
-        !hasWordIndonesianTranslation
-    ) {
-        TranslationMode.ENGLISH
-    } else {
-        translationMode
-    }
-
     val sheetState = rememberModalBottomSheetState()
     val navigationSheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
@@ -258,22 +243,28 @@ fun QuranReaderScreen(
                                     showReaderMenu = false
                                 }
                             )
-                            if (!isWordByWordMode) {
-                                DropdownMenuItem(
-                                    text = { Text("Terjemahan: ${translationMode.label}") },
-                                    leadingIcon = { Icon(Icons.Rounded.Translate, contentDescription = null) },
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        val next = when (translationMode) {
-                                            TranslationMode.INDONESIAN -> TranslationMode.ENGLISH
-                                            TranslationMode.ENGLISH -> TranslationMode.BOTH
-                                            TranslationMode.BOTH -> TranslationMode.INDONESIAN
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (isWordByWordMode) {
+                                            "Terjemahan kata: ${translationMode.label}"
+                                        } else {
+                                            "Terjemahan: ${translationMode.label}"
                                         }
-                                        scope.launch { preferencesManager.setTranslationMode(next) }
-                                        showReaderMenu = false
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Rounded.Translate, contentDescription = null) },
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    val next = when (translationMode) {
+                                        TranslationMode.INDONESIAN -> TranslationMode.ENGLISH
+                                        TranslationMode.ENGLISH -> TranslationMode.BOTH
+                                        TranslationMode.BOTH -> TranslationMode.INDONESIAN
                                     }
-                                )
-                            }
+                                    scope.launch { preferencesManager.setTranslationMode(next) }
+                                    showReaderMenu = false
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Legenda Tajwid") },
                                 leadingIcon = { Icon(Icons.Rounded.Palette, contentDescription = null) },
@@ -441,7 +432,7 @@ fun QuranReaderScreen(
                                                 enableTajwid = enableTajwid,
                                                 showTransliteration = showTransliteration,
                                                 showTranslation = showTranslation,
-                                                translationMode = wordTranslationMode,
+                                                translationMode = translationMode,
                                                 isWordByWordMode = isWordByWordMode,
                                                 wordByWord = (wordByWordState as? UiState.Success<Map<Int, List<WordByWord>>>)
                                                     ?.data?.get(ayah.ayahNumber).orEmpty(),
@@ -1119,18 +1110,20 @@ private fun WordByWordAyah(
                     }
                 }
             }
+            // The ayah ends on the left in RTL reading order. Keep the marker
+            // in a dedicated footer so it cannot wrap to an unrelated column.
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = Spacing.sm),
+                        .padding(top = Spacing.xs),
+                    horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AyahEndMarker(
                         ayahNumber = ayahNumber,
                         fontSizeSp = fontSizeSp
                     )
-                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
             }
@@ -1144,11 +1137,13 @@ private fun AyahEndMarker(
     fontSizeSp: Float,
     modifier: Modifier = Modifier
 ) {
-    val markerSize = (fontSizeSp * 1.7f).coerceIn(48f, 72f).dp
-    val numberSize = (fontSizeSp * 0.52f).coerceIn(14f, 22f)
+    val markerSize = 48.dp
+    val numberSize = (fontSizeSp * 0.48f).coerceIn(14f, 22f)
     Box(
         modifier = modifier
             .size(markerSize)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .border(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.secondary,
@@ -1172,13 +1167,11 @@ private fun AyahEndMarker(
     }
 }
 
-private fun wordTranslations(
+internal fun wordTranslations(
     word: WordByWord,
     mode: TranslationMode
 ): List<Pair<String, String>> = when (mode) {
-    TranslationMode.INDONESIAN -> word.translationId?.let { listOf("Indonesia" to it) }
-        ?: word.translationEn?.let { listOf("English (source)" to it) }
-        .orEmpty()
+    TranslationMode.INDONESIAN -> word.translationId?.let { listOf("Indonesia" to it) }.orEmpty()
     TranslationMode.ENGLISH -> word.translationEn?.let { listOf("English" to it) }.orEmpty()
     TranslationMode.BOTH -> buildList {
         word.translationId?.let { add("Indonesia" to it) }

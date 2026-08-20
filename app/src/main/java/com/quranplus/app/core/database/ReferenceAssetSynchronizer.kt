@@ -17,7 +17,8 @@ class ReferenceAssetSynchronizer(
     private val context: Context,
     private val database: QuranDatabase
 ) {
-    private val wordByWordRevision = "islamic.app:v1-words"
+    private val wordByWordRevision =
+        "quran.com-api:wbw-id:025540d4ba76c5f0e29db120d8997051b6870b6d3f4d3f7264474a8d6ef2769a"
 
     suspend fun synchronize() = withContext(Dispatchers.IO) {
         val temporaryAsset = copyAssetToCache()

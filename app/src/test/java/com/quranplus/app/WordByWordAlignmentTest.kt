@@ -5,6 +5,8 @@ import com.quranplus.app.core.utils.WaqafParser
 import com.quranplus.app.features.quran.domain.WordByWord
 import com.quranplus.app.features.quran.presentation.buildWordRenderSlices
 import com.quranplus.app.features.quran.presentation.extractAyahEndMarker
+import com.quranplus.app.features.quran.presentation.wordTranslations
+import com.quranplus.app.features.settings.data.TranslationMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -64,6 +66,23 @@ class WordByWordAlignmentTest {
 
         assertNotNull(slices)
         assertEquals("إِلْ يَاسِينَ", slices!!.single().text.text)
+    }
+
+    @Test
+    fun GIVEN_indonesianWordSource_WHEN_selectingIndonesian_THEN_doesNotFallbackToEnglish() {
+        val word = word(1, "بِسْمِ").copy(
+            translationEn = "In (the) name",
+            translationId = "dengan nama"
+        )
+
+        assertEquals(
+            listOf("Indonesia" to "dengan nama"),
+            wordTranslations(word, TranslationMode.INDONESIAN)
+        )
+        assertEquals(
+            listOf("Indonesia" to "dengan nama", "English (source)" to "In (the) name"),
+            wordTranslations(word, TranslationMode.BOTH)
+        )
     }
 
     private fun word(index: Int, text: String) = WordByWord(
