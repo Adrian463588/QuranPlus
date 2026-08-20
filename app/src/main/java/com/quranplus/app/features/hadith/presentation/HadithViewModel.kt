@@ -12,12 +12,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed interface HadithUiState {
     data object Loading : HadithUiState
+    data object Catalog : HadithUiState
     data object Empty : HadithUiState
     data class Ready(val records: List<HadithRecord>) : HadithUiState
     data class Error(val message: String) : HadithUiState
@@ -41,23 +41,26 @@ class HadithViewModel(
     val state: StateFlow<HadithUiState> = _state.asStateFlow()
 
     init {
-        search()
         viewModelScope.launch {
-            collections.drop(1).collect { search() }
+            collections.collect { updateCatalogState() }
         }
     }
 
     fun setQuery(value: String) {
         _query.value = value
-        search()
+        if (isCatalog()) updateCatalogState() else search()
     }
 
     fun setCollection(value: String?) {
         _selectedCollection.value = value
-        search()
+        if (isCatalog()) updateCatalogState() else search()
     }
 
     private fun search() {
+        if (isCatalog()) {
+            updateCatalogState()
+            return
+        }
         viewModelScope.launch {
             _state.value = HadithUiState.Loading
             runCatching {
@@ -67,6 +70,14 @@ class HadithViewModel(
             }.onFailure { error ->
                 _state.value = HadithUiState.Error(error.localizedMessage ?: "Hadist tidak dapat dimuat")
             }
+        }
+    }
+
+    private fun isCatalog(): Boolean = _query.value.isBlank() && _selectedCollection.value == null
+
+    private fun updateCatalogState() {
+        if (isCatalog()) {
+            _state.value = if (collections.value.isEmpty()) HadithUiState.Empty else HadithUiState.Catalog
         }
     }
 }

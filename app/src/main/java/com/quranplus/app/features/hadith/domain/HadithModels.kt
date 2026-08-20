@@ -4,8 +4,42 @@ data class HadithCollection(
     val id: String,
     val title: String,
     val count: Int,
-    val titleArabic: String = ""
+    val titleArabic: String = "",
+    val hasLocalContent: Boolean = true
 )
+
+enum class HadithCollectionSection(val title: String) {
+    KUTUBUS_SITTAH("Kutubus Sittah"),
+    OTHER("Hadis Lainnya")
+}
+
+private val kutubusSittahIds = listOf(
+    "bukhari",
+    "muslim",
+    "abudawud",
+    "tirmidhi",
+    "nasai",
+    "ibnmajah"
+)
+
+fun HadithCollection.section(): HadithCollectionSection =
+    if (id in kutubusSittahIds) HadithCollectionSection.KUTUBUS_SITTAH
+    else HadithCollectionSection.OTHER
+
+fun sectionedHadithCollections(
+    collections: List<HadithCollection>
+): List<Pair<HadithCollectionSection, List<HadithCollection>>> =
+    HadithCollectionSection.entries.mapNotNull { section ->
+        val items = collections
+            .filter { it.section() == section }
+            .sortedWith(
+                compareBy(
+                    { kutubusSittahIds.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE },
+                    { it.title }
+                )
+            )
+        section.takeIf { items.isNotEmpty() }?.let { it to items }
+    }
 
 data class HadithChapter(
     val collectionId: String,
@@ -21,6 +55,7 @@ data class HadithRecord(
     val hadithNumber: Int,
     val title: String,
     val textArabic: String,
+    val translationId: String,
     val translationEn: String,
     val reference: String,
     val chapterId: String?

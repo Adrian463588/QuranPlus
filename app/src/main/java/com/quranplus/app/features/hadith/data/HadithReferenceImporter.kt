@@ -3,7 +3,6 @@ package com.quranplus.app.features.hadith.data
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
-import androidx.room.withTransaction
 import com.quranplus.app.core.database.QuranDatabase
 import com.quranplus.app.core.database.entity.HadithChapterEntity
 import com.quranplus.app.core.database.entity.HadithCollectionEntity
@@ -38,27 +37,25 @@ class HadithReferenceImporter(
         if (records.isEmpty()) return@withContext null
         val chapterEntities = buildChapters(collectionId, chapters)
 
-        database.withTransaction {
-            database.hadithDao().insertCollections(
-                listOf(
-                    HadithCollectionEntity(
-                        id = collectionId,
-                        titleArabic = titleArabic,
-                        titleEnglish = titleEnglish,
-                        sourceRevision = "",
-                        sourceSha256 = "",
-                        licenseStatus = "reference",
-                        gradeStatus = "not_provided",
-                        recordCount = records.size,
-                        chapterCount = chapterEntities.size,
-                        isComplete = records.size == hadiths.length(),
-                        bundleAllowed = false
-                    )
+        database.hadithDao().insertCollections(
+            listOf(
+                HadithCollectionEntity(
+                    id = collectionId,
+                    titleArabic = titleArabic,
+                    titleEnglish = titleEnglish,
+                    sourceRevision = "",
+                    sourceSha256 = "",
+                    licenseStatus = "reference",
+                    gradeStatus = "not_provided",
+                    recordCount = records.size,
+                    chapterCount = chapterEntities.size,
+                    isComplete = records.size == hadiths.length(),
+                    bundleAllowed = false
                 )
             )
-            database.hadithDao().insertChapters(chapterEntities)
-            records.chunked(BATCH_SIZE).forEach { database.hadithDao().insertHadiths(it) }
-        }
+        )
+        database.hadithDao().insertChapters(chapterEntities)
+        records.chunked(BATCH_SIZE).forEach { database.hadithDao().insertHadiths(it) }
         HadithImportSummary(collectionId, titleEnglish, records.size)
     }
 
@@ -75,6 +72,7 @@ class HadithReferenceImporter(
             val english = record.optJSONObject("english")
             val narrator = english?.optString("narrator").orEmpty()
             val translation = english?.optString("text").orEmpty()
+            val translationId = indonesianTranslation(record)
             if (id <= 0L || hadithNumber <= 0 || arabic.isBlank()) continue
             add(
                 HadithEntity(
@@ -83,7 +81,7 @@ class HadithReferenceImporter(
                     hadithNumber = hadithNumber,
                     title = title,
                     textArabic = arabic,
-                    translationId = "",
+                    translationId = translationId,
                     translationEn = listOf(narrator, translation)
                         .filter(String::isNotBlank)
                         .joinToString("\n"),
@@ -94,11 +92,19 @@ class HadithReferenceImporter(
                     licenseStatus = "reference",
                     grade = null,
                     language = "en",
-                    isComplete = translation.isNotBlank()
+                    isComplete = translation.isNotBlank() || translationId.isNotBlank()
                 )
             )
         }
     }
+
+    private fun indonesianTranslation(record: JSONObject): String = listOf(
+        record.optString("translation_id"),
+        record.optString("translationId"),
+        record.optString("indonesian"),
+        record.optString("indonesia"),
+        record.optString("terjemahan")
+    ).firstOrNull(String::isNotBlank).orEmpty()
 
     private fun collectionId(uri: Uri, document: JSONObject): String {
         val name = context.contentResolver.query(

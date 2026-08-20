@@ -69,6 +69,14 @@ class MainNavigationSmokeTest {
         composeRule.onNodeWithText("Hadist").performClick()
 
         waitForText("Hadist")
+        waitForText("Kutubus Sittah")
+        waitForText("Sahih al-Bukhari")
+        composeRule.onNodeWithText("Sahih al-Bukhari").performClick()
+        waitForText("Terjemahan Indonesia")
+        composeRule.onNodeWithText("Semua koleksi").performClick()
+        composeRule.onNodeWithTag("hadith_collection_catalog")
+            .performScrollToNode(hasText("Hadis Lainnya"))
+        waitForText("Hadis Lainnya")
     }
 
     @Test

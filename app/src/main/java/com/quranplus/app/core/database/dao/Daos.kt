@@ -180,16 +180,24 @@ interface HadithDao {
     @Query("SELECT COUNT(*) FROM hadiths")
     suspend fun countHadiths(): Int
 
+    @Query("SELECT COUNT(*) FROM hadiths WHERE length(trim(translation_id)) > 0")
+    suspend fun countHadithsWithIndonesianTranslation(): Int
+
     @Query("SELECT collection_id FROM hadiths GROUP BY collection_id ORDER BY collection_id ASC")
     fun getCollectionIds(): Flow<List<String>>
 
     @Query(
         "SELECT * FROM hadiths " +
             "WHERE (:collectionId IS NULL OR collection_id = :collectionId) AND " +
-            "(text_arabic LIKE '%' || :query || '%' OR translation_en LIKE '%' || :query || '%') " +
+            "(text_arabic LIKE '%' || :query || '%' OR " +
+            "translation_id LIKE '%' || :query || '%' OR " +
+            "translation_en LIKE '%' || :query || '%') " +
             "ORDER BY hadith_number ASC LIMIT :limit"
     )
     suspend fun search(collectionId: String?, query: String, limit: Int = 100): List<HadithEntity>
+
+    @Query("UPDATE hadiths SET translation_id = :translation WHERE id = :id")
+    suspend fun updateIndonesianTranslation(id: Long, translation: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHadiths(hadiths: List<HadithEntity>)

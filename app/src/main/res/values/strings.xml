@@ -1,3 +1,19 @@
 <resources>
     <string name="app_name">Quran Plus</string>
+    <string name="hadith_title">Hadist</string>
+    <string name="hadith_subtitle">Arab + terjemahan Indonesia</string>
+    <string name="hadith_search_label">Cari hadist</string>
+    <string name="hadith_collection_list_title">Koleksi hadist</string>
+    <string name="hadith_section_kutubus_sittah">Kutubus Sittah</string>
+    <string name="hadith_section_other">Hadis Lainnya</string>
+    <string name="hadith_collection_count">%1$d hadist</string>
+    <string name="hadith_collection_unavailable">Konten offline belum tersedia</string>
+    <string name="hadith_show_collections">Semua koleksi</string>
+    <string name="hadith_no_records">Isi koleksi belum tersedia secara offline</string>
+    <string name="hadith_no_search_results">Tidak ada hadist yang cocok</string>
+    <string name="hadith_catalog_empty">Belum ada katalog hadist yang dimuat.</string>
+    <string name="hadith_record_heading">%1$s · No. %2$d</string>
+    <string name="hadith_translation_indonesian">Terjemahan Indonesia</string>
+    <string name="hadith_translation_indonesian_unavailable">Terjemahan Indonesia belum tersedia pada sumber ini</string>
+    <string name="hadith_translation_english">Terjemahan English (sumber)</string>
 </resources>

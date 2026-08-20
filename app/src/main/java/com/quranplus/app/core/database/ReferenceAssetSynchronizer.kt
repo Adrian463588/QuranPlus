@@ -122,40 +122,64 @@ class ReferenceAssetSynchronizer(
 
     private suspend fun synchronizeHadithContent(source: SQLiteDatabase) {
         val sourceCount = source.queryCount("hadiths")
-        if (sourceCount == 0 || database.hadithDao().countHadiths() >= sourceCount) return
-
-        database.withTransaction {
-            synchronizeHadithChapters(source)
-            val batch = ArrayList<HadithEntity>(BATCH_SIZE)
-            source.rawQuery(
-                "SELECT id, collection_id, hadith_number, title, text_arabic, " +
-                    "translation_id, translation_en, reference " +
-                    "FROM hadiths ORDER BY id ASC",
-                null
-            ).use { cursor ->
-                while (cursor.moveToNext()) {
-                    val translation = cursor.getString(6)
-                    batch += HadithEntity(
-                        id = cursor.getLong(0),
-                        collectionId = cursor.getString(1),
-                        hadithNumber = cursor.getInt(2),
-                        title = cursor.getString(3),
-                        textArabic = cursor.getString(4),
-                        translationId = cursor.getString(5),
-                        translationEn = translation,
-                        reference = cursor.getString(7),
-                        sourceRevision = hadithSourceRevision,
-                        licenseStatus = "reference",
-                        language = "en",
-                        isComplete = translation.isNotBlank()
-                    )
-                    if (batch.size == BATCH_SIZE) {
-                        database.hadithDao().insertHadiths(batch)
-                        batch.clear()
+        if (sourceCount > 0 && database.hadithDao().countHadiths() < sourceCount) {
+            database.withTransaction {
+                synchronizeHadithChapters(source)
+                val batch = ArrayList<HadithEntity>(BATCH_SIZE)
+                source.rawQuery(
+                    "SELECT id, collection_id, hadith_number, title, text_arabic, " +
+                        "translation_id, translation_en, reference " +
+                        "FROM hadiths ORDER BY id ASC",
+                    null
+                ).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val translation = cursor.getString(6)
+                        batch += HadithEntity(
+                            id = cursor.getLong(0),
+                            collectionId = cursor.getString(1),
+                            hadithNumber = cursor.getInt(2),
+                            title = cursor.getString(3),
+                            textArabic = cursor.getString(4),
+                            translationId = cursor.getString(5),
+                            translationEn = translation,
+                            reference = cursor.getString(7),
+                            sourceRevision = hadithSourceRevision,
+                            licenseStatus = "reference",
+                            language = "en",
+                            isComplete = translation.isNotBlank()
+                        )
+                        if (batch.size == BATCH_SIZE) {
+                            database.hadithDao().insertHadiths(batch)
+                            batch.clear()
+                        }
                     }
                 }
+                if (batch.isNotEmpty()) database.hadithDao().insertHadiths(batch)
             }
-            if (batch.isNotEmpty()) database.hadithDao().insertHadiths(batch)
+        }
+        synchronizeHadithTranslations(source)
+    }
+
+    private suspend fun synchronizeHadithTranslations(source: SQLiteDatabase) {
+        val sourceTranslationCount = source.rawQuery(
+            "SELECT COUNT(*) FROM hadiths WHERE length(trim(translation_id)) > 0",
+            null
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) else 0 }
+        if (sourceTranslationCount == 0 ||
+            database.hadithDao().countHadithsWithIndonesianTranslation() >= sourceTranslationCount
+        ) return
+
+        source.rawQuery(
+            "SELECT id, translation_id FROM hadiths " +
+                "WHERE length(trim(translation_id)) > 0",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                database.hadithDao().updateIndonesianTranslation(
+                    id = cursor.getLong(0),
+                    translation = cursor.getString(1)
+                )
+            }
         }
     }
 
