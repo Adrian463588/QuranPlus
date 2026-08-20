@@ -135,6 +135,12 @@ interface LastReadDao {
 
 @Dao
 interface TahsinDao {
+    @Query("SELECT COUNT(*) FROM tahsin_lessons")
+    suspend fun countLessons(): Int
+
+    @Query("SELECT id FROM tahsin_lessons WHERE is_completed = 1")
+    suspend fun getCompletedLessonIds(): List<Int>
+
     @Query("SELECT * FROM tahsin_lessons ORDER BY order_index ASC")
     fun getAllLessons(): Flow<List<TahsinLessonEntity>>
 
@@ -226,6 +232,12 @@ interface ChatDao {
 interface QuizDao {
     @Query("SELECT * FROM quiz_questions ORDER BY id ASC")
     fun getQuestions(): Flow<List<QuizQuestionEntity>>
+
+    @Query("SELECT COUNT(*) FROM quiz_questions")
+    suspend fun countQuestions(): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertQuestions(questions: List<QuizQuestionEntity>)
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAttempt(attempt: QuizAttemptEntity)

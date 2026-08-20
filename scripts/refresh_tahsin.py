@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DATABASE = ROOT / "app/src/main/assets/databases/quranplus.db"
 SEED = ROOT / "app/src/main/assets/seeds/tahsin_seed.json"
+QUIZ_SEED = ROOT / "data/tahsin-quiz.json"
 
 # A lesson can point to more than one ayah when the example is a short range.
 EXAMPLES: dict[int, tuple[int, int, int]] = {
@@ -123,6 +124,57 @@ def resolve_examples(connection: sqlite3.Connection) -> dict[int, tuple[str, str
     return resolved
 
 
+def publish_quiz_questions(connection: sqlite3.Connection) -> int:
+    questions = json.loads(QUIZ_SEED.read_text(encoding="utf-8"))
+    question_ids = [question["id"] for question in questions]
+    if len(question_ids) != len(set(question_ids)):
+        raise ValueError("Quiz question ids must be unique")
+
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS quiz_questions (
+            id INTEGER NOT NULL PRIMARY KEY,
+            prompt TEXT NOT NULL,
+            arabic_snippet TEXT NOT NULL,
+            reference TEXT NOT NULL,
+            options_json TEXT NOT NULL,
+            correct_index INTEGER NOT NULL,
+            explanation TEXT NOT NULL,
+            source_id TEXT NOT NULL,
+            source_revision TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute("DELETE FROM quiz_questions")
+    for question in questions:
+        options = question["options"]
+        correct_index = question["correct_index"]
+        if len(options) < 2 or correct_index not in range(len(options)):
+            raise ValueError(f"Invalid quiz options for question {question['id']}")
+        if any(not str(question[field]).strip() for field in ("prompt", "arabic_snippet", "reference", "explanation")):
+            raise ValueError(f"Quiz question {question['id']} has an empty required field")
+        connection.execute(
+            """
+            INSERT INTO quiz_questions(
+                id, prompt, arabic_snippet, reference, options_json,
+                correct_index, explanation, source_id, source_revision
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                question["id"],
+                question["prompt"],
+                question["arabic_snippet"],
+                question["reference"],
+                json.dumps(options, ensure_ascii=False),
+                correct_index,
+                question["explanation"],
+                question["source_id"],
+                question["source_revision"],
+            ),
+        )
+    return len(questions)
+
+
 def main() -> None:
     lessons = runpy.run_path(str(ROOT / "scripts/tahsin_data.py"))["TAHSIN_LESSONS"]
     if len(lessons) != len(EXAMPLES):
@@ -142,9 +194,15 @@ def main() -> None:
                 "example_ayah_ref = ?, audio_sample = ? WHERE id = ?",
                 (example_text, example_ref, None, lesson["id"]),
             )
+        quiz_count = publish_quiz_questions(connection)
 
     SEED.write_text(json.dumps(lessons, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"lessons": len(lessons), "examples_resolved": len(resolved), "audio": "unavailable"}))
+    print(json.dumps({
+        "lessons": len(lessons),
+        "examples_resolved": len(resolved),
+        "quiz_questions": quiz_count,
+        "audio": "unavailable",
+    }))
 
 
 if __name__ == "__main__":

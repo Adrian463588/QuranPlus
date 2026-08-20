@@ -44,7 +44,7 @@ class QuranDatabaseInstrumentedTest {
         assertEquals(114, surahs.size)
         assertFalse(ayahs.isEmpty())
         assertTrue(searchResults.isNotEmpty())
-        assertEquals(0, database.hadithDao().getAllHadiths().size)
+        assertTrue(database.hadithDao().getAllHadiths().isNotEmpty())
         assertEquals(77429, database.wordByWordDao().count())
         assertEquals(77429, database.wordByWordDao().countWithTransliteration())
         assertEquals(16, database.wordByWordDao().getWordsByAyah(10, 20).size)
@@ -58,6 +58,8 @@ class QuranDatabaseInstrumentedTest {
                 .all { it.translationId.isNotBlank() }
         )
         assertEquals(17, database.hadithDao().getCollections().first().size)
+        assertEquals(54, database.tahsinDao().countLessons())
+        assertEquals(12, database.quizDao().getQuestions().first().size)
         assertEquals(0, database.knowledgeChunkDao().getChunksCount())
     }
 

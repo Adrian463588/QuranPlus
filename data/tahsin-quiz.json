@@ -1,0 +1,194 @@
+[
+  {
+    "id": 1,
+    "prompt": "Huruf qalqalah yang diringkas dengan قطب جد adalah ...",
+    "arabic_snippet": "لَمْ يَلِدْ وَلَمْ يُولَدْ",
+    "reference": "QS. Al-Ikhlas: 3",
+    "options": [
+      "ق، ط، ب، ج، د",
+      "ء، ه، ع، ح، غ، خ",
+      "ي، ن، م، و",
+      "ص، ز، س"
+    ],
+    "correct_index": 0,
+    "explanation": "Huruf qalqalah adalah ق، ط، ب، ج، د. Pantulan terdengar ketika huruf tersebut bersukun.",
+    "source_id": "https://resources.safarpublications.org/2016/11/24/simplified-makhaarij-tajweed-rules/",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 2,
+    "prompt": "Ghunnah pada نّ dan مّ beresonansi dari ...",
+    "arabic_snippet": "مِنَ ٱلْجِنَّةِ وَٱلنَّاسِ",
+    "reference": "QS. An-Nas: 6",
+    "options": [
+      "Rongga hidung (al-khaisyum)",
+      "Ujung lidah",
+      "Dua bibir",
+      "Pangkal tenggorokan"
+    ],
+    "correct_index": 0,
+    "explanation": "Ghunnah adalah dengung yang sumber resonansinya berada di rongga hidung (al-khaisyum).",
+    "source_id": "https://dua.org.za/content/tajweed-beginners-1",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 3,
+    "prompt": "Pada فَمَن يَعْمَلْ, nun sukun bertemu ي. Hukumnya adalah ...",
+    "arabic_snippet": "فَمَن يَعْمَلْ مِثْقَالَ ذَرَّةٍ خَيْرًۭا يَرَهُۥ",
+    "reference": "QS. Az-Zalzalah: 7",
+    "options": [
+      "Idgham bighunnah",
+      "Izhar halqi",
+      "Iqlab",
+      "Ikhfa syafawi"
+    ],
+    "correct_index": 0,
+    "explanation": "Nun sukun atau tanwin bertemu salah satu huruf ي ن م و dibaca idgham bighunnah.",
+    "source_id": "https://resources.safarpublications.org/2016/11/24/simplified-makhaarij-tajweed-rules/",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 4,
+    "prompt": "Pada لَيُنۢبَذَنَّ, nun sukun bertemu ب. Hukumnya adalah ...",
+    "arabic_snippet": "كَلَّا ۖ لَيُنۢبَذَنَّ فِى ٱلْحُطَمَةِ",
+    "reference": "QS. Al-Humazah: 4",
+    "options": [
+      "Iqlab",
+      "Idgham bilaghunnah",
+      "Izhar syafawi",
+      "Mad wajib muttashil"
+    ],
+    "correct_index": 0,
+    "explanation": "Nun sukun atau tanwin sebelum ب berubah menjadi bunyi mim samar disertai dengung; ini disebut iqlab.",
+    "source_id": "https://dua.org.za/content/tajweed-beginners-1",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 5,
+    "prompt": "Nun sukun atau tanwin yang bertemu huruf tenggorokan dibaca ...",
+    "arabic_snippet": "صِرَٰطَ ٱلَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ ٱلْمَغْضُوبِ عَلَيْهِمْ",
+    "reference": "QS. Al-Fatihah: 7",
+    "options": [
+      "Izhar halqi",
+      "Iqlab",
+      "Idgham mimi",
+      "Ikhfa syafawi"
+    ],
+    "correct_index": 0,
+    "explanation": "Izhar halqi berlaku ketika nun sukun atau tanwin bertemu salah satu huruf ء ه ع ح غ خ, sehingga dibaca jelas tanpa dengung tambahan.",
+    "source_id": "https://resources.safarpublications.org/2016/11/24/simplified-makhaarij-tajweed-rules/",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 6,
+    "prompt": "Mim sukun yang bertemu ب pada تَرْمِيهِم بِحِجَارَةٍۢ dibaca dengan hukum ...",
+    "arabic_snippet": "تَرْمِيهِم بِحِجَارَةٍۢ مِّن سِجِّيلٍۢ",
+    "reference": "QS. Al-Fil: 4",
+    "options": [
+      "Ikhfa syafawi",
+      "Izhar halqi",
+      "Idgham bighunnah",
+      "Mad lazim"
+    ],
+    "correct_index": 0,
+    "explanation": "Mim sukun bertemu ب dibaca samar di antara jelas dan lebur dengan dengung; ini disebut ikhfa syafawi.",
+    "source_id": "https://dua.org.za/content/tajweed-beginners-1",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 7,
+    "prompt": "Mim sukun yang bertemu mim pada هُم مِّنْ dibaca dengan hukum ...",
+    "arabic_snippet": "ٱلَّذِىٓ أَطْعَمَهُم مِّن جُوعٍۢ وَءَامَنَهُم مِّنْ خَوْفٍۭ",
+    "reference": "QS. Quraisy: 4",
+    "options": [
+      "Idgham mimi",
+      "Izhar syafawi",
+      "Iqlab",
+      "Idgham bilaghunnah"
+    ],
+    "correct_index": 0,
+    "explanation": "Mim sukun bertemu mim berikutnya melebur menjadi satu mim bertasydid dan dibaca dengan dengung.",
+    "source_id": "https://resources.safarpublications.org/2016/11/24/simplified-makhaarij-tajweed-rules/",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 8,
+    "prompt": "Pada ٱلْحَمْدُ, lam pada alif lam dibaca ...",
+    "arabic_snippet": "ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَٰلَمِينَ",
+    "reference": "QS. Al-Fatihah: 2",
+    "options": [
+      "Jelas (alif lam qamariyah)",
+      "Melebur ke huruf sesudahnya (alif lam syamsiyah)",
+      "Samar dengan dengung",
+      "Berubah menjadi mim"
+    ],
+    "correct_index": 0,
+    "explanation": "Lam qamariyah dibaca jelas. Contohnya lam pada ٱلْحَمْدُ tetap terdengar sebelum ح.",
+    "source_id": "https://resources.safarpublications.org/2016/11/24/simplified-makhaarij-tajweed-rules/",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 9,
+    "prompt": "Pada ٱلرَّحْمَٰنِ, lam pada alif lam dibaca dengan ...",
+    "arabic_snippet": "ٱلرَّحْمَٰنِ ٱلرَّحِيمِ",
+    "reference": "QS. Al-Fatihah: 3",
+    "options": [
+      "Idgham syamsiyah",
+      "Izhar qamariyah",
+      "Iqlab",
+      "Qalqalah"
+    ],
+    "correct_index": 0,
+    "explanation": "Pada lam syamsiyah, lam tidak dibaca terpisah dan huruf sesudahnya dibaca bertasydid.",
+    "source_id": "https://resources.safarpublications.org/2016/11/24/simplified-makhaarij-tajweed-rules/",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 10,
+    "prompt": "Panjang bacaan mad thabi'i adalah ...",
+    "arabic_snippet": "قَالُوٓا۟ ءَامَنَّا بِرَبِّ ٱلْعَٰلَمِينَ",
+    "reference": "QS. Al-A'raf: 121",
+    "options": [
+      "2 harakat",
+      "1 harakat",
+      "4–5 harakat",
+      "6 harakat"
+    ],
+    "correct_index": 0,
+    "explanation": "Mad thabi'i atau mad asli dibaca sepanjang 2 harakat ketika sebab tambahannya tidak ada.",
+    "source_id": "https://dua.org.za/content/tajweed-beginners-1",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 11,
+    "prompt": "Tanda waqaf م pada mushaf menunjukkan ...",
+    "arabic_snippet": "ذَٰلِكَ ٱلْكِتَٰبُ لَا رَيْبَ ۛ فِيهِ ۛ هُدًۭى لِّلْمُتَّقِينَ",
+    "reference": "QS. Al-Baqarah: 2",
+    "options": [
+      "Waqaf lazim: berhenti",
+      "Tidak boleh berhenti",
+      "Boleh memilih berhenti atau lanjut tanpa perbedaan",
+      "Lebih baik meneruskan"
+    ],
+    "correct_index": 0,
+    "explanation": "Dalam ringkasan tanda waqaf mushaf, م adalah waqaf lazim. Tanda ini membantu pembaca berhenti pada tempat yang menjaga makna.",
+    "source_id": "https://lajnah.kemenag.go.id/info-lpmq/berita-dan-artikel/artikel/mushaf-al-qur-an-standar-usmani.html",
+    "source_revision": "online-reference"
+  },
+  {
+    "id": 12,
+    "prompt": "Dua tanda ۛ ۛ pada satu rangkaian ayat disebut mu'anaqah. Cara berhentinya adalah ...",
+    "arabic_snippet": "ذَٰلِكَ ٱلْكِتَٰبُ لَا رَيْبَ ۛ فِيهِ ۛ هُدًۭى لِّلْمُتَّقِينَ",
+    "reference": "QS. Al-Baqarah: 2",
+    "options": [
+      "Berhenti pada salah satu pasangan, bukan keduanya",
+      "Berhenti pada kedua tanda",
+      "Selalu meneruskan tanpa boleh berhenti",
+      "Mengubah tanda menjadi mad"
+    ],
+    "correct_index": 0,
+    "explanation": "Mu'anaqah adalah tanda berpasangan: jika berhenti pada salah satu tanda, jangan berhenti pada tanda pasangannya.",
+    "source_id": "https://lajnah.kemenag.go.id/info-lpmq/berita-dan-artikel/artikel/mushaf-al-qur-an-standar-usmani.html",
+    "source_revision": "online-reference"
+  }
+]

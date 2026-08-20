@@ -6,6 +6,8 @@ import androidx.room.withTransaction
 import com.quranplus.app.core.database.entity.HadithChapterEntity
 import com.quranplus.app.core.database.entity.HadithCollectionEntity
 import com.quranplus.app.core.database.entity.HadithEntity
+import com.quranplus.app.core.database.entity.QuizQuestionEntity
+import com.quranplus.app.core.database.entity.TahsinLessonEntity
 import com.quranplus.app.core.database.entity.WordByWordEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -35,6 +37,8 @@ class ReferenceAssetSynchronizer(
                 synchronizeWordByWord(source)
                 synchronizeHadithCollections(source)
                 synchronizeHadithContent(source)
+                synchronizeTahsin(source)
+                synchronizeQuiz(source)
             }
         } finally {
             temporaryAsset.delete()
@@ -179,6 +183,71 @@ class ReferenceAssetSynchronizer(
         if (chapterBatch.isNotEmpty()) database.hadithDao().insertChapters(chapterBatch)
     }
 
+    private suspend fun synchronizeTahsin(source: SQLiteDatabase) {
+        if (!source.hasTable("tahsin_lessons")) return
+        val sourceCount = source.queryCount("tahsin_lessons")
+        if (sourceCount == 0 || database.tahsinDao().countLessons() >= sourceCount) return
+
+        val completedIds = database.tahsinDao().getCompletedLessonIds().toSet()
+        val lessons = ArrayList<TahsinLessonEntity>(sourceCount)
+        source.rawQuery(
+            "SELECT id, category, subcategory, title, letter_arabic, letter_latin, " +
+                "description, articulation_point, audio_sample, example_ayah_text, " +
+                "example_ayah_ref, rule_type, order_index FROM tahsin_lessons " +
+                "ORDER BY order_index ASC",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val id = cursor.getInt(0)
+                lessons += TahsinLessonEntity(
+                    id = id,
+                    category = cursor.getString(1),
+                    subcategory = cursor.getString(2),
+                    title = cursor.getString(3),
+                    letterArabic = cursor.getString(4),
+                    letterLatin = cursor.getString(5),
+                    description = cursor.getString(6),
+                    articulationPoint = cursor.getString(7),
+                    audioSample = cursor.getStringOrNull(8),
+                    exampleAyahText = cursor.getString(9),
+                    exampleAyahRef = cursor.getString(10),
+                    ruleType = cursor.getString(11),
+                    orderIndex = cursor.getInt(12),
+                    isCompleted = id in completedIds
+                )
+            }
+        }
+        database.tahsinDao().insertLessons(lessons)
+    }
+
+    private suspend fun synchronizeQuiz(source: SQLiteDatabase) {
+        if (!source.hasTable("quiz_questions")) return
+        val sourceCount = source.queryCount("quiz_questions")
+        if (sourceCount == 0 || database.quizDao().countQuestions() >= sourceCount) return
+
+        val questions = ArrayList<QuizQuestionEntity>(sourceCount)
+        source.rawQuery(
+            "SELECT id, prompt, arabic_snippet, reference, options_json, correct_index, " +
+                "explanation, source_id, source_revision FROM quiz_questions ORDER BY id ASC",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                questions += QuizQuestionEntity(
+                    id = cursor.getInt(0),
+                    prompt = cursor.getString(1),
+                    arabicSnippet = cursor.getString(2),
+                    reference = cursor.getString(3),
+                    optionsJson = cursor.getString(4),
+                    correctIndex = cursor.getInt(5),
+                    explanation = cursor.getString(6),
+                    sourceId = cursor.getString(7),
+                    sourceRevision = cursor.getString(8)
+                )
+            }
+        }
+        database.quizDao().insertQuestions(questions)
+    }
+
     private fun copyAssetToCache(): File {
         val target = File.createTempFile("quranplus-reference-", ".db", context.cacheDir)
         context.assets.open("databases/quranplus.db").use { input ->
@@ -198,6 +267,18 @@ class ReferenceAssetSynchronizer(
             return if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getString(0) else null
         }
     }
+
+    private fun SQLiteDatabase.hasTable(table: String): Boolean {
+        rawQuery(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+            arrayOf(table)
+        ).use { cursor ->
+            return cursor.moveToFirst()
+        }
+    }
+
+    private fun android.database.Cursor.getStringOrNull(index: Int): String? =
+        if (isNull(index)) null else getString(index)
 
     private companion object {
         const val BATCH_SIZE = 500
