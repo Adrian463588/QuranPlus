@@ -316,29 +316,6 @@ fun QuranReaderScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Mode Banner
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.md, vertical = Spacing.xs),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = if (isWordByWordMode) {
-                            "Kata Per Kata  •  ${wordTranslationMode.label}  •  Transliterasi"
-                        } else {
-                            "Terjemahan: ${wordTranslationMode.label}  •  Baris Ayat"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
-
             // Font Scale Quick Control Bar
             AnimatedVisibility(visible = showFontSlider) {
                 Surface(
