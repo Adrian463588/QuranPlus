@@ -3,9 +3,9 @@
   "build_variant": "debug",
   "current_apk": {
     "path": "app/build/outputs/apk/debug/app-debug.apk",
-    "source_commit_sha": "e5c6b3bfe8d835ceccba9cf9bb2689b73f36c8fe",
-    "sha256": "D3C5788E34200BB9D5533A1D5236A43CC7E3FE7BB2B1910422FAFBA623ECD370",
-    "size_bytes": 245456465
+    "source_commit_sha": "48e63265701bd4624b545b715134da624f5258a1",
+    "sha256": "E9917CBCA860A4A4B86A80D2ADD6A000C0C625A3EE9307AA210F325D4A1FC3C0",
+    "size_bytes": 260920587
   },
   "capture_command": "adb -s <serial> exec-out screencap -p",
   "screens": [
@@ -62,8 +62,8 @@
       "density": "560 override",
       "font_scale": 1.0,
       "orientation": "portrait",
-      "captured_at": "2026-08-20T04:08:00+07:00",
-      "sha256": "1D6B478BFA7711B9F96FC85B60DA63113E659DEACA44C21EECE44A23A48BC83C"
+      "captured_at": "2026-08-20T11:10:06+07:00",
+      "sha256": "E3AD573AF501F65B06545EFB3CA5F4AB90EECE2D9511E5E66AB4F1165DB739DB"
     },
     {
       "path": "art/device-sm-g988b-current-ai.png",
@@ -80,7 +80,7 @@
       "sha256": "8C4A6675ECE9DB5CFCF7BE4DE52AEA19AD7AC32921381CB8E66990B0C963E53A"
     }
   ],
-  "acceptance_scope": "Debug APK install/launch and 17/17 instrumentation tests on RRCN3008VYE (Samsung SM-G988B, API 33); current portrait Quran home, reader Tajwid/Waqaf, word-by-word, Hadist gate, ModelGate, sqlite-vec self-test/round-trip, and five-slot navigation.",
+  "acceptance_scope": "Debug APK install/launch and 19/19 instrumentation tests on RRCN3008VYE (Samsung SM-G988B, API 33); current portrait Quran home, reader Tajwid/Waqaf, word-by-word, Hadist section/list with Indonesian translation, ModelGate, sqlite-vec self-test/round-trip, and five-slot navigation.",
   "not_proven": [
     "QSWSEMRKNFZ9LJRC was not connected for this acceptance run",
     "Landscape, font scale 200 percent, TalkBack, and IME journeys in this current capture",
