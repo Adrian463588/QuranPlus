@@ -171,6 +171,9 @@ interface HadithDao {
     @Query("SELECT * FROM hadiths ORDER BY collection_id ASC, hadith_number ASC")
     suspend fun getAllHadiths(): List<HadithEntity>
 
+    @Query("SELECT COUNT(*) FROM hadiths")
+    suspend fun countHadiths(): Int
+
     @Query("SELECT collection_id FROM hadiths GROUP BY collection_id ORDER BY collection_id ASC")
     fun getCollectionIds(): Flow<List<String>>
 

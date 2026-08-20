@@ -78,7 +78,7 @@ fun HadithScreen(viewModel: HadithViewModel) {
                     items(current.records, key = { it.id }) { record ->
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Text(
-                                text = "${record.collectionId} · No. ${record.hadithNumber}",
+                                text = "${record.title} · No. ${record.hadithNumber}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold
@@ -88,11 +88,19 @@ fun HadithScreen(viewModel: HadithViewModel) {
                                 style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Rtl),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            Text(
-                                text = record.translationEn,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            if (record.translationEn.isNotBlank()) {
+                                Text(
+                                    text = record.translationEn,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                Text(
+                                    text = "Terjemahan English tidak tersedia pada sumber ini",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
                             Text(
                                 text = record.reference,
                                 style = MaterialTheme.typography.labelSmall,

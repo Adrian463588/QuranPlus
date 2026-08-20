@@ -2,7 +2,10 @@ package com.quranplus.app.core.database
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import androidx.room.withTransaction
+import com.quranplus.app.core.database.entity.HadithChapterEntity
 import com.quranplus.app.core.database.entity.HadithCollectionEntity
+import com.quranplus.app.core.database.entity.HadithEntity
 import com.quranplus.app.core.database.entity.WordByWordEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,6 +22,7 @@ class ReferenceAssetSynchronizer(
 ) {
     private val wordByWordRevision =
         "quran.com-api:wbw-id:025540d4ba76c5f0e29db120d8997051b6870b6d3f4d3f7264474a8d6ef2769a"
+    private val hadithSourceRevision = "hadith-json-1.3.0"
 
     suspend fun synchronize() = withContext(Dispatchers.IO) {
         val temporaryAsset = copyAssetToCache()
@@ -30,6 +34,7 @@ class ReferenceAssetSynchronizer(
             ).use { source ->
                 synchronizeWordByWord(source)
                 synchronizeHadithCollections(source)
+                synchronizeHadithContent(source)
             }
         } finally {
             temporaryAsset.delete()
@@ -85,9 +90,6 @@ class ReferenceAssetSynchronizer(
         val sourceCount = source.queryCount("hadith_collections")
         if (sourceCount == 0) return
 
-        val targetCount = database.hadithDao().countCollections()
-        if (targetCount >= sourceCount) return
-
         val collections = ArrayList<HadithCollectionEntity>(sourceCount)
         source.rawQuery(
             "SELECT id, title_arabic, title_english, source_revision, source_sha256, " +
@@ -112,6 +114,69 @@ class ReferenceAssetSynchronizer(
             }
         }
         database.hadithDao().insertCollections(collections)
+    }
+
+    private suspend fun synchronizeHadithContent(source: SQLiteDatabase) {
+        val sourceCount = source.queryCount("hadiths")
+        if (sourceCount == 0 || database.hadithDao().countHadiths() >= sourceCount) return
+
+        database.withTransaction {
+            synchronizeHadithChapters(source)
+            val batch = ArrayList<HadithEntity>(BATCH_SIZE)
+            source.rawQuery(
+                "SELECT id, collection_id, hadith_number, title, text_arabic, " +
+                    "translation_id, translation_en, reference " +
+                    "FROM hadiths ORDER BY id ASC",
+                null
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val translation = cursor.getString(6)
+                    batch += HadithEntity(
+                        id = cursor.getLong(0),
+                        collectionId = cursor.getString(1),
+                        hadithNumber = cursor.getInt(2),
+                        title = cursor.getString(3),
+                        textArabic = cursor.getString(4),
+                        translationId = cursor.getString(5),
+                        translationEn = translation,
+                        reference = cursor.getString(7),
+                        sourceRevision = hadithSourceRevision,
+                        licenseStatus = "reference",
+                        language = "en",
+                        isComplete = translation.isNotBlank()
+                    )
+                    if (batch.size == BATCH_SIZE) {
+                        database.hadithDao().insertHadiths(batch)
+                        batch.clear()
+                    }
+                }
+            }
+            if (batch.isNotEmpty()) database.hadithDao().insertHadiths(batch)
+        }
+    }
+
+    private suspend fun synchronizeHadithChapters(source: SQLiteDatabase) {
+        val chapterBatch = ArrayList<HadithChapterEntity>(BATCH_SIZE)
+        source.rawQuery(
+            "SELECT collection_id, chapter_id, chapter_number, title_arabic, title_english " +
+                "FROM hadith_chapters ORDER BY collection_id, chapter_number ASC",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                chapterBatch += HadithChapterEntity(
+                    collectionId = cursor.getString(0),
+                    chapterId = cursor.getString(1),
+                    chapterNumber = cursor.getInt(2),
+                    titleArabic = cursor.getString(3),
+                    titleEnglish = cursor.getString(4)
+                )
+                if (chapterBatch.size == BATCH_SIZE) {
+                    database.hadithDao().insertChapters(chapterBatch)
+                    chapterBatch.clear()
+                }
+            }
+        }
+        if (chapterBatch.isNotEmpty()) database.hadithDao().insertChapters(chapterBatch)
     }
 
     private fun copyAssetToCache(): File {

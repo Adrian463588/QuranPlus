@@ -75,7 +75,7 @@ class HadithReferenceImporter(
             val english = record.optJSONObject("english")
             val narrator = english?.optString("narrator").orEmpty()
             val translation = english?.optString("text").orEmpty()
-            if (id <= 0L || hadithNumber <= 0 || arabic.isBlank() || translation.isBlank()) continue
+            if (id <= 0L || hadithNumber <= 0 || arabic.isBlank()) continue
             add(
                 HadithEntity(
                     id = id,
@@ -94,7 +94,7 @@ class HadithReferenceImporter(
                     licenseStatus = "reference",
                     grade = null,
                     language = "en",
-                    isComplete = true
+                    isComplete = translation.isNotBlank()
                 )
             )
         }
