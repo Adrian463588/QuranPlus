@@ -29,11 +29,29 @@ data class VectorMatch(
 
 data class VectorIndexCoverage(
     val recordCount: Int,
-    val sourceTypes: Set<String>
+    val sourceTypes: Set<String>,
+    val recordCountsBySourceType: Map<String, Int> = emptyMap()
 ) {
     val isPopulated: Boolean
         get() = recordCount > 0
 }
+
+/** Immutable description of the corpus and embedding contract used by an index. */
+data class RagIndexMetadata(
+    val fingerprint: String,
+    val modelId: String,
+    val modelRevision: String,
+    val tokenizerSha256: String,
+    val embeddingDimension: Int,
+    val normalized: Boolean,
+    val pooling: String,
+    val maxSequenceLength: Int,
+    val chunkTokenCount: Int,
+    val chunkOverlapTokens: Int,
+    val corpusRecordCount: Int,
+    val corpusFingerprint: String,
+    val updatedAt: Long
+)
 
 sealed interface IndexCorpusResult {
     data class Indexed(val recordCount: Int) : IndexCorpusResult
@@ -43,6 +61,8 @@ sealed interface IndexCorpusResult {
 interface VectorIndex {
     suspend fun isReady(): Boolean
     suspend fun coverage(): VectorIndexCoverage = VectorIndexCoverage(0, emptySet())
+    suspend fun metadata(): RagIndexMetadata? = null
     suspend fun replace(records: List<VectorRecord>): Int
+    suspend fun replace(records: List<VectorRecord>, metadata: RagIndexMetadata): Int = replace(records)
     suspend fun search(queryEmbedding: FloatArray, k: Int): List<VectorMatch>
 }

@@ -128,9 +128,37 @@ object SurahMapper {
         SurahRef(114, "An-Nas", 6)
     )
 
+    private fun stripPrefix(norm: String): String {
+        return norm
+            .removePrefix("asy")
+            .removePrefix("ash")
+            .removePrefix("al")
+            .removePrefix("an")
+            .removePrefix("as")
+            .removePrefix("at")
+            .removePrefix("az")
+            .removePrefix("ar")
+            .removePrefix("ad")
+    }
+
     private fun normalize(str: String): String {
         return str.lowercase()
             .replace(Regex("""[^a-z0-9]"""), "")
+    }
+
+    private fun fuzzyNormalize(str: String): String {
+        return normalize(str)
+            .replace("dh", "d")
+            .replace("th", "t")
+            .replace("zh", "z")
+            .replace("sh", "s")
+            .replace("kh", "k")
+            .replace("gh", "g")
+            .replace("aa", "a")
+            .replace("ii", "i")
+            .replace("uu", "u")
+            .replace("ee", "e")
+            .replace("oo", "o")
     }
 
     fun getSurah(number: Int): SurahRef? {
@@ -144,15 +172,75 @@ object SurahMapper {
         // Exact normalized match
         SURAHS.find { normalize(it.latinName) == norm }?.let { return it }
 
-        // Match without "al" or "an" prefix
-        val normWithoutPrefix = norm.removePrefix("al").removePrefix("an").removePrefix("as").removePrefix("at").removePrefix("az").removePrefix("ar")
+        // Match without prefixes
+        val normWithoutPrefix = stripPrefix(norm)
         SURAHS.find {
-            val surahNorm = normalize(it.latinName).removePrefix("al").removePrefix("an").removePrefix("as").removePrefix("at").removePrefix("az").removePrefix("ar")
+            val surahNorm = stripPrefix(normalize(it.latinName))
             surahNorm == normWithoutPrefix
         }?.let { return it }
 
+        // Fuzzy match
+        val fuzzy = fuzzyNormalize(query)
+        val fuzzyNoPrefix = stripPrefix(fuzzy)
+        SURAHS.find {
+            val f = fuzzyNormalize(it.latinName)
+            f == fuzzy || stripPrefix(f) == fuzzyNoPrefix
+        }?.let { return it }
+
         // Partial match
-        return SURAHS.find { normalize(it.latinName).contains(norm) || norm.contains(normalize(it.latinName)) }
+        return SURAHS.find {
+            val l = normalize(it.latinName)
+            l.contains(norm) || norm.contains(l) || fuzzyNormalize(it.latinName).contains(fuzzy)
+        }
+    }
+
+    fun matchesSurah(
+        query: String,
+        surahNumber: Int,
+        nameLatin: String,
+        nameArabic: String = "",
+        nameEnglish: String = ""
+    ): Boolean {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return false
+
+        // Match by number
+        val num = trimmed.toIntOrNull()
+        if (num != null && num == surahNumber) return true
+
+        val canonicalLatin = getSurah(surahNumber)?.latinName.orEmpty()
+        val candidateNames = listOf(nameLatin, canonicalLatin).filter { it.isNotBlank() }.distinct()
+
+        val normQuery = normalize(trimmed)
+        if (normQuery.isEmpty()) {
+            return nameArabic.contains(trimmed)
+        }
+        val queryNoPrefix = stripPrefix(normQuery)
+
+        val fuzzyQuery = fuzzyNormalize(trimmed)
+        val fuzzyQueryNoPrefix = stripPrefix(fuzzyQuery)
+
+        for (name in candidateNames) {
+            val normName = normalize(name)
+            if (normName == normQuery) return true
+            val nameNoPrefix = stripPrefix(normName)
+            if (nameNoPrefix.isNotEmpty() && nameNoPrefix == queryNoPrefix) return true
+            if (normName.contains(normQuery) || normQuery.contains(normName)) return true
+            if (queryNoPrefix.isNotEmpty() && (nameNoPrefix.contains(queryNoPrefix) || queryNoPrefix.contains(nameNoPrefix))) return true
+
+            // Fuzzy transliteration matching (e.g. Ad-Dhuhaa vs Ad-Duha)
+            val fuzzyName = fuzzyNormalize(name)
+            if (fuzzyName == fuzzyQuery) return true
+            val fuzzyNameNoPrefix = stripPrefix(fuzzyName)
+            if (fuzzyNameNoPrefix.isNotEmpty() && fuzzyNameNoPrefix == fuzzyQueryNoPrefix) return true
+            if (fuzzyName.contains(fuzzyQuery) || fuzzyQuery.contains(fuzzyName)) return true
+            if (fuzzyQueryNoPrefix.isNotEmpty() && (fuzzyNameNoPrefix.contains(fuzzyQueryNoPrefix) || fuzzyQueryNoPrefix.contains(fuzzyNameNoPrefix))) return true
+        }
+
+        if (nameArabic.isNotEmpty() && nameArabic.contains(trimmed)) return true
+        if (nameEnglish.isNotEmpty() && nameEnglish.contains(trimmed, ignoreCase = true)) return true
+
+        return false
     }
 
     /**

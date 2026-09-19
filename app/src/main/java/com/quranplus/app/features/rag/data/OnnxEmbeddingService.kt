@@ -6,7 +6,12 @@ import ai.onnxruntime.OrtSession
 import android.content.Context
 import com.quranplus.app.features.chatbot.data.ModelAssetRole
 import com.quranplus.app.features.chatbot.data.ModelRepository
+import com.quranplus.app.features.rag.domain.RagIndexMetadata
+import com.quranplus.app.features.settings.data.PreferencesManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.security.MessageDigest
@@ -14,9 +19,32 @@ import java.util.concurrent.ConcurrentHashMap
 
 class EmbeddingModelUnavailable(message: String) : IllegalStateException(message)
 
+data class EmbeddingContract(
+    val modelId: String,
+    val modelRevision: String,
+    val tokenizerSha256: String,
+    val dimension: Int,
+    val normalized: Boolean,
+    val pooling: String,
+    val maxSequenceLength: Int
+)
+
 interface EmbeddingService {
     suspend fun embed(text: String): FloatArray
     suspend fun isReady(): Boolean = false
+
+    suspend fun embeddingContract(): EmbeddingContract = EmbeddingContract(
+        modelId = "unknown",
+        modelRevision = "unknown",
+        tokenizerSha256 = "unknown",
+        dimension = 384,
+        normalized = true,
+        pooling = "mean",
+        maxSequenceLength = 512
+    )
+
+    /** Number of content WordPiece tokens using the same tokenizer as embed(). */
+    fun countContentTokens(text: String): Int = text.split(Regex("\\s+")).count(String::isNotBlank)
 }
 
 /**
@@ -25,18 +53,24 @@ interface EmbeddingService {
  */
 class OnnxEmbeddingService(
     private val context: Context,
-    private val modelRepository: ModelRepository
+    private val modelRepository: ModelRepository,
+    private val preferencesManager: PreferencesManager? = null
 ) : EmbeddingService {
 
     private val environment by lazy { OrtEnvironment.getEnvironment() }
     private val vocabulary by lazy { loadVocabulary() }
-    private val session by lazy { createSession() }
+    private var currentSession: OrtSession? = null
+    private var currentModelPath: String? = null
+    private val sessionMutex = Mutex()
+    private val inferenceMutex = Mutex()
 
-    override suspend fun embed(text: String): FloatArray = withContext(Dispatchers.Default) {
+    override suspend fun embed(text: String): FloatArray = inferenceMutex.withLock {
+        withContext(Dispatchers.Default) {
         require(text.isNotBlank()) { "Embedding text must not be blank" }
         val tokenIds = tokenize(text)
         val attention = LongArray(MAX_SEQUENCE_LENGTH) { index -> if (tokenIds[index] == PAD_ID) 0 else 1 }
         val tokenTypes = LongArray(MAX_SEQUENCE_LENGTH)
+        val activeSession = getOrCreateSession()
 
         OnnxTensor.createTensor(environment, arrayOf(tokenIds)).use { inputIds ->
             OnnxTensor.createTensor(environment, arrayOf(attention)).use { attentionMask ->
@@ -46,11 +80,12 @@ class OnnxEmbeddingService(
                         "attention_mask" to attentionMask,
                         "token_type_ids" to typeIds
                     )
-                    session.run(inputs).use { output ->
+                    activeSession.run(inputs).use { output ->
                         poolOutput(output[0].value, attention)
                     }
                 }
             }
+        }
         }
     }
 
@@ -58,26 +93,56 @@ class OnnxEmbeddingService(
         findModel() != null && runCatching { verifyVocabularyHash() }.isSuccess
     }
 
-    private fun createSession(): OrtSession {
+    override suspend fun embeddingContract(): EmbeddingContract = withContext(Dispatchers.IO) {
+        val model = modelRepository.getActiveEmbeddingModelInfo(
+            preferencesManager?.selectedEmbeddingModel?.firstOrNull()
+        ) ?: throw EmbeddingModelUnavailable("Embedding model belum tersedia")
+        EmbeddingContract(
+            modelId = model.id,
+            modelRevision = revisionFromUrl(model.artifactUrl),
+            tokenizerSha256 = readTokenizerSha256(),
+            dimension = model.embeddingDimension ?: 384,
+            normalized = true,
+            pooling = "mean",
+            maxSequenceLength = MAX_SEQUENCE_LENGTH
+        )
+    }
+
+    override fun countContentTokens(text: String): Int =
+        splitOnWhitespaceAndPunctuation(text.lowercase())
+            .flatMap(::wordPiece)
+            .size
+
+    private suspend fun getOrCreateSession(): OrtSession = sessionMutex.withLock {
         val model = findModel()
             ?: throw EmbeddingModelUnavailable(
-                "ONNX embedding model unavailable. Import a verified all-MiniLM-L6-v2 ONNX model first."
+                "ONNX embedding model unavailable. Download or select an embedding model first."
             )
         if (model.length() == 0L) throw EmbeddingModelUnavailable("ONNX embedding model is empty")
 
-        val options = OrtSession.SessionOptions().apply {
-            setIntraOpNumThreads(2)
-            setInterOpNumThreads(1)
+        if (currentSession == null || currentModelPath != model.absolutePath) {
+            currentSession?.close()
+            val options = OrtSession.SessionOptions().apply {
+                setIntraOpNumThreads(2)
+                setInterOpNumThreads(1)
+            }
+            currentSession = environment.createSession(model.absolutePath, options)
+            currentModelPath = model.absolutePath
         }
-        return environment.createSession(model.absolutePath, options)
+        currentSession!!
     }
 
-    private fun findModel(): File? {
-        val config = modelRepository.availableModelConfigs.firstOrNull {
-            it.role == ModelAssetRole.EMBEDDING && it.id == "all-minilm-l6-v2-onnx"
-        } ?: return null
-        return modelRepository.getModelFile(config.filename)
-            .takeIf { modelRepository.isModelReady(config) }
+    private suspend fun findModel(): File? {
+        val preferredId = preferencesManager?.selectedEmbeddingModel?.firstOrNull()
+        val modelInfo = modelRepository.getActiveEmbeddingModelInfo(preferredId)
+            ?: return null
+        if (modelInfo.tokenizerAsset != VOCABULARY_ASSET ||
+            modelInfo.tokenizerType != "wordpiece" ||
+            !modelInfo.tokenizerSha256.equals(readTokenizerSha256(), ignoreCase = true)
+        ) {
+            return null
+        }
+        return modelRepository.getModelFile(modelInfo.filename)
     }
 
     private fun loadVocabulary(): Map<String, Long> {
@@ -108,6 +173,12 @@ class OnnxEmbeddingService(
             throw EmbeddingModelUnavailable("Embedding tokenizer SHA-256 mismatch")
         }
     }
+
+    private fun readTokenizerSha256(): String =
+        context.assets.open(VOCABULARY_HASH_ASSET).bufferedReader().use { it.readText().trim() }
+
+    private fun revisionFromUrl(url: String): String =
+        Regex("/resolve/([0-9a-fA-F]{40})/").find(url)?.groupValues?.get(1).orEmpty()
 
     private fun tokenize(text: String): LongArray {
         val tokens = ArrayList<Long>(MAX_SEQUENCE_LENGTH)

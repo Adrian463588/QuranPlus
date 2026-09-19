@@ -1,5 +1,6 @@
 package com.quranplus.app.features.quran.presentation
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,53 +18,73 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
-import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import com.quranplus.app.core.ui.components.AppPrimaryButton
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.quranplus.app.core.ui.components.AppEmptyState
+import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.components.TajwidLegendSheet
 import com.quranplus.app.core.ui.theme.Spacing
+import com.quranplus.app.core.ui.theme.getQuranArabicStyle
+import com.quranplus.app.features.quran.domain.Bookmark
+import com.quranplus.app.features.quran.domain.BookmarkSort
+import com.quranplus.app.features.quran.domain.JuzCatalog
+import com.quranplus.app.features.quran.domain.JuzInfo
 import com.quranplus.app.features.quran.domain.LastRead
 import com.quranplus.app.features.quran.domain.Surah
 
+enum class QuranListTab(val title: String) {
+    SURAH("SURAH"),
+    JUZ("JUZ"),
+    BOOKMARK("BOOKMARK")
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SurahListScreen(
@@ -75,19 +96,26 @@ fun SurahListScreen(
 ) {
     val surahState by viewModel.surahListState.collectAsStateWithLifecycle()
     val lastRead by viewModel.lastReadState.collectAsStateWithLifecycle()
+    var selectedTab by rememberSaveable { mutableStateOf(QuranListTab.SURAH) }
     var showTajwidSheet by remember { mutableStateOf(false) }
     var showQuranMenu by remember { mutableStateOf(false) }
     var selectedSurahNumber by remember { mutableStateOf<Int?>(null) }
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Scaffold(
         topBar = {
             AppTopBar(
                 title = "Al-Qur'an Al-Karim",
                 actions = {
+                    IconButton(onClick = onSearchClick) {
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = "Cari ayat"
+                        )
+                    }
                     IconButton(onClick = { showQuranMenu = true }) {
                         Icon(
-                            imageVector = Icons.Rounded.Menu,
+                            imageVector = Icons.Rounded.MoreVert,
                             contentDescription = "Menu Al-Qur'an"
                         )
                     }
@@ -127,8 +155,32 @@ fun SurahListScreen(
                 .padding(padding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Quick Continue / Last Read Card
-            if (lastRead != null) {
+            // Tabs: SURAH | JUZ | BOOKMARK
+            PrimaryTabRow(
+                selectedTabIndex = selectedTab.ordinal,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 840.dp)
+            ) {
+                QuranListTab.entries.forEach { tab ->
+                    Tab(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        text = {
+                            Text(
+                                text = tab.title,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    )
+                }
+            }
+
+            // Quick Continue / Last Read Card (visible on SURAH and JUZ tabs)
+            if (lastRead != null && selectedTab != QuranListTab.BOOKMARK) {
                 Box(modifier = Modifier.widthIn(max = 840.dp)) {
                     LastReadBanner(
                         lastRead = lastRead!!,
@@ -139,67 +191,91 @@ fun SurahListScreen(
                 }
             }
 
-            when (val state = surahState) {
-                is UiState.Loading -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            when (selectedTab) {
+                QuranListTab.SURAH -> {
+                    when (val state = surahState) {
+                        is UiState.Loading -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        is UiState.Success -> {
+                            SurahContent(
+                                surahs = state.data,
+                                widthSizeClass = widthSizeClass,
+                                selectedSurahNumber = selectedSurahNumber,
+                                onSelectSurah = { selectedSurahNumber = it.number },
+                                onOpenSurah = { onSurahClick(it, 1) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                            )
+                        }
+                        is UiState.Error -> {
+                            AppEmptyState(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                icon = Icons.AutoMirrored.Rounded.MenuBook,
+                                title = "Gagal Memuat Surah",
+                                description = state.message
+                            )
+                        }
+                        UiState.Empty -> {
+                            AppEmptyState(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                icon = Icons.AutoMirrored.Rounded.MenuBook,
+                                title = "Data Surah Kosong",
+                                description = "Database Al-Qur'an belum memiliki data yang dapat dibaca."
+                            )
+                        }
+                        is UiState.Blocked -> {
+                            AppEmptyState(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                icon = Icons.AutoMirrored.Rounded.MenuBook,
+                                title = "Surah Tidak Tersedia",
+                                description = state.reason
+                            )
+                        }
+                        UiState.Idle -> {
+                            AppEmptyState(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                icon = Icons.AutoMirrored.Rounded.MenuBook,
+                                title = "Memuat Surah",
+                                description = "Data Al-Qur'an sedang disiapkan."
+                            )
+                        }
                     }
                 }
-                is UiState.Success -> {
-                    SurahContent(
-                        surahs = state.data,
-                        widthSizeClass = widthSizeClass,
-                        selectedSurahNumber = selectedSurahNumber,
-                        onSelectSurah = { selectedSurahNumber = it.number },
-                        onOpenSurah = { onSurahClick(it, 1) },
+                QuranListTab.JUZ -> {
+                    JuzListPane(
+                        juzList = JuzCatalog.ALL_JUZ,
+                        onJuzClick = { juz ->
+                            onSurahClick(juz.startSurahNumber, juz.startAyahNumber)
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
                     )
                 }
-                is UiState.Error -> {
-                    AppEmptyState(
+                QuranListTab.BOOKMARK -> {
+                    BookmarksListPane(
+                        viewModel = viewModel,
+                        onBookmarkClick = onSurahClick,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f),
-                        icon = Icons.AutoMirrored.Rounded.MenuBook,
-                        title = "Gagal Memuat Surah",
-                        description = state.message
-                    )
-                }
-                UiState.Empty -> {
-                    AppEmptyState(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        icon = Icons.AutoMirrored.Rounded.MenuBook,
-                        title = "Data Surah Kosong",
-                        description = "Database Al-Qur'an belum memiliki data yang dapat dibaca."
-                    )
-                }
-                is UiState.Blocked -> {
-                    AppEmptyState(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        icon = Icons.AutoMirrored.Rounded.MenuBook,
-                        title = "Surah Tidak Tersedia",
-                        description = state.reason
-                    )
-                }
-                UiState.Idle -> {
-                    AppEmptyState(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        icon = Icons.AutoMirrored.Rounded.MenuBook,
-                        title = "Memuat Surah",
-                        description = "Data Al-Qur'an sedang disiapkan."
+                            .weight(1f)
                     )
                 }
             }
@@ -211,6 +287,250 @@ fun SurahListScreen(
                 onDismissRequest = { showTajwidSheet = false }
             )
         }
+    }
+}
+
+@Composable
+private fun JuzListPane(
+    juzList: List<JuzInfo>,
+    onJuzClick: (JuzInfo) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .widthIn(max = 840.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        items(
+            items = juzList,
+            key = { it.number }
+        ) { juz ->
+            JuzItemRow(
+                juz = juz,
+                onClick = { onJuzClick(juz) }
+            )
+        }
+    }
+}
+
+@Composable
+fun RubElHizbBadge(
+    number: Int,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary
+) {
+    Box(
+        modifier = modifier.size(44.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val sizePx = size.minDimension
+            val radius = sizePx / 2f
+            val center = Offset(sizePx / 2f, sizePx / 2f)
+
+            val path = Path()
+            val points = 8
+            val outerRadius = radius * 0.92f
+            val innerRadius = radius * 0.68f
+
+            for (i in 0 until (points * 2)) {
+                val angle = (i * Math.PI / points) - (Math.PI / 2)
+                val r = if (i % 2 == 0) outerRadius else innerRadius
+                val x = center.x + (r * Math.cos(angle)).toFloat()
+                val y = center.y + (r * Math.sin(angle)).toFloat()
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+
+            drawPath(
+                path = path,
+                color = color.copy(alpha = 0.12f)
+            )
+            drawPath(
+                path = path,
+                color = color.copy(alpha = 0.8f),
+                style = Stroke(width = 1.5.dp.toPx())
+            )
+        }
+
+        Text(
+            text = number.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+    }
+}
+
+@Composable
+fun JuzItemRow(
+    juz: JuzInfo,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        shape = MaterialTheme.shapes.small
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.md, vertical = Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 8-Pointed Star (Rub-el-Hizb) Badge
+            RubElHizbBadge(number = juz.number)
+
+            Spacer(modifier = Modifier.width(Spacing.md))
+
+            // Juz information
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Juz ${juz.number}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = juz.startDescription,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Arabic Calligraphy start title
+            Text(
+                text = juz.nameArabic,
+                style = getQuranArabicStyle(22f),
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.End,
+                modifier = Modifier.widthIn(max = 140.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun BookmarksListPane(
+    viewModel: QuranViewModel,
+    onBookmarkClick: (Int, Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val bookmarksState by viewModel.bookmarksState.collectAsStateWithLifecycle()
+    val bookmarkSort by viewModel.bookmarkSort.collectAsStateWithLifecycle()
+    var editingBookmark by remember { mutableStateOf<Bookmark?>(null) }
+    var noteInput by remember { mutableStateOf("") }
+
+    when (val state = bookmarksState) {
+        is UiState.Loading -> {
+            Box(
+                modifier = modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+        }
+        is UiState.Success -> {
+            if (state.data.isEmpty()) {
+                AppEmptyState(
+                    modifier = modifier.fillMaxSize(),
+                    icon = Icons.Rounded.BookmarkBorder,
+                    title = "Belum Ada Bookmark",
+                    description = "Simpan ayat-ayat Al-Qur'an penting saat tilawah untuk membacanya kembali di sini."
+                )
+            } else {
+                Column(modifier = modifier.fillMaxSize().widthIn(max = 840.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        FilterChip(
+                            selected = bookmarkSort == BookmarkSort.NEWEST,
+                            onClick = { viewModel.setBookmarkSort(BookmarkSort.NEWEST) },
+                            label = { Text("Terbaru") }
+                        )
+                        FilterChip(
+                            selected = bookmarkSort == BookmarkSort.SURAH,
+                            onClick = { viewModel.setBookmarkSort(BookmarkSort.SURAH) },
+                            label = { Text("Urut Surah") }
+                        )
+                    }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        items(state.data, key = { it.id }) { bookmark ->
+                            BookmarkItemCard(
+                                bookmark = bookmark,
+                                onClick = { onBookmarkClick(bookmark.surahNumber, bookmark.ayahNumber) },
+                                onDeleteClick = { viewModel.deleteBookmark(bookmark) },
+                                onNoteClick = {
+                                    noteInput = bookmark.note.orEmpty()
+                                    editingBookmark = bookmark
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        else -> {
+            AppEmptyState(
+                modifier = modifier.fillMaxSize(),
+                icon = Icons.Rounded.BookmarkBorder,
+                title = "Belum Ada Bookmark",
+                description = "Simpan ayat-ayat Al-Qur'an penting saat tilawah untuk membacanya kembali di sini."
+            )
+        }
+    }
+
+    editingBookmark?.let { bookmark ->
+        AlertDialog(
+            onDismissRequest = { editingBookmark = null },
+            title = { Text("Catatan Bookmark") },
+            text = {
+                OutlinedTextField(
+                    value = noteInput,
+                    onValueChange = { noteInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 6,
+                    label = { Text("Catatan") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.updateBookmarkNote(bookmark.id, noteInput)
+                    editingBookmark = null
+                }) { Text("Simpan") }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingBookmark = null }) { Text("Batal") }
+            }
+        )
     }
 }
 
@@ -280,8 +600,8 @@ private fun SurahListPane(
     surahs: List<Surah>,
     selectedSurahNumber: Int?,
     onSurahClick: (Surah) -> Unit,
-    showArabicName: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showArabicName: Boolean = true
 ) {
     LazyColumn(
         modifier = modifier
@@ -405,9 +725,9 @@ fun LastReadBanner(
 fun SurahItemRow(
     surah: Surah,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     selected: Boolean = false,
-    showArabicName: Boolean = true,
-    modifier: Modifier = Modifier
+    showArabicName: Boolean = true
 ) {
     Card(
         onClick = onClick,

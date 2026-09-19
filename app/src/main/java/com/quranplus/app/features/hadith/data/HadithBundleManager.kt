@@ -3,7 +3,6 @@ package com.quranplus.app.features.hadith.data
 import android.net.Uri
 import com.quranplus.app.core.database.dao.HadithDao
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
@@ -31,15 +30,27 @@ class HadithBundleManager(
 
     suspend fun status(): HadithBundleStatus {
         val storageStatus = assetStore.getStatus()
+        val verifiedCounts = verifiedCollectionCounts()
+        val corpusReady = HadithBundleManifest.VERIFIED.isVerifiedCorpus(verifiedCounts)
         return HadithBundleStatus(
             storageLinked = storageStatus.isAccessible,
-            localRecordCount = hadithDao.countHadiths(),
-            localCollectionCount = hadithDao.getCollectionIds().first().size
+            localRecordCount = if (corpusReady) verifiedCounts.values.sum() else 0,
+            localCollectionCount = if (corpusReady) verifiedCounts.size else 0
         )
     }
 
     suspend fun restoreFromSaf(): HadithBundleImportSummary? = restoreMutex.withLock {
-        if (hadithDao.countHadiths() > 0) return@withLock null
+        if (HadithBundleManifest.VERIFIED.isVerifiedCorpus(verifiedCollectionCounts())) {
+            return@withLock null
+        }
         runCatching { bundleImporter.restoreFromSaf() }.getOrNull()
     }
+
+    private suspend fun verifiedCollectionCounts(): Map<String, Int> =
+        hadithDao.getVerifiedBundleCollectionCounts(
+            sourceRevision = HadithBundleManifest.VERIFIED.revision,
+            sourceSha256 = HadithBundleManifest.VERIFIED.archiveSha256,
+            licenseStatus = "licensed"
+        ).associate { it.collectionId to it.recordCount }
+
 }

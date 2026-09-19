@@ -1,6 +1,9 @@
 package com.quranplus.app
 
+import android.content.ActivityNotFoundException
+import android.net.Uri
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
@@ -38,6 +41,7 @@ import com.quranplus.app.features.chatbot.presentation.ModelGateScreen
 import com.quranplus.app.features.gharib.presentation.GharibScreen
 import com.quranplus.app.features.hadith.presentation.HadithScreen
 import com.quranplus.app.features.hadith.presentation.HadithViewModel
+import com.quranplus.app.features.hadith.data.HadithBundleWorkState
 import com.quranplus.app.features.quran.presentation.BookmarksScreen
 import com.quranplus.app.features.quran.presentation.QuranReaderScreen
 import com.quranplus.app.features.quran.presentation.QuranViewModel
@@ -45,6 +49,7 @@ import com.quranplus.app.features.quran.presentation.SearchScreen
 import com.quranplus.app.features.quran.presentation.SurahListScreen
 import com.quranplus.app.features.rag.presentation.RagDocumentViewModel
 import com.quranplus.app.features.rag.presentation.RagImportState
+import com.quranplus.app.features.rag.domain.CitationTargetValidator
 import com.quranplus.app.features.settings.data.PreferencesManager
 import com.quranplus.app.features.settings.presentation.MoreScreen
 import com.quranplus.app.features.settings.presentation.SettingsScreen
@@ -110,9 +115,20 @@ class MainActivity : ComponentActivity() {
                         openRagDocumentLauncher.launch(
                             arrayOf("text/plain", "text/markdown", "application/json", "application/pdf")
                         )
-                    }
+                    },
+                    onOpenExternalUrl = ::openExternalUrl
                 )
             }
+        }
+    }
+
+    private fun openExternalUrl(url: String) {
+        val safeUrl = CitationTargetValidator.validateHttpsUrl(url) ?: return
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(safeUrl))
+        try {
+            startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            // The citation remains visible; devices without a browser simply do nothing.
         }
     }
 }
@@ -125,7 +141,8 @@ fun AppMain(
     audioPlayerManager: AudioPlayerManager,
     ragDocumentViewModel: RagDocumentViewModel,
     onRequestRagDocument: () -> Unit,
-    onRequestRagDocumentFile: () -> Unit
+    onRequestRagDocumentFile: () -> Unit,
+    onOpenExternalUrl: (String) -> Unit
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -145,6 +162,13 @@ fun AppMain(
         onNavigateToDestination = { destination ->
             if (destination == AppDestination.QURAN) {
                 navController.navigateToQuranRoot()
+            } else if (destination == AppDestination.HADITH) {
+                hadithViewModel.resetToCatalog()
+                navController.navigate(destination.route) {
+                    popUpTo(AppDestination.QURAN.route) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
             } else {
                 navController.navigate(destination.route) {
                     popUpTo(AppDestination.QURAN.route) { saveState = true }
@@ -167,10 +191,11 @@ fun AppMain(
             preferencesManager = preferencesManager,
             modelRepository = modelRepository,
             audioPlayerManager = audioPlayerManager,
-            ragDocumentViewModel = ragDocumentViewModel,
-            onRequestRagDocument = onRequestRagDocument,
-            onRequestRagDocumentFile = onRequestRagDocumentFile
-        )
+             ragDocumentViewModel = ragDocumentViewModel,
+             onRequestRagDocument = onRequestRagDocument,
+             onRequestRagDocumentFile = onRequestRagDocumentFile,
+             onOpenExternalUrl = onOpenExternalUrl
+         )
     }
 }
 
@@ -188,11 +213,14 @@ fun AppNavHost(
     preferencesManager: PreferencesManager,
     modelRepository: ModelRepository,
     audioPlayerManager: AudioPlayerManager,
-    ragDocumentViewModel: RagDocumentViewModel,
-    onRequestRagDocument: () -> Unit,
-    onRequestRagDocumentFile: () -> Unit
-) {
+     ragDocumentViewModel: RagDocumentViewModel,
+     onRequestRagDocument: () -> Unit,
+     onRequestRagDocumentFile: () -> Unit,
+     onOpenExternalUrl: (String) -> Unit
+ ) {
     val isModelReady by chatViewModel.isModelReady.collectAsStateWithLifecycle()
+    val hadithBundleState by chatViewModel.hadithBundleState.collectAsStateWithLifecycle()
+    val selectedEmbeddingModelId by chatViewModel.selectedEmbeddingModelId.collectAsStateWithLifecycle()
     val isSafStorageReady by ragDocumentViewModel.storageStatus.collectAsStateWithLifecycle()
     val ragState by ragDocumentViewModel.state.collectAsStateWithLifecycle()
 
@@ -202,6 +230,23 @@ fun AppNavHost(
             ragState is RagImportState.IndexBlocked
         ) {
             chatViewModel.checkModelStatus()
+        }
+    }
+
+    // Hadist import changes the corpus after the chat screen may already have
+    // marked its index current. Re-requesting here makes the next retrieval
+    // include the newly verified bundle without coupling ViewModels to data.
+    LaunchedEffect(hadithBundleState.workState, hadithBundleState.localRecordCount) {
+        if (hadithBundleState.workState is HadithBundleWorkState.Completed ||
+            hadithBundleState.localRecordCount > 0
+        ) {
+            ragDocumentViewModel.buildIndex()
+        }
+    }
+
+    LaunchedEffect(selectedEmbeddingModelId) {
+        if (selectedEmbeddingModelId.isNotBlank()) {
+            ragDocumentViewModel.buildIndex()
         }
     }
 
@@ -272,7 +317,28 @@ fun AppNavHost(
         }
 
         // --- 2. Tanya AI (Chatbot RAG) Navigation ---
-        composable(AppDestination.HADITH.route) {
+        composable(
+            route = "${AppDestination.HADITH.route}?collectionId={collectionId}&hadithNumber={hadithNumber}",
+            arguments = listOf(
+                navArgument("collectionId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("hadithNumber") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                }
+            )
+        ) { backStackEntry ->
+            val initialCollectionId = backStackEntry.arguments?.getString("collectionId")
+            val initialHadithNumber = backStackEntry.arguments?.getInt("hadithNumber")
+                ?.takeIf { it > 0 }
+            LaunchedEffect(initialCollectionId, initialHadithNumber) {
+                if (initialCollectionId != null && initialHadithNumber != null) {
+                    hadithViewModel.openReference(initialCollectionId, initialHadithNumber)
+                }
+            }
             HadithScreen(
                 viewModel = hadithViewModel,
                 onRequestStorage = onRequestRagDocument,
@@ -296,6 +362,9 @@ fun AppNavHost(
                 },
                 onNavigateToAudio = {
                     navController.navigateToSecondary(AppDestination.AUDIO)
+                },
+                onNavigateToQuiz = {
+                    navController.navigate("tahsin_quiz")
                 }
             )
         }
@@ -311,7 +380,12 @@ fun AppNavHost(
                     preferencesManager = preferencesManager,
                     onNavigateToAyah = { surahNumber, ayahNumber ->
                         navController.navigateToReader(surahNumber, ayahNumber)
-                    }
+                    },
+                    onNavigateToHadith = { collectionId, hadithNumber ->
+                        navController.navigateToHadith(collectionId, hadithNumber)
+                    },
+                    onNavigateToExternalUrl = onOpenExternalUrl,
+                    onRequestStorage = onRequestRagDocument
                 )
             } else {
                 ModelGateScreen(
@@ -390,6 +464,7 @@ fun AppNavHost(
                 audioPlayerManager = audioPlayerManager,
                 quranViewModel = quranViewModel,
                 downloadViewModel = audioDownloadViewModel,
+                onRequestStorage = onRequestRagDocument,
                 onBackClick = { navController.popBackStack() }
             )
         }
@@ -422,24 +497,24 @@ fun AppNavHost(
 }
 
 private fun NavHostController.navigateToQuranRoot() {
-    navigate(AppDestination.QURAN.route) {
-        popUpTo(AppDestination.QURAN.route) {
-            inclusive = false
-            saveState = true
+    if (!popBackStack(AppDestination.QURAN.route, inclusive = false)) {
+        navigate(AppDestination.QURAN.route) {
+            launchSingleTop = true
         }
-        launchSingleTop = true
-        restoreState = true
     }
 }
 
 private fun NavHostController.navigateToReader(surahNumber: Int, ayahNumber: Int) {
     require(surahNumber in 1..114) { "Nomor surah tidak valid" }
     require(ayahNumber > 0) { "Nomor ayat tidak valid" }
-    navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber") {
-        popUpTo(AppDestination.QURAN.route) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
+    navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
+}
+
+private fun NavHostController.navigateToHadith(collectionId: String, hadithNumber: Int) {
+    if (collectionId.isBlank() || hadithNumber <= 0) return
+    navigate(
+        "${AppDestination.HADITH.route}?collectionId=${Uri.encode(collectionId)}&hadithNumber=$hadithNumber"
+    )
 }
 
 private fun NavHostController.navigateToSecondary(destination: AppDestination) {

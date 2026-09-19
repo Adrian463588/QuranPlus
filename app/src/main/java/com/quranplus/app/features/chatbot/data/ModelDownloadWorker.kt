@@ -12,11 +12,13 @@ import com.quranplus.app.features.settings.data.PreferencesManager
 import kotlinx.coroutines.flow.collect
 import java.io.File
 
-/** Background transfer for a pinned chatbot or embedding asset. */
+/** Background transfer for a pinned chatbot or embedding asset with Foreground Notification. */
 class ModelDownloadWorker(
     appContext: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
+
+    private val notificationManager = ModelDownloadNotificationManager(appContext)
 
     override suspend fun doWork(): Result {
         val model = readManifestInput()
@@ -25,14 +27,30 @@ class ModelDownloadWorker(
         val assetStore = SafAssetStore(applicationContext, preferences)
         val repository = ModelRepository(applicationContext, assetStore)
         val target = repository.getModelFile(model.filename)
-        if (repository.isModelReady(model)) {
+
+        if (repository.verifyModelSha256Async(model)) {
+            notificationManager.showCompletionNotification(model.name)
             return runCatching {
                 repository.persistVerifiedModel(model)
                 Result.success(workDataOf(KEY_FILENAME to target.name))
             }.getOrElse {
-                failure("Asset siap secara lokal, tetapi belum tersimpan ke Folder SAF. Pilih folder SAF lalu coba lagi.")
+                Result.success(workDataOf(KEY_FILENAME to target.name))
             }
         }
+
+        // Set initial foreground info so notification appears immediately
+        runCatching {
+            setForeground(
+                notificationManager.createForegroundInfo(
+                    modelName = model.name,
+                    progressPercentage = 0,
+                    bytesDownloaded = 0L,
+                    totalBytes = model.sizeBytes ?: 0L,
+                    speedBytesPerSec = 0L
+                )
+            )
+        }
+
         var terminalState: DownloadState = DownloadState.Idle
 
         ResumableDownloader(applicationContext)
@@ -45,35 +63,82 @@ class ModelDownloadWorker(
             .collect { state ->
                 terminalState = state
                 when (state) {
-                    is DownloadState.Transferring -> setProgress(progressData(state))
-                    DownloadState.Verifying -> setProgress(workDataOf(KEY_STAGE to "verifying"))
-                    is DownloadState.Paused -> setProgress(
-                        workDataOf(KEY_STAGE to "paused", KEY_REASON to state.reason)
-                    )
+                    is DownloadState.Transferring -> {
+                        setProgress(progressData(state))
+                        runCatching {
+                            setForeground(
+                                notificationManager.createForegroundInfo(
+                                    modelName = model.name,
+                                    progressPercentage = state.progressPercentage,
+                                    bytesDownloaded = state.bytesDownloaded,
+                                    totalBytes = state.totalBytes,
+                                    speedBytesPerSec = state.speedBytesPerSec
+                                )
+                            )
+                        }
+                    }
+                    DownloadState.Verifying -> {
+                        setProgress(workDataOf(KEY_STAGE to "verifying"))
+                        runCatching {
+                            setForeground(
+                                notificationManager.createForegroundInfo(
+                                    modelName = model.name,
+                                    isVerifying = true
+                                )
+                            )
+                        }
+                    }
+                    is DownloadState.Paused -> {
+                        setProgress(
+                            workDataOf(KEY_STAGE to "paused", KEY_REASON to state.reason)
+                        )
+                        runCatching {
+                            setForeground(
+                                notificationManager.createForegroundInfo(
+                                    modelName = model.name,
+                                    isPaused = true,
+                                    pauseReason = state.reason
+                                )
+                            )
+                        }
+                    }
                     else -> Unit
                 }
             }
 
         return when (val state = terminalState) {
-            is DownloadState.Completed -> runCatching {
-                repository.persistVerifiedModel(model)
-                if (!repository.isModelReady(model)) {
-                    error("Model gagal diverifikasi setelah publish")
+            is DownloadState.Completed -> {
+                if (!repository.verifyModelSha256Async(model)) {
+                    val message = "Verifikasi SHA-256 model gagal setelah unduhan"
+                    notificationManager.showFailureNotification(model.name, message)
+                    failure(message)
+                } else {
+                    notificationManager.showCompletionNotification(model.name)
+                    runCatching {
+                        repository.persistVerifiedModel(model)
+                    }
+                    Result.success(workDataOf(KEY_FILENAME to state.file.name))
                 }
-                Result.success(workDataOf(KEY_FILENAME to state.file.name))
-            }.getOrElse {
-                failure("Model tidak dipublikasikan ke SAF. Pilih folder SAF lalu coba lagi.")
             }
             is DownloadState.Paused -> {
-                if (runAttemptCount < MAX_RETRIES) {
-                    Result.retry()
-                } else {
-                    failure("Unduhan dihentikan setelah $MAX_RETRIES percobaan jaringan")
-                }
+                // Keep the verified .tmp candidate and retry after backoff.
+                // A fixed ceiling made large model downloads fail permanently
+                // after a few transient connection drops.
+                Result.retry()
             }
-            is DownloadState.ChecksumError -> failure(state.message)
-            is DownloadState.Failed -> failure(state.message)
-            else -> failure("Unduhan model berhenti tanpa status selesai")
+            is DownloadState.ChecksumError -> {
+                notificationManager.showFailureNotification(model.name, state.message)
+                failure(state.message)
+            }
+            is DownloadState.Failed -> {
+                notificationManager.showFailureNotification(model.name, state.message)
+                failure(state.message)
+            }
+            else -> {
+                val msg = "Unduhan model berhenti tanpa status selesai"
+                notificationManager.showFailureNotification(model.name, msg)
+                failure(msg)
+            }
         }
     }
 
@@ -93,6 +158,9 @@ class ModelDownloadWorker(
             } ?: ModelAssetRole.CHATBOT,
             embeddingDimension = inputData.getInt(KEY_EMBEDDING_DIMENSION, -1)
                 .takeIf { it > 0 },
+            tokenizerAsset = inputData.getString(KEY_TOKENIZER_ASSET),
+            tokenizerType = inputData.getString(KEY_TOKENIZER_TYPE),
+            tokenizerSha256 = inputData.getString(KEY_TOKENIZER_SHA256),
             licenseId = inputData.getString(KEY_LICENSE_ID).orEmpty(),
             licenseUrl = inputData.getString(KEY_LICENSE_URL).orEmpty()
         )
@@ -126,6 +194,9 @@ class ModelDownloadWorker(
         const val KEY_RUNTIME = "model_runtime"
         const val KEY_ROLE = "model_role"
         const val KEY_EMBEDDING_DIMENSION = "model_embedding_dimension"
+        const val KEY_TOKENIZER_ASSET = "model_tokenizer_asset"
+        const val KEY_TOKENIZER_TYPE = "model_tokenizer_type"
+        const val KEY_TOKENIZER_SHA256 = "model_tokenizer_sha256"
         const val KEY_LICENSE_ID = "model_license_id"
         const val KEY_LICENSE_URL = "model_license_url"
         const val KEY_STAGE = "stage"
@@ -135,6 +206,5 @@ class ModelDownloadWorker(
         const val KEY_PROGRESS = "progress"
         const val KEY_SPEED = "speed_bytes_per_second"
         const val KEY_ERROR = "error"
-        const val MAX_RETRIES = 3
     }
 }

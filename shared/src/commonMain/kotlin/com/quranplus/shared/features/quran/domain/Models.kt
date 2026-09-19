@@ -8,7 +8,6 @@ data class Surah(
     val revelationType: String,
     val ayahCount: Int
 )
-
 data class Ayah(
     val id: Long,
     val surahNumber: Int,
@@ -42,4 +41,12 @@ data class LastRead(
     val juz: Int = 1,
     val page: Int = 1,
     val timestamp: Long
+)
+
+data class Tafsir(
+    val id: Long = 0,
+    val surahNumber: Int,
+    val ayahNumber: Int,
+    val tafsirText: String,
+    val source: String = "Kemenag RI"
 )

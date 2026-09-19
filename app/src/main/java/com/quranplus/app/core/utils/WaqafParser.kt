@@ -25,6 +25,8 @@ object WaqafParser {
     const val WAQAF_MUANAQAH_SYM = "ۛ"
     const val WAQAF_SAKTAH_SYM = "ۜ"
     const val WAQAF_LAZIM_SYM = "ۘ"
+    const val WAQAF_RUKU_SYM = "ࣖ"
+    const val SAJDAH_SYM = "۩"
     const val AYAH_END_SYM = "۝"
     val WAQAF_MARKER_SYMBOLS: Set<Char> = setOf(
         WAQAF_LA_SYM.single(),
@@ -33,7 +35,10 @@ object WaqafParser {
         WAQAF_AWLA_SYM.single(),
         WAQAF_MUANAQAH_SYM.single(),
         WAQAF_SAKTAH_SYM.single(),
-        WAQAF_LAZIM_SYM.single()
+        WAQAF_LAZIM_SYM.single(),
+        'ع',
+        WAQAF_RUKU_SYM.single(),
+        SAJDAH_SYM.single()
     )
 
     data class WaqafRule(
@@ -48,7 +53,15 @@ object WaqafParser {
         val exampleAyah: String,
         val exampleRef: String,
         val pairId: String? = null
-    )
+    ) {
+        val displayGlyph: String
+            get() = when (symbol) {
+                SAJDAH_SYM -> "۩"
+                AYAH_END_SYM -> "۝"
+                WAQAF_MUANAQAH_SYM -> "∴"
+                else -> arabicName
+            }
+    }
 
     data class WaqafAnnotation(
         val start: Int,
@@ -151,6 +164,42 @@ object WaqafParser {
             detailedRule = "Saktah bukan berhenti panjang; audio hanya boleh diaktifkan bila sumber bacaan tersedia.",
             exampleAyah = "وَقِيلَ مَنْ رَاقٍ",
             exampleRef = "Al-Qiyamah 75:27"
+        ),
+        WaqafRule(
+            symbol = WAQAF_RUKU_SYM,
+            arabicName = "ع",
+            latinName = "Tanda Ruku' (Akhir Maqra')",
+            meaning = "Tanda selesainya satu tema bahasan atau ruku'.",
+            recommendation = "Dianjurkan berhenti di sini terutama saat membaca dalam shalat.",
+            actionCategory = ActionCategory.PREFERRED_STOP,
+            badgeColor = QuranColors.Secondary,
+            detailedRule = "Menandai selesainya satu kesatuan tema atau ruku' dalam mushaf Al-Qur'an.",
+            exampleAyah = "ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَٰلَمِينَ",
+            exampleRef = "Al-Fatihah 1:7"
+        ),
+        WaqafRule(
+            symbol = SAJDAH_SYM,
+            arabicName = "سجدة",
+            latinName = "Tanda Sajdah (Sujud Tilawah)",
+            meaning = "Disunnahkan melakukan Sujud Tilawah ketika membaca atau mendengar ayat ini.",
+            recommendation = "Lakukan sujud tilawah 1 kali (dalam atau luar shalat) saat membaca atau mendengar ayat ini.",
+            actionCategory = ActionCategory.OPTIONAL,
+            badgeColor = QuranColors.BadgeWaqafStop,
+            detailedRule = "Ayat Sajdah adalah ayat Al-Qur'an yang memerintahkan atau mencontohkan sujud kepada Allah. Sunnah Muakkadah untuk bersujud tilawah.",
+            exampleAyah = "إِنَّ ٱلَّذِينَ عِندَ رَبِّكَ لَا يَسْتَكْبِرُونَ عَنْ عِبَادَتِهِۦ وَيُسَبِّحُونَهُۥ وَلَهُۥ يَسْجُدُونَ ۩",
+            exampleRef = "Al-A'raf 7:206"
+        ),
+        WaqafRule(
+            symbol = AYAH_END_SYM,
+            arabicName = "نهاية الآية",
+            latinName = "Akhir Ayat (Waqaf Tam)",
+            meaning = "Tanda akhir ayat. Disunnahkan berhenti.",
+            recommendation = "Disunnahkan berhenti di setiap akhir ayat mengikuti sunnah bacaan Rasulullah SAW.",
+            actionCategory = ActionCategory.PREFERRED_STOP,
+            badgeColor = QuranColors.Secondary,
+            detailedRule = "Berhenti pada akhir ayat merupakan wakaf tam (sempurna) yang dianjurkan dalam qiraat Al-Qur'an.",
+            exampleAyah = "ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَٰلَمِينَ (٢)",
+            exampleRef = "Al-Fatihah 1:2"
         )
     )
 
@@ -163,28 +212,44 @@ object WaqafParser {
 
     fun formatAyahEndMarker(ayahNumber: Int): String {
         require(ayahNumber > 0) { "Nomor ayat harus positif" }
-        return " ۝" + toArabicDigits(ayahNumber) + " "
+        return " (" + toArabicDigits(ayahNumber) + ") "
     }
 
     fun formatAyahTextWithEndMarker(ayahText: String, ayahNumber: Int): String {
         require(ayahNumber > 0) { "Nomor ayat harus positif" }
+        val hasRuku = ayahText.contains(WAQAF_RUKU_SYM) || ayahText.contains("ࣖ") || ayahText.contains("\u08D6")
+        val hasSajdah = ayahText.contains(SAJDAH_SYM) || ayahText.contains("\u06E9")
+
         val textWithoutTerminalMarker = ayahText
-            .replace(Regex("\\s*۝[٠-٩0-9]*\\s*$"), "")
+            .replace(Regex("\\s*([\\(﴿۝][٠-٩0-9]+[\\)﴾]?|۝[٠-٩0-9]*)\\s*$"), "")
+            .replace("ࣖ", "")
+            .replace("۩", "")
+            .replace("\u08D6", "")
+            .replace("\u06E9", "")
             .trimEnd()
-        return textWithoutTerminalMarker + formatAyahEndMarker(ayahNumber)
+
+        val ayahNumberStr = "(${toArabicDigits(ayahNumber)})"
+
+        val endSuffix = when {
+            hasRuku && hasSajdah -> " ۩ $ayahNumberStr ع "
+            hasSajdah -> " ۩ $ayahNumberStr "
+            hasRuku -> " $ayahNumberStr ع "
+            else -> " $ayahNumberStr "
+        }
+
+        return "$textWithoutTerminalMarker$endSuffix"
     }
 
     /**
-     * Removes the Unicode end-of-ayah sequence before rendering a separate
-     * marker badge. This avoids relying on font shaping to place the digit
-     * inside U+06DD while preserving all Tajwid/Waqaf annotations before it.
+     * Removes the end-of-ayah sequence before rendering a separate
+     * marker badge. This preserves all Tajwid/Waqaf annotations before it.
      */
     fun removeAyahEndMarker(text: AnnotatedString): AnnotatedString {
         val markerStart = text
             .getStringAnnotations(AYAH_END_ANNOTATION, 0, text.length)
             .firstOrNull()
             ?.start
-            ?: text.text.indexOf(AYAH_END_SYM)
+            ?: text.text.indexOfFirst { it == '(' || it == '﴿' || it == AYAH_END_SYM.single() }
 
         if (markerStart < 0) return text
         val visibleEnd = text.text.substring(0, markerStart).trimEnd().length
@@ -198,37 +263,46 @@ object WaqafParser {
     fun annotateWaqafMarkers(text: AnnotatedString): AnnotatedString {
         if (!SOURCE_CATALOG_VERIFIED) return text
         val builder = AnnotatedString.Builder(text)
-        text.text.forEachIndexed { index, char ->
-            when {
-                char == AYAH_END_SYM.single() -> {
-                    builder.addStyle(
-                        androidx.compose.ui.text.SpanStyle(color = QuranColors.Secondary),
-                        index,
-                        index + 1
-                    )
-                    builder.addStringAnnotation(
-                        AYAH_END_ANNOTATION,
-                        AYAH_END_SYM,
-                        index,
-                        index + 1
-                    )
+        var i = 0
+        while (i < text.length) {
+            val char = text.text[i]
+            if (char == '(' || char == '﴿' || char == AYAH_END_SYM.single()) {
+                val start = i
+                while (i < text.length) {
+                    val nextChar = text.text[i]
+                    i++
+                    if (nextChar == ')' || nextChar == '﴾') break
                 }
-                else -> findRuleBySymbol(char)?.let { rule ->
+                builder.addStyle(
+                    androidx.compose.ui.text.SpanStyle(color = QuranColors.Secondary),
+                    start,
+                    i
+                )
+                builder.addStringAnnotation(
+                    AYAH_END_ANNOTATION,
+                    AYAH_END_SYM,
+                    start,
+                    i
+                )
+                continue
+            } else {
+                findRuleBySymbol(char)?.let { rule ->
                     builder.addStyle(
                         androidx.compose.ui.text.SpanStyle(color = rule.badgeColor),
-                        index,
-                        index + 1
+                        i,
+                        i + 1
                     )
-                    builder.addStringAnnotation(WAQAF_ANNOTATION, char.toString(), index, index + 1)
+                    builder.addStringAnnotation(WAQAF_ANNOTATION, char.toString(), i, i + 1)
                     rule.pairId?.let { pairId ->
                         builder.addStringAnnotation(
                             WAQAF_PAIR_ANNOTATION,
                             pairId,
-                            index,
-                            index + 1
+                            i,
+                            i + 1
                         )
                     }
                 }
+                i++
             }
         }
         return builder.toAnnotatedString()
@@ -244,5 +318,6 @@ object WaqafParser {
     fun findRuleBySymbol(char: Char): WaqafRule? {
         if (!SOURCE_CATALOG_VERIFIED) return null
         return ALL_WAQAF_RULES.firstOrNull { it.symbol.contains(char) }
+            ?: if (char == 'ع' || char == 'ࣖ') ALL_WAQAF_RULES.firstOrNull { it.symbol == WAQAF_RUKU_SYM || it.symbol == "ࣖ" || it.symbol == "ع" } else null
     }
 }

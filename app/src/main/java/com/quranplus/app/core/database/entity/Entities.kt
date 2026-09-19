@@ -261,6 +261,8 @@ data class ChatMessageEntity(
     val content: String,
     @ColumnInfo(name = "citations_json")
     val citationsJson: String? = null,
+    @ColumnInfo(name = "completion_status")
+    val completionStatus: String = "complete",
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -296,4 +298,23 @@ data class QuizAttemptEntity(
     val selectedIndex: Int,
     val isCorrect: Boolean,
     val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "tafsirs",
+    indices = [
+        Index(value = ["surah_id", "ayah_number"], name = "idx_tafsirs_surah_ayah", unique = true)
+    ]
+)
+data class TafsirEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    @ColumnInfo(name = "surah_id")
+    val surahId: Int,
+    @ColumnInfo(name = "ayah_number")
+    val ayahNumber: Int,
+    @ColumnInfo(name = "tafsir_text")
+    val tafsirText: String,
+    @ColumnInfo(name = "source")
+    val source: String = "Kemenag RI"
 )

@@ -9,6 +9,7 @@ import com.quranplus.app.features.rag.domain.VectorIndex
 import com.quranplus.app.features.rag.domain.VectorIndexCoverage
 import com.quranplus.app.features.rag.domain.VectorMatch
 import com.quranplus.app.features.rag.domain.VectorRecord
+import com.quranplus.app.features.rag.domain.RagIndexMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
@@ -35,30 +36,78 @@ class SqliteVecVectorIndex(
             database.useReaderConnection { connection ->
                 connection.usePrepared(COVERAGE_SQL) { statement ->
                     var recordCount = 0
-                    val sourceTypes = linkedSetOf<String>()
+                    val recordCounts = linkedMapOf<String, Int>()
                     while (statement.step()) {
-                        sourceTypes += statement.getText(0)
-                        recordCount += statement.getInt(1)
+                        val sourceType = statement.getText(0)
+                        val sourceCount = statement.getInt(1)
+                        recordCounts[sourceType] = sourceCount
+                        recordCount += sourceCount
                     }
-                    VectorIndexCoverage(recordCount, sourceTypes)
+                    VectorIndexCoverage(
+                        recordCount = recordCount,
+                        sourceTypes = recordCounts.keys,
+                        recordCountsBySourceType = recordCounts
+                    )
                 }
             }
         }.getOrDefault(VectorIndexCoverage(0, emptySet()))
     }
 
+    override suspend fun metadata(): RagIndexMetadata? = withContext(Dispatchers.IO) {
+        runCatching {
+            database.useReaderConnection { connection ->
+                if (!hasVectorExtension(connection)) return@useReaderConnection null
+                connection.usePrepared(METADATA_SELECT_SQL) { statement ->
+                    if (!statement.step()) return@usePrepared null
+                    RagIndexMetadata(
+                        fingerprint = statement.getText(0),
+                        modelId = statement.getText(1),
+                        modelRevision = statement.getText(2),
+                        tokenizerSha256 = statement.getText(3),
+                        embeddingDimension = statement.getInt(4),
+                        normalized = statement.getInt(5) == 1,
+                        pooling = statement.getText(6),
+                        maxSequenceLength = statement.getInt(7),
+                        chunkTokenCount = statement.getInt(8),
+                        chunkOverlapTokens = statement.getInt(9),
+                        corpusRecordCount = statement.getInt(10),
+                        corpusFingerprint = statement.getText(11),
+                        updatedAt = statement.getLong(12)
+                    )
+                }
+            }
+        }.getOrNull()
+    }
+
     override suspend fun replace(records: List<VectorRecord>): Int = withContext(Dispatchers.IO) {
+        replaceInternal(records, null)
+    }
+
+    override suspend fun replace(
+        records: List<VectorRecord>,
+        metadata: RagIndexMetadata
+    ): Int = withContext(Dispatchers.IO) {
+        replaceInternal(records, metadata)
+    }
+
+    private suspend fun replaceInternal(
+        records: List<VectorRecord>,
+        metadata: RagIndexMetadata?
+    ): Int {
         require(records.isNotEmpty()) { "Tidak ada record untuk di-index" }
         require(records.all { it.embedding.size == EMBEDDING_DIMENSION }) {
             "Semua embedding harus berukuran $EMBEDDING_DIMENSION"
         }
 
-        database.useWriterConnection { connection ->
+        return database.useWriterConnection { connection ->
             if (!isReady(connection)) {
                 throw VectorIndexUnavailable("sqlite-vec belum tersedia pada ABI ini")
             }
             connection.withTransaction(Transactor.SQLiteTransactionType.IMMEDIATE) {
                 usePrepared("DELETE FROM $TABLE_NAME") { statement -> statement.step() }
                 records.forEach { record -> insert(this, record) }
+                metadata?.let { writeMetadata(this, it) }
+                    ?: usePrepared("DELETE FROM rag_index_metadata") { statement -> statement.step() }
                 records.size
             }
         }
@@ -113,6 +162,29 @@ class SqliteVecVectorIndex(
 
     private suspend fun ensureTable(connection: PooledConnection) {
         connection.usePrepared(CREATE_TABLE_SQL) { statement -> statement.step() }
+        connection.usePrepared(CREATE_METADATA_TABLE_SQL) { statement -> statement.step() }
+    }
+
+    private suspend fun writeMetadata(
+        connection: PooledConnection,
+        metadata: RagIndexMetadata
+    ) {
+        connection.usePrepared(METADATA_UPSERT_SQL) { statement ->
+            statement.bindText(1, metadata.fingerprint)
+            statement.bindText(2, metadata.modelId)
+            statement.bindText(3, metadata.modelRevision)
+            statement.bindText(4, metadata.tokenizerSha256)
+            statement.bindLong(5, metadata.embeddingDimension.toLong())
+            statement.bindLong(6, if (metadata.normalized) 1L else 0L)
+            statement.bindText(7, metadata.pooling)
+            statement.bindLong(8, metadata.maxSequenceLength.toLong())
+            statement.bindLong(9, metadata.chunkTokenCount.toLong())
+            statement.bindLong(10, metadata.chunkOverlapTokens.toLong())
+            statement.bindLong(11, metadata.corpusRecordCount.toLong())
+            statement.bindText(12, metadata.corpusFingerprint)
+            statement.bindLong(13, metadata.updatedAt)
+            statement.step()
+        }
     }
 
     private suspend fun insert(connection: PooledConnection, record: VectorRecord) {
@@ -179,6 +251,56 @@ class SqliteVecVectorIndex(
             SELECT source_type, COUNT(*)
             FROM quranplus_vectors
             GROUP BY source_type
+        """
+        const val CREATE_METADATA_TABLE_SQL = """
+            CREATE TABLE IF NOT EXISTS rag_index_metadata(
+                id INTEGER PRIMARY KEY CHECK(id = 1),
+                fingerprint TEXT NOT NULL,
+                model_id TEXT NOT NULL,
+                model_revision TEXT NOT NULL,
+                tokenizer_sha256 TEXT NOT NULL,
+                embedding_dimension INTEGER NOT NULL,
+                normalized INTEGER NOT NULL,
+                pooling TEXT NOT NULL,
+                max_sequence_length INTEGER NOT NULL,
+                chunk_token_count INTEGER NOT NULL,
+                chunk_overlap_tokens INTEGER NOT NULL,
+                corpus_record_count INTEGER NOT NULL,
+                corpus_fingerprint TEXT NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """
+        const val METADATA_SELECT_SQL = """
+            SELECT fingerprint, model_id, model_revision, tokenizer_sha256,
+                embedding_dimension, normalized, pooling, max_sequence_length,
+                chunk_token_count, chunk_overlap_tokens, corpus_record_count,
+                corpus_fingerprint, updated_at
+            FROM rag_index_metadata
+            WHERE id = 1
+        """
+        const val METADATA_UPSERT_SQL = """
+            INSERT INTO rag_index_metadata(
+                id, fingerprint, model_id, model_revision, tokenizer_sha256,
+                embedding_dimension, normalized, pooling, max_sequence_length,
+                chunk_token_count, chunk_overlap_tokens, corpus_record_count,
+                corpus_fingerprint, updated_at
+            ) VALUES (
+                1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            ON CONFLICT(id) DO UPDATE SET
+                fingerprint = excluded.fingerprint,
+                model_id = excluded.model_id,
+                model_revision = excluded.model_revision,
+                tokenizer_sha256 = excluded.tokenizer_sha256,
+                embedding_dimension = excluded.embedding_dimension,
+                normalized = excluded.normalized,
+                pooling = excluded.pooling,
+                max_sequence_length = excluded.max_sequence_length,
+                chunk_token_count = excluded.chunk_token_count,
+                chunk_overlap_tokens = excluded.chunk_overlap_tokens,
+                corpus_record_count = excluded.corpus_record_count,
+                corpus_fingerprint = excluded.corpus_fingerprint,
+                updated_at = excluded.updated_at
         """
     }
 }

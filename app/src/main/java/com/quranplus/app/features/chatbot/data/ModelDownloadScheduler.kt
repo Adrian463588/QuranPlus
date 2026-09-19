@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.quranplus.app.core.network.DownloadState
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.File
 import java.util.UUID
@@ -33,19 +34,56 @@ class ModelDownloadScheduler(
                     .setRequiredNetworkType(NetworkType.CONNECTED)
                     .build()
             )
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
-            .addTag("quranplus-model-${model.id}")
+            // Large model transfers can be stopped by Android thermal policy.
+            // Linear retry prevents a transient stop from becoming an hours-long
+            // stale queue while the .tmp candidate remains resumable.
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.SECONDS)
+            .addTag(uniqueName(model))
+            .addTag(ALL_MODEL_DOWNLOADS_TAG)
             .build()
+        // Only one large artifact may own the device transfer at a time. The
+        // resumable .tmp file makes switching models safe without duplicates.
+        workManager.cancelAllWorkByTag(ALL_MODEL_DOWNLOADS_TAG)
         workManager.enqueueUniqueWork(
-            "quranplus-model-${model.id}",
-            ExistingWorkPolicy.KEEP,
+            uniqueName(model),
+            // Starting from the UI is an explicit request to retry now. The
+            // existing .tmp file is preserved by the worker, so replacing the
+            // WorkRequest only resets its backoff/run-attempt counter.
+            ExistingWorkPolicy.REPLACE,
             request
         )
         return request.id
     }
 
+    fun cancel(model: ModelInfo) {
+        workManager.cancelUniqueWork(uniqueName(model))
+    }
+
+    suspend fun findActiveModel(models: List<ModelInfo>): ModelInfo? =
+        models.firstOrNull { model ->
+            getWorkInfos(model).any { !it.state.isFinished }
+        }
+
     fun observe(id: UUID, model: ModelInfo): Flow<DownloadState> =
-        workManager.getWorkInfoByIdFlow(id).map { info -> info.toDownloadState(model) }
+        // Observe the unique chain, not only the newly created request ID.
+        // KEEP can retain an older retrying work after the process/UI was
+        // recreated; observing only the new ID then made an active download
+        // look idle and prevented the user from seeing its resume progress.
+        workManager.getWorkInfosForUniqueWorkFlow(uniqueName(model)).map { infos ->
+            val info = infos.firstOrNull { it.id == id }
+                ?: infos.firstOrNull { !it.state.isFinished }
+                ?: infos.firstOrNull()
+        info.toDownloadState(model)
+        }
+
+    private suspend fun getWorkInfos(model: ModelInfo): List<WorkInfo> =
+        workManager.getWorkInfosForUniqueWorkFlow(uniqueName(model)).first()
+
+    private fun uniqueName(model: ModelInfo): String = "quranplus-model-${model.id}"
+
+    private companion object {
+        const val ALL_MODEL_DOWNLOADS_TAG = "quranplus-model-download"
+    }
 
     private fun ModelInfo.toWorkerData() = workDataOf(
         "model_id" to id,
@@ -59,6 +97,9 @@ class ModelDownloadScheduler(
         "model_runtime" to runtime,
         "model_role" to role.name,
         "model_embedding_dimension" to (embeddingDimension ?: -1),
+        "model_tokenizer_asset" to tokenizerAsset,
+        "model_tokenizer_type" to tokenizerType,
+        "model_tokenizer_sha256" to tokenizerSha256,
         "model_license_id" to licenseId,
         "model_license_url" to licenseUrl
     )
@@ -67,16 +108,35 @@ class ModelDownloadScheduler(
         if (this == null) return DownloadState.Idle
         val file = File(modelDirectory, model.filename)
         return when (state) {
-            WorkInfo.State.ENQUEUED -> DownloadState.Queued(file)
+            WorkInfo.State.ENQUEUED -> if (runAttemptCount > 0) {
+                DownloadState.Paused(
+                    progress.getString("reason")
+                        ?: "Menunggu percobaan ulang; file sementara akan dilanjutkan"
+                )
+            } else {
+                DownloadState.Queued(file)
+            }
             WorkInfo.State.RUNNING -> when (progress.getString("stage")) {
                 "verifying" -> DownloadState.Verifying
                 "paused" -> DownloadState.Paused(progress.getString("reason") ?: "Menunggu jaringan")
-                else -> DownloadState.Transferring(
-                    bytesDownloaded = progress.getLong("bytes_downloaded", 0L),
-                    totalBytes = progress.getLong("total_bytes", 0L),
-                    progressPercentage = progress.getInt("progress", 0),
-                    speedBytesPerSec = progress.getLong("speed_bytes_per_second", 0L)
-                )
+                else -> {
+                    val bytesDownloaded = progress.getLong("bytes_downloaded", 0L)
+                    val totalBytes = progress.getLong("total_bytes", model.sizeBytes ?: 0L).takeIf { it > 0L } ?: (model.sizeBytes ?: 0L)
+                    val rawProgress = progress.getInt("progress", -1)
+                    val progressPercentage = if (rawProgress >= 0) {
+                        rawProgress
+                    } else if (totalBytes > 0L && bytesDownloaded > 0L) {
+                        ((bytesDownloaded * 100L) / totalBytes).toInt().coerceIn(0, 100)
+                    } else {
+                        0
+                    }
+                    DownloadState.Transferring(
+                        bytesDownloaded = bytesDownloaded,
+                        totalBytes = totalBytes,
+                        progressPercentage = progressPercentage,
+                        speedBytesPerSec = progress.getLong("speed_bytes_per_second", 0L)
+                    )
+                }
             }
             WorkInfo.State.SUCCEEDED -> DownloadState.Completed(file)
             WorkInfo.State.FAILED -> DownloadState.Failed(

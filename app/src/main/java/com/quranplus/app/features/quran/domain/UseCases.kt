@@ -13,3 +13,5 @@ typealias RestoreBookmarkUseCase = com.quranplus.shared.features.quran.domain.Re
 typealias UpdateBookmarkNoteUseCase = com.quranplus.shared.features.quran.domain.UpdateBookmarkNoteUseCase
 typealias SaveLastReadUseCase = com.quranplus.shared.features.quran.domain.SaveLastReadUseCase
 typealias GetLastReadUseCase = com.quranplus.shared.features.quran.domain.GetLastReadUseCase
+typealias GetTafsirUseCase = com.quranplus.shared.features.quran.domain.GetTafsirUseCase
+typealias GetTafsirsForSurahUseCase = com.quranplus.shared.features.quran.domain.GetTafsirsForSurahUseCase

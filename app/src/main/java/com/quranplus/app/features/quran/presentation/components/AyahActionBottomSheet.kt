@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -49,7 +51,10 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import com.quranplus.app.core.ui.theme.QuranColors
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,7 +76,9 @@ import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
 import com.quranplus.app.core.utils.TajwidParser
 import com.quranplus.app.features.quran.domain.Ayah
+import com.quranplus.app.features.quran.domain.Tafsir
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.imePadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,21 +89,26 @@ fun AyahActionBottomSheet(
     sheetState: SheetState,
     audioPlayerManager: AudioPlayerManager,
     onDismissRequest: () -> Unit,
-    onBookmarkToggle: (note: String?) -> Unit
+    onBookmarkToggle: (note: String?) -> Unit,
+    onLoadTafsir: suspend (surahNumber: Int, ayahNumber: Int) -> Tafsir? = { _, _ -> null }
 ) {
     val context = LocalContext.current
     var showNoteDialog by remember { mutableStateOf(false) }
     var noteText by remember { mutableStateOf("") }
     var showTafsirSection by remember { mutableStateOf(false) }
     var showTajwidSection by remember { mutableStateOf(false) }
-    val selectedQari by audioPlayerManager.selectedQari.collectAsStateWithLifecycle()
-    val audioAvailable = remember(ayah.surahNumber, ayah.ayahNumber, selectedQari) {
-        audioPlayerManager.getAyahAudioUrl(
-            selectedQari,
-            ayah.surahNumber,
-            ayah.ayahNumber
-        ) != null
+    var tafsirData by remember { mutableStateOf<Tafsir?>(null) }
+    var isTafsirLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showTafsirSection, ayah.surahNumber, ayah.ayahNumber) {
+        if (showTafsirSection && tafsirData == null) {
+            isTafsirLoading = true
+            tafsirData = onLoadTafsir(ayah.surahNumber, ayah.ayahNumber)
+            isTafsirLoading = false
+        }
     }
+
+    val selectedQari by audioPlayerManager.selectedQari.collectAsStateWithLifecycle()
 
     val tajwidOccurrences = remember(ayah.textArabic, ayah.tajwidTags) {
         TajwidParser.extractTajwidOccurrences(ayah.textArabic, ayah.tajwidTags)
@@ -105,13 +117,16 @@ fun AyahActionBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
                 .padding(horizontal = Spacing.md)
-                .padding(bottom = Spacing.xxl)
+                .padding(bottom = Spacing.lg)
                 .verticalScroll(rememberScrollState())
         ) {
             // Header: Surah & Ayah Badge
@@ -127,11 +142,33 @@ fun AyahActionBottomSheet(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = "Juz ${ayah.juz} • Halaman ${ayah.page}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier.padding(top = Spacing.xs),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Juz ${ayah.juz} • Halaman ${ayah.page}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (ayah.textArabic.contains("۩") || ayah.textArabic.contains("\u06E9")) {
+                            Text(
+                                text = "• ۩ Ayat Sajdah",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = QuranColors.BadgeWaqafStop
+                            )
+                        }
+                        if (ayah.textArabic.contains("ࣖ") || ayah.textArabic.contains("\u08D6")) {
+                            Text(
+                                text = "• ع Akhir Ruku'",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = QuranColors.Secondary
+                            )
+                        }
+                    }
                 }
 
                 IconButton(onClick = { showNoteDialog = true }) {
@@ -170,13 +207,9 @@ fun AyahActionBottomSheet(
             // 1. Play Audio Ayah
             ActionItemRow(
                 icon = Icons.Rounded.PlayArrow,
-                title = if (audioAvailable) "Putar Audio Murottal" else "Audio Murottal belum tersedia",
-                subtitle = if (audioAvailable) {
-                    "Dengarkan pelafalan qari pilihan untuk ayat ini"
-                } else {
-                    "Asset audio dan checksum terverifikasi belum tersedia"
-                },
-                enabled = audioAvailable,
+                title = "Putar Audio Murottal",
+                subtitle = "Dengarkan pelafalan ${selectedQari.displayName} untuk ayat ini",
+                enabled = true,
                 onClick = {
                     audioPlayerManager.playAyah(
                         surahNumber = ayah.surahNumber,
@@ -192,13 +225,9 @@ fun AyahActionBottomSheet(
             // 2. Repeat Ayah Mode
             ActionItemRow(
                 icon = Icons.Rounded.Repeat,
-                title = if (audioAvailable) "Ulangi Pemutaran Ayat (Muraja'ah)" else "Pengulangan audio belum tersedia",
-                subtitle = if (audioAvailable) {
-                    "Setel pengulangan otomatis 1x, 2x, 3x, 5x, atau loop tak terbatas"
-                } else {
-                    "Pengulangan aktif setelah asset audio terverifikasi tersedia"
-                },
-                enabled = audioAvailable,
+                title = "Ulangi Pemutaran Ayat (Muraja'ah)",
+                subtitle = "Setel pengulangan otomatis 1x, 2x, 3x, 5x, atau loop tak terbatas",
+                enabled = true,
                 onClick = {
                     audioPlayerManager.setRepeatMode(AudioRepeatMode.THREE_TIMES)
                     audioPlayerManager.playAyah(
@@ -269,32 +298,112 @@ fun AyahActionBottomSheet(
             // 6. Detail Tafsir Section
             ActionExpandableHeader(
                 icon = Icons.Rounded.Description,
-                title = "Detail Tafsir Ringkas",
+                title = "Tafsir Ringkas Kemenag RI",
                 isExpanded = showTafsirSection,
                 onToggle = { showTafsirSection = !showTafsirSection }
             )
             AnimatedVisibility(visible = showTafsirSection) {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xs),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = Spacing.xs),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(Spacing.md)) {
-                        Text(
-                            text = "Tafsir terverifikasi:",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(Spacing.xs))
-                        Text(
-                            text = "Tafsir terverifikasi belum tersedia di korpus aplikasi.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 22.sp
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = "Kementerian Agama RI • Resmi",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                            if (tafsirData != null) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    IconButton(
+                                        onClick = {
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            val copyText = "Tafsir QS. $surahName:${ayah.ayahNumber} (Kemenag RI):\n\n${tafsirData?.tafsirText}"
+                                            clipboard.setPrimaryClip(ClipData.newPlainText("Tafsir Kemenag", copyText))
+                                            Toast.makeText(context, "Tafsir berhasil disalin", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.ContentCopy,
+                                            contentDescription = "Salin Tafsir",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            val shareText = "Tafsir QS. $surahName:${ayah.ayahNumber} (Kemenag RI):\n\n${tafsirData?.tafsirText}\n\nDibagikan via Quran Plus"
+                                            val sendIntent = Intent().apply {
+                                                action = Intent.ACTION_SEND
+                                                putExtra(Intent.EXTRA_TEXT, shareText)
+                                                type = "text/plain"
+                                            }
+                                            context.startActivity(Intent.createChooser(sendIntent, "Bagikan Tafsir"))
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Share,
+                                            contentDescription = "Bagikan Tafsir",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(Spacing.sm))
+
+                        if (isTafsirLoading) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = Spacing.md),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        } else if (tafsirData != null && tafsirData!!.tafsirText.isNotBlank()) {
+                            Text(
+                                text = tafsirData!!.tafsirText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 24.sp
+                            )
+                        } else {
+                            Text(
+                                text = "Tafsir untuk ayat ini sedang dipersiapkan.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
+
 
             // 7. Detail Hukum Tajwid Section
             ActionExpandableHeader(
@@ -308,7 +417,8 @@ fun AyahActionBottomSheet(
                     modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xs),
                     verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
-                    if (tajwidOccurrences.isEmpty()) {
+                    val activeOccurrences = tajwidOccurrences.filter { it.type.color != null }
+                    if (activeOccurrences.isEmpty()) {
                         Text(
                             text = "Tidak ada hukum tajwid khusus di luar bacaan dasar pada ayat ini.",
                             style = MaterialTheme.typography.bodySmall,
@@ -316,7 +426,7 @@ fun AyahActionBottomSheet(
                             modifier = Modifier.padding(Spacing.sm)
                         )
                     } else {
-                        tajwidOccurrences.forEach { occurrence ->
+                        activeOccurrences.forEach { occurrence ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
@@ -329,7 +439,7 @@ fun AyahActionBottomSheet(
                                         modifier = Modifier
                                             .size(12.dp)
                                             .clip(CircleShape)
-                                            .background(occurrence.type.color)
+                                            .background(occurrence.type.color ?: MaterialTheme.colorScheme.primary)
                                     )
                                     Spacer(modifier = Modifier.width(Spacing.sm))
                                     Column(modifier = Modifier.weight(1f)) {
@@ -362,6 +472,8 @@ fun AyahActionBottomSheet(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(Spacing.xxl))
         }
     }
 

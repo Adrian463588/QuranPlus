@@ -11,15 +11,21 @@ import kotlinx.coroutines.flow.flowOn
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.ConnectException
-import java.net.UnknownHostException
-import java.security.MessageDigest
+import java.net.SocketException
 import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.io.EOFException
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 sealed interface DownloadState {
     data object Idle : DownloadState
@@ -42,15 +48,24 @@ class ResumableDownloader(
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS)
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
 ) {
+
+    private val redirectSafeClient = client.newBuilder()
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .build()
 
     fun isOnline(): Boolean {
         val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
             ?: return false
         val network = manager.activeNetwork ?: return false
         val capabilities = manager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
     /**
@@ -104,12 +119,15 @@ class ResumableDownloader(
         }
 
         try {
-            val requestBuilder = Request.Builder().url(url)
+            val requestBuilder = Request.Builder()
+                .url(url)
+                // Keep byte ranges aligned with the stored .tmp candidate.
+                .header("Accept-Encoding", "identity")
             if (existingBytes > 0L) {
                 requestBuilder.header("Range", "bytes=$existingBytes-")
             }
 
-            client.newCall(requestBuilder.build()).execute().use { response ->
+            executeCancellable(requestBuilder.build()).use { response ->
                 val append = existingBytes > 0L && response.code == 206
                 if (existingBytes > 0L && response.code == 416) {
                     tempFile.delete()
@@ -117,7 +135,7 @@ class ResumableDownloader(
                     return@flow
                 }
                 if (!response.isSuccessful && response.code != 206) {
-                    if (response.code == 408 || response.code == 429 || response.code in 500..599) {
+                    if (response.code in 500..599) {
                         emit(DownloadState.Paused("Server belum siap (${response.code}); unduhan akan dicoba lagi"))
                     } else {
                         emit(DownloadState.Failed("Gagal mengunduh: HTTP ${response.code}"))
@@ -128,9 +146,16 @@ class ResumableDownloader(
                     // The server ignored Range. Restart the candidate from byte zero.
                     tempFile.delete()
                 }
-                if (append) {
+                if (response.code == 206) {
                     val contentRange = response.header("Content-Range")
-                    if (contentRange?.startsWith("bytes $existingBytes-") != true) {
+                    val range = contentRange
+                        ?.let { CONTENT_RANGE_PATTERN.matchEntire(it.trim()) }
+                    val rangeStart = range?.groupValues?.getOrNull(1)?.toLongOrNull()
+                    val rangeTotal = range?.groupValues?.getOrNull(3)?.toLongOrNull()
+                    val expectedRangeStart = if (existingBytes > 0L) existingBytes else 0L
+                    if (rangeStart != expectedRangeStart ||
+                        (expectedSizeBytes != null && rangeTotal != expectedSizeBytes)
+                    ) {
                         emit(DownloadState.Failed("Server mengirim Content-Range yang tidak sesuai"))
                         return@flow
                     }
@@ -140,7 +165,13 @@ class ResumableDownloader(
                     emit(DownloadState.Failed("Response body kosong"))
                     return@flow
                 }
-                val totalBytes = if (append) existingBytes + body.contentLength() else body.contentLength()
+                val responseBytes = body.contentLength()
+                val totalBytes = when {
+                    expectedSizeBytes != null && expectedSizeBytes > 0L -> expectedSizeBytes
+                    responseBytes >= 0L && append -> existingBytes + responseBytes
+                    responseBytes >= 0L -> responseBytes
+                    else -> 0L
+                }
                 var downloaded = if (append) existingBytes else 0L
                 var lastReport = System.currentTimeMillis()
                 var bytesSinceReport = 0L
@@ -176,7 +207,18 @@ class ResumableDownloader(
             emit(DownloadState.Verifying)
             if (expectedSizeBytes != null &&
                 expectedSizeBytes > 0L &&
-                tempFile.length() != expectedSizeBytes
+                tempFile.length() < expectedSizeBytes
+            ) {
+                emit(
+                    DownloadState.Paused(
+                        "Transfer belum lengkap (${tempFile.length()} dari $expectedSizeBytes byte); akan dilanjutkan"
+                    )
+                )
+                return@flow
+            }
+            if (expectedSizeBytes != null &&
+                expectedSizeBytes > 0L &&
+                tempFile.length() > expectedSizeBytes
             ) {
                 tempFile.delete()
                 emit(DownloadState.ChecksumError("Verifikasi ukuran artifact gagal"))
@@ -227,10 +269,74 @@ class ResumableDownloader(
 
     private fun isRetryableNetworkError(error: IOException): Boolean {
         if (!isOnline()) return true
-        return error is SocketTimeoutException ||
-            error is ConnectException ||
-            error is UnknownHostException ||
-            error is EOFException
+        val causes = generateSequence(error as Throwable?) { it.cause }.toList()
+        if (causes.any {
+                it is SocketException ||
+                    it is SocketTimeoutException ||
+                    it is ConnectException ||
+                    it is UnknownHostException ||
+                    it is InterruptedIOException ||
+                    it is EOFException
+            }
+        ) {
+            return true
+        }
+        val message = causes.joinToString(" ") { it.message.orEmpty() }.lowercase()
+        return NETWORK_FAILURE_MARKERS.any(message::contains)
+    }
+
+    private suspend fun executeCancellable(request: Request): Response {
+        var currentRequest = request
+        repeat(MAX_REDIRECTS + 1) {
+            val response = executeCancellableOnce(currentRequest)
+            if (response.code !in REDIRECT_CODES) return response
+
+            val location = response.header("Location")
+            val nextUrl = location?.let { currentRequest.url.resolve(it) }
+            response.close()
+            if (nextUrl == null || nextUrl.scheme != "https" ||
+                !isAllowedRedirectHost(currentRequest.url.host, nextUrl.host)
+            ) {
+                throw IOException("Redirect unduhan tidak diizinkan")
+            }
+            currentRequest = currentRequest.newBuilder().url(nextUrl).build()
+        }
+        throw IOException("Redirect unduhan melebihi batas")
+    }
+
+    private suspend fun executeCancellableOnce(request: Request): Response =
+        suspendCancellableCoroutine { continuation ->
+            val call = redirectSafeClient.newCall(request)
+            continuation.invokeOnCancellation { call.cancel() }
+            try {
+                val response = call.execute()
+                if (continuation.isActive) {
+                    continuation.resume(response)
+                } else {
+                    response.close()
+                }
+            } catch (error: Throwable) {
+                if (continuation.isActive) continuation.resumeWithException(error)
+            }
+        }
+
+    private fun isAllowedRedirectHost(fromHost: String, toHost: String): Boolean {
+        if (fromHost.equals(toHost, ignoreCase = true)) return true
+        val fromHuggingFace = fromHost == "huggingface.co" ||
+            fromHost.endsWith(".huggingface.co", ignoreCase = true)
+        val toHuggingFace = toHost == "huggingface.co" ||
+            toHost.endsWith(".huggingface.co", ignoreCase = true) ||
+            toHost.endsWith(".hf.co", ignoreCase = true)
+        if (fromHuggingFace && toHuggingFace) return true
+
+        val fromGitHub = fromHost == "github.com" ||
+            fromHost == "codeload.github.com" ||
+            fromHost.endsWith(".github.com", ignoreCase = true)
+        val toGitHub = toHost == "github.com" ||
+            toHost == "codeload.github.com" ||
+            toHost.endsWith(".github.com", ignoreCase = true) ||
+            toHost.endsWith(".githubusercontent.com", ignoreCase = true)
+        return fromGitHub && toGitHub
     }
 
     private fun calculateDigest(file: File, algorithm: String): String {
@@ -247,8 +353,23 @@ class ResumableDownloader(
     }
 
     private companion object {
-        const val REPORT_INTERVAL_MS = 300L
+        const val MAX_REDIRECTS = 3
+        val REDIRECT_CODES = setOf(300, 301, 302, 303, 307, 308)
+        const val REPORT_INTERVAL_MS = 1_000L
+        val NETWORK_FAILURE_MARKERS = listOf(
+            "connection reset",
+            "connection aborted",
+            "connection closed",
+            "broken pipe",
+            "unexpected end of stream",
+            "stream was reset",
+            "network is unreachable",
+            "connection refused",
+            "timed out",
+            "timeout"
+        )
         val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
         val MD5_PATTERN = Regex("[0-9a-fA-F]{32}")
+        val CONTENT_RANGE_PATTERN = Regex("bytes (\\d+)-(\\d+)/(\\d+)")
     }
 }

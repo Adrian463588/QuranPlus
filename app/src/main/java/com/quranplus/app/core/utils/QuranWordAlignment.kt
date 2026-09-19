@@ -65,7 +65,8 @@ private fun normalizeWord(value: String): String = buildString(value.length) {
 }
 
 private fun normalizeWordChar(char: Char): Char? {
-    if (char == '\u0640' || char in WaqafParser.WAQAF_MARKER_SYMBOLS || char == WaqafParser.AYAH_END_SYM.single()) {
+    if (char == '\u0640' || char in WaqafParser.WAQAF_MARKER_SYMBOLS || char == WaqafParser.AYAH_END_SYM.single() ||
+        char == '(' || char == ')' || char == '﴿' || char == '﴾') {
         return null
     }
     if (Character.getType(char) == Character.NON_SPACING_MARK.toInt() ||
@@ -92,6 +93,7 @@ private fun isSeparator(text: String, index: Int): Boolean {
         char == '\u200C' ||
         char == '\u06E9' ||
         char == WaqafParser.AYAH_END_SYM.single() ||
+        char == '(' || char == ')' || char == '﴿' || char == '﴾' ||
         char in '٠'..'٩' ||
         char in '0'..'9'
 }
@@ -103,6 +105,7 @@ private fun isAllowedGapChar(char: Char): Boolean =
         char == '\u06E9' ||
         char in WaqafParser.WAQAF_MARKER_SYMBOLS ||
         char == WaqafParser.AYAH_END_SYM.single() ||
+        char == '(' || char == ')' || char == '﴿' || char == '﴾' ||
         char in '٠'..'٩' ||
         char in '0'..'9'
 
@@ -135,6 +138,7 @@ private fun isWordCharacter(char: Char): Boolean =
         char != '\u06E9' &&
         char !in WaqafParser.WAQAF_MARKER_SYMBOLS &&
         char != WaqafParser.AYAH_END_SYM.single() &&
+        char != '(' && char != ')' && char != '﴿' && char != '﴾' &&
         char !in '٠'..'٩' &&
         char !in '0'..'9'
 

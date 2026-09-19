@@ -76,12 +76,62 @@ class ModelAssetManifestTest {
             runtime = "ONNX Runtime",
             role = ModelAssetRole.EMBEDDING,
             embeddingDimension = 384,
+            tokenizerAsset = "embedding/vocab.txt",
+            tokenizerType = "wordpiece",
+            tokenizerSha256 = "f".repeat(64),
             licenseId = "Apache-2.0",
             licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
         )
 
         assertTrue(manifest.isRuntimeCompatible)
         assertTrue(manifest.isDownloadable)
+    }
+
+    @Test
+    fun GIVEN_embeddingWithoutMatchingTokenizer_WHEN_checkingRuntimeGate_THEN_downloadRemainsBlocked() {
+        val manifest = ModelAssetManifest(
+            id = "unsupported-embedding",
+            name = "Embedding tanpa tokenizer",
+            filename = "embedding.onnx",
+            artifactUrl = "https://example.com/resolve/0123456789abcdef0123456789abcdef01234567/embedding.onnx",
+            sourceUrl = "https://example.com/tree/0123456789abcdef0123456789abcdef01234567",
+            sha256 = "e".repeat(64),
+            sizeBytes = 10,
+            format = "onnx",
+            runtime = "ONNX Runtime",
+            role = ModelAssetRole.EMBEDDING,
+            embeddingDimension = 384,
+            licenseId = "Apache-2.0",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
+        )
+
+        assertFalse(manifest.isRuntimeCompatible)
+        assertFalse(manifest.isDownloadable)
+    }
+
+    @Test
+    fun GIVEN_sentencePieceEmbeddingWithoutRuntime_WHEN_checkingRuntimeGate_THEN_downloadRemainsBlocked() {
+        val manifest = ModelAssetManifest(
+            id = "multilingual-minilm",
+            name = "Multilingual MiniLM",
+            filename = "multilingual.onnx",
+            artifactUrl = "https://example.com/resolve/0123456789abcdef0123456789abcdef01234567/model.onnx",
+            sourceUrl = "https://example.com/tree/0123456789abcdef0123456789abcdef01234567",
+            sha256 = "f".repeat(64),
+            sizeBytes = 10,
+            format = "onnx",
+            runtime = "ONNX Runtime",
+            role = ModelAssetRole.EMBEDDING,
+            embeddingDimension = 384,
+            tokenizerAsset = "embedding/sentencepiece.bpe.model",
+            tokenizerType = "sentencepiece",
+            tokenizerSha256 = "1".repeat(64),
+            licenseId = "Apache-2.0",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
+        )
+
+        assertFalse(manifest.isRuntimeCompatible)
+        assertFalse(manifest.isDownloadable)
     }
 
     @Test
@@ -120,5 +170,38 @@ class ModelAssetManifestTest {
 
         assertFalse(manifest.isRuntimeCompatible)
         assertFalse(manifest.isDownloadable)
+    }
+
+    @Test
+    fun GIVEN_pinnedMiniLmV2Artifact_WHEN_checkingDownloadGate_THEN_downloadIsAllowedWithTrueLfsSha256() {
+        val manifest = ModelAssetManifest(
+            id = "all-minilm-l6-v2-onnx",
+            name = "all-MiniLM-L6-v2 (ONNX RAG)",
+            filename = "model_qint8_arm64.onnx",
+            artifactUrl = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/onnx/model_qint8_arm64.onnx",
+            sourceUrl = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/tree/1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+            sha256 = "4278337fd0ff3c68bfb6291042cad8ab363e1d9fbc43dcb499fe91c871902474",
+            sizeBytes = 23_026_053L,
+            format = "onnx",
+            runtime = "ONNX Runtime",
+            role = ModelAssetRole.EMBEDDING,
+            embeddingDimension = 384,
+            tokenizerAsset = "embedding/vocab.txt",
+            tokenizerType = "wordpiece",
+            tokenizerSha256 = "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+            licenseId = "Apache-2.0",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0",
+            isRecommended = true
+        )
+
+        assertTrue(manifest.isRuntimeCompatible)
+        assertTrue(manifest.hasVerifiedManifest)
+        assertTrue(manifest.isDownloadable)
+    }
+
+    @Test
+    fun GIVEN_modelDownloadNotificationManager_WHEN_checkingConstants_THEN_channelAndIdAreConsistent() {
+        org.junit.Assert.assertEquals("quran_model_download_channel", com.quranplus.app.features.chatbot.data.ModelDownloadNotificationManager.CHANNEL_ID)
+        org.junit.Assert.assertEquals(2001, com.quranplus.app.features.chatbot.data.ModelDownloadNotificationManager.NOTIFICATION_ID)
     }
 }

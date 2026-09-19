@@ -15,11 +15,13 @@ import com.quranplus.app.features.quran.domain.GetLastReadUseCase
 import com.quranplus.app.features.quran.domain.GetWordsBySurahUseCase
 import com.quranplus.app.features.quran.domain.GetSurahDetailUseCase
 import com.quranplus.app.features.quran.domain.GetSurahListUseCase
+import com.quranplus.app.features.quran.domain.GetTafsirUseCase
 import com.quranplus.app.features.quran.domain.LastRead
 import com.quranplus.app.features.quran.domain.BookmarkSort
 import com.quranplus.app.features.quran.domain.SaveLastReadUseCase
 import com.quranplus.app.features.quran.domain.SearchQuranUseCase
 import com.quranplus.app.features.quran.domain.Surah
+import com.quranplus.app.features.quran.domain.Tafsir
 import com.quranplus.app.features.quran.domain.WordByWord
 import com.quranplus.app.features.quran.domain.ToggleBookmarkUseCase
 import com.quranplus.app.features.quran.domain.QuranSearchFilter
@@ -51,8 +53,10 @@ class QuranViewModel(
     private val updateBookmarkNoteUseCase: UpdateBookmarkNoteUseCase,
     private val saveLastReadUseCase: SaveLastReadUseCase,
     private val getLastReadUseCase: GetLastReadUseCase,
-    private val getWordsBySurahUseCase: GetWordsBySurahUseCase
+    private val getWordsBySurahUseCase: GetWordsBySurahUseCase,
+    private val getTafsirUseCase: GetTafsirUseCase
 ) : ViewModel() {
+
 
     val surahListState: StateFlow<UiState<List<Surah>>> = getSurahListUseCase()
         .map<List<Surah>, UiState<List<Surah>>> { list ->
@@ -227,5 +231,9 @@ class QuranViewModel(
         require(filter.surahNumber == null || filter.surahNumber in 1..114)
         _searchFilter.value = filter
         if (lastSearchQuery.isNotBlank()) searchQuran(lastSearchQuery)
+    }
+
+    suspend fun getTafsir(surahNumber: Int, ayahNumber: Int): Tafsir? {
+        return getTafsirUseCase(surahNumber, ayahNumber)
     }
 }

@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.security.MessageDigest
 
 data class HadithImportSummary(
     val collectionId: String,
@@ -24,21 +25,32 @@ class HadithReferenceImporter(
     private val context: Context,
     private val database: QuranDatabase
 ) {
-    suspend fun import(uri: Uri): HadithImportSummary? = withContext(Dispatchers.IO) {
+    suspend fun import(
+        uri: Uri,
+        source: VerifiedHadithSource? = null
+    ): HadithImportSummary? = withContext(Dispatchers.IO) {
         val displayName = queryDisplayName(uri) ?: uri.lastPathSegment ?: return@withContext null
         val json = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
             ?: return@withContext null
-        importJson(json, displayName)
+        importJson(json, displayName, source)
     }
 
-    suspend fun importFile(file: File, displayName: String = file.name): HadithImportSummary? =
+    suspend fun importFile(
+        file: File,
+        displayName: String = file.name,
+        source: VerifiedHadithSource? = null
+    ): HadithImportSummary? =
         withContext(Dispatchers.IO) {
             if (!file.isFile) return@withContext null
-            importJson(file.readText(Charsets.UTF_8), displayName)
+            importJson(file.readText(Charsets.UTF_8), displayName, source)
         }
 
-    private suspend fun importJson(json: String, displayName: String): HadithImportSummary? {
-        val parsed = parseCollection(json, displayName) ?: return null
+    private suspend fun importJson(
+        json: String,
+        displayName: String,
+        source: VerifiedHadithSource?
+    ): HadithImportSummary? {
+        val parsed = parseCollection(json, displayName, source) ?: return null
         if (parsed.records.isEmpty()) return null
 
         val dao = database.hadithDao()
@@ -51,8 +63,8 @@ class HadithReferenceImporter(
                     titleArabic = parsed.titleArabic,
                     titleEnglish = parsed.title,
                     sourceRevision = parsed.sourceRevision,
-                    sourceSha256 = "",
-                    licenseStatus = "reference",
+                    sourceSha256 = parsed.sourceSha256,
+                    licenseStatus = parsed.licenseStatus,
                     gradeStatus = "not_provided",
                     recordCount = parsed.records.size,
                     chapterCount = parsed.chapters.size,
@@ -66,9 +78,13 @@ class HadithReferenceImporter(
         return HadithImportSummary(parsed.collectionId, parsed.title, parsed.records.size)
     }
 
-    private fun parseCollection(json: String, displayName: String): ParsedCollection? {
+    private fun parseCollection(
+        json: String,
+        displayName: String,
+        source: VerifiedHadithSource?
+    ): ParsedCollection? {
         val array = runCatching { JSONArray(json) }.getOrNull()
-        if (array != null) return parseIndonesianBundle(array, displayName)
+        if (array != null) return parseIndonesianBundle(array, displayName, source, json)
 
         val document = runCatching { JSONObject(json) }.getOrNull() ?: return null
         val hadiths = document.optJSONArray("hadiths") ?: return null
@@ -78,14 +94,16 @@ class HadithReferenceImporter(
         val titleArabic = metadata?.optJSONObject("arabic")?.optString("title").orEmpty()
         val title = metadata?.optJSONObject("english")?.optString("title")
             .orEmpty().ifBlank { displayTitle(collectionId) }
-        val records = buildReferenceRecords(collectionId, title, hadiths)
+        val records = buildReferenceRecords(collectionId, title, hadiths, source, json)
         return ParsedCollection(
             collectionId = collectionId,
             title = title,
             titleArabic = titleArabic,
             records = records,
             chapters = buildChapters(collectionId, chapters),
-            sourceRevision = "hadith-json-reference",
+            sourceRevision = source?.revision ?: "hadith-json-reference",
+            sourceSha256 = sourceHash(json, source),
+            licenseStatus = source?.let { "licensed" } ?: "unverified",
             isComplete = records.size == hadiths.length(),
             isBundle = false
         )
@@ -93,7 +111,9 @@ class HadithReferenceImporter(
 
     private fun parseIndonesianBundle(
         hadiths: JSONArray,
-        displayName: String
+        displayName: String,
+        source: VerifiedHadithSource?,
+        json: String
     ): ParsedCollection? {
         val collectionId = collectionIdFromFileName(displayName) ?: return null
         val title = displayTitle(collectionId)
@@ -115,9 +135,9 @@ class HadithReferenceImporter(
                         translationEn = "",
                         reference = "$title no. $number",
                         chapterId = null,
-                        sourceRevision = HADITH_BUNDLE_REVISION,
-                        sourceSha256 = "",
-                        licenseStatus = "reference",
+                        sourceRevision = source?.revision ?: HADITH_BUNDLE_REVISION,
+                        sourceSha256 = sourceHash(json, source),
+                        licenseStatus = source?.let { "licensed" } ?: "unverified",
                         grade = null,
                         language = "id",
                         isComplete = true
@@ -131,7 +151,9 @@ class HadithReferenceImporter(
             titleArabic = "",
             records = records,
             chapters = emptyList(),
-            sourceRevision = HADITH_BUNDLE_REVISION,
+            sourceRevision = source?.revision ?: HADITH_BUNDLE_REVISION,
+            sourceSha256 = sourceHash(json, source),
+            licenseStatus = source?.let { "licensed" } ?: "unverified",
             isComplete = records.size == hadiths.length(),
             isBundle = true
         )
@@ -140,7 +162,9 @@ class HadithReferenceImporter(
     private fun buildReferenceRecords(
         collectionId: String,
         title: String,
-        hadiths: JSONArray
+        hadiths: JSONArray,
+        source: VerifiedHadithSource?,
+        json: String
     ): List<HadithEntity> = buildList {
         for (index in 0 until hadiths.length()) {
             val record = hadiths.optJSONObject(index) ?: continue
@@ -165,9 +189,9 @@ class HadithReferenceImporter(
                         .joinToString("\n"),
                     reference = "$title no. $hadithNumber",
                     chapterId = record.optInt("chapterId").toString(),
-                    sourceRevision = "hadith-json-reference",
-                    sourceSha256 = "",
-                    licenseStatus = "reference",
+                    sourceRevision = source?.revision ?: "hadith-json-reference",
+                    sourceSha256 = sourceHash(json, source),
+                    licenseStatus = source?.let { "licensed" } ?: "unverified",
                     grade = null,
                     language = if (translationId.isBlank()) "en" else "id",
                     isComplete = translation.isNotBlank() || translationId.isNotBlank()
@@ -231,12 +255,22 @@ class HadithReferenceImporter(
         val records: List<HadithEntity>,
         val chapters: List<HadithChapterEntity>,
         val sourceRevision: String,
+        val sourceSha256: String,
+        val licenseStatus: String,
         val isComplete: Boolean,
         val isBundle: Boolean
     )
 
+    private fun sourceHash(json: String, source: VerifiedHadithSource?): String {
+        if (source == null) return ""
+        source.sourceSha256?.takeIf { it.matches(SHA256_PATTERN) }?.let { return it.lowercase() }
+        val digest = MessageDigest.getInstance("SHA-256")
+        val bytes = json.toByteArray(Charsets.UTF_8)
+        return digest.digest(bytes).joinToString("") { byte -> "%02x".format(byte) }
+    }
+
     companion object {
-        const val HADITH_BUNDLE_REVISION = "gadingnst/hadith-api-master"
+        const val HADITH_BUNDLE_REVISION = "8e15b4f9e7585822426a0d470e8dfec27e2a1707"
         val BUNDLE_BOOK_NAMES = setOf(
             "abu-daud.json",
             "ahmad.json",
@@ -274,7 +308,7 @@ class HadithReferenceImporter(
             else -> collectionId
         }
 
-        private fun stableBundleId(collectionId: String, number: Int): Long {
+        fun stableBundleId(collectionId: String, number: Int): Long {
             val knownIds = listOf(
                 "bukhari", "muslim", "abudawud", "tirmidhi", "nasai",
                 "ibnmajah", "ahmad", "darimi", "malik"
@@ -287,5 +321,6 @@ class HadithReferenceImporter(
         }
 
         private const val BATCH_SIZE = 250
+        val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
     }
 }

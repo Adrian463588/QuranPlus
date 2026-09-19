@@ -20,6 +20,9 @@ class HadithBundleImporter(
 ) {
     suspend fun importArchive(archiveFile: File): HadithBundleImportSummary = withContext(Dispatchers.IO) {
         require(archiveFile.isFile) { "Bundle Hadist tidak ditemukan" }
+        require(HadithBundleManifest.VERIFIED.verifyArchive(archiveFile)) {
+            "Checksum atau ukuran bundle Hadist tidak cocok dengan manifest"
+        }
         assetStore.publishFile(
             source = archiveFile,
             relativeDirectory = "rag/source",
@@ -46,7 +49,19 @@ class HadithBundleImporter(
                         filename = filename,
                         mimeType = "application/json"
                     )
-                    referenceImporter.import(storedUri)?.let(imported::add)
+                    referenceImporter.import(
+                        uri = storedUri,
+                        source = VerifiedHadithSource(
+                            revision = HadithBundleManifest.VERIFIED.revision,
+                            licenseId = HadithBundleManifest.VERIFIED.licenseId,
+                            licenseUrl = HadithBundleManifest.VERIFIED.licenseUrl,
+                            // The trust boundary is the verified immutable ZIP,
+                            // not an individual extracted book. Every row must
+                            // carry the bundle digest so partial/foreign JSON
+                            // cannot enter the verified RAG corpus.
+                            sourceSha256 = HadithBundleManifest.VERIFIED.archiveSha256
+                        )
+                    )?.let(imported::add)
                 } finally {
                     temporary.delete()
                 }
@@ -64,7 +79,12 @@ class HadithBundleImporter(
         assetStore.publishText(
             text = JSONObject()
                 .put("bundle_id", BUNDLE_ID)
-                .put("source_url", BUNDLE_URL)
+                .put("source_url", BUNDLE_SOURCE_URL)
+                .put("revision", HadithBundleManifest.VERIFIED.revision)
+                .put("archive_size_bytes", HadithBundleManifest.VERIFIED.archiveSizeBytes)
+                .put("archive_sha256", HadithBundleManifest.VERIFIED.archiveSha256)
+                .put("license_id", HadithBundleManifest.VERIFIED.licenseId)
+                .put("license_url", HadithBundleManifest.VERIFIED.licenseUrl)
                 .put("collections", collectionIds)
                 .put("record_count", summary.recordCount)
                 .toString(),
@@ -75,22 +95,48 @@ class HadithBundleImporter(
     }
 
     suspend fun restoreFromSaf(): HadithBundleImportSummary? = withContext(Dispatchers.IO) {
-        val imported = mutableListOf<HadithImportSummary>()
-        assetStore.listFiles("rag/source/hadith").forEach { uri ->
-            referenceImporter.import(uri)?.let(imported::add)
+        val manifest = assetStore.readText("manifests", BUNDLE_MANIFEST_FILENAME)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() }
+        if (manifest == null ||
+            manifest.optString("bundle_id") != BUNDLE_ID ||
+            manifest.optString("revision") != HadithBundleManifest.VERIFIED.revision ||
+            manifest.optLong("archive_size_bytes", -1L) !=
+            HadithBundleManifest.VERIFIED.archiveSizeBytes ||
+            manifest.optString("archive_sha256")
+                .equals(HadithBundleManifest.VERIFIED.archiveSha256, ignoreCase = true).not() ||
+            manifest.optString("license_id") != HadithBundleManifest.VERIFIED.licenseId ||
+            manifest.optString("source_url") != HadithBundleManifest.VERIFIED.sourceUrl ||
+            manifest.optString("license_url") != HadithBundleManifest.VERIFIED.licenseUrl
+        ) {
+            return@withContext null
         }
-        if (imported.isEmpty()) null else HadithBundleImportSummary(
-            collectionCount = imported.size,
-            recordCount = imported.sumOf(HadithImportSummary::recordCount)
-        )
+        // Rebuild from the verified archive, not from loose SAF JSON files.
+        // This prevents a modified per-book file from being promoted to a
+        // trusted Hadist source merely because the manifest still exists.
+        val temporary = File.createTempFile("quranplus-hadith-restore-", ".zip")
+        try {
+            val materialized = assetStore.materialize(
+                relativePath = "rag/source/$BUNDLE_FILENAME",
+                destination = temporary,
+                expectedSha256 = HadithBundleManifest.VERIFIED.archiveSha256
+            )
+            if (!materialized || temporary.length() != HadithBundleManifest.VERIFIED.archiveSizeBytes) {
+                return@withContext null
+            }
+            importArchive(temporary)
+        } finally {
+            temporary.delete()
+        }
     }
 
     companion object {
         const val BUNDLE_ID = "gadingnst-hadith-api"
         const val BUNDLE_FILENAME = "hadith-indonesia-bundle.zip"
         const val BUNDLE_MANIFEST_FILENAME = "hadith-bundle.json"
-        const val BUNDLE_URL =
-            "https://codeload.github.com/gadingnst/hadith-api/zip/refs/heads/master"
-        const val BUNDLE_SOURCE_URL = "https://github.com/gadingnst/hadith-api"
+        val BUNDLE_URL: String
+            get() = HadithBundleManifest.VERIFIED.archiveUrl
+        val BUNDLE_SOURCE_URL: String
+            get() = HadithBundleManifest.VERIFIED.sourceUrl
     }
+
 }

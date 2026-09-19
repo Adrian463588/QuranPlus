@@ -12,16 +12,21 @@ import com.quranplus.app.features.quran.domain.LastRead
 import com.quranplus.app.features.quran.domain.QuranRepository
 import com.quranplus.app.features.quran.domain.QuranSearchFilter
 import com.quranplus.app.features.quran.domain.Surah
+import com.quranplus.app.core.database.dao.TafsirDao
+import com.quranplus.app.features.quran.domain.Tafsir
 import androidx.sqlite.db.SimpleSQLiteQuery
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 class QuranRepositoryImpl(
+
     private val quranDao: QuranDao,
     private val bookmarkDao: BookmarkDao,
-    private val lastReadDao: LastReadDao
+    private val lastReadDao: LastReadDao,
+    private val tafsirDao: TafsirDao
 ) : QuranRepository {
+
 
     override fun getAllSurahs(): Flow<List<Surah>> {
         return quranDao.getAllSurahs().map { list ->
@@ -267,5 +272,30 @@ class QuranRepositoryImpl(
                 timestamp = System.currentTimeMillis()
             )
         )
+    }
+
+    override suspend fun getTafsir(surahNumber: Int, ayahNumber: Int): Tafsir? {
+        val entity = tafsirDao.getTafsirByAyah(surahNumber, ayahNumber) ?: return null
+        return Tafsir(
+            id = entity.id,
+            surahNumber = entity.surahId,
+            ayahNumber = entity.ayahNumber,
+            tafsirText = entity.tafsirText,
+            source = entity.source
+        )
+    }
+
+    override fun getTafsirsForSurah(surahNumber: Int): Flow<List<Tafsir>> {
+        return tafsirDao.getTafsirsForSurah(surahNumber).map { list ->
+            list.map { entity ->
+                Tafsir(
+                    id = entity.id,
+                    surahNumber = entity.surahId,
+                    ayahNumber = entity.ayahNumber,
+                    tafsirText = entity.tafsirText,
+                    source = entity.source
+                )
+            }
+        }
     }
 }

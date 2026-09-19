@@ -1,6 +1,7 @@
 package com.quranplus.app.core.database.dao
 
 import androidx.room.Dao
+import androidx.room.ColumnInfo
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -48,6 +49,15 @@ interface QuranDao {
 
     @Query("SELECT * FROM ayahs ORDER BY surah_id ASC, ayah_number ASC")
     suspend fun getAllAyahs(): List<AyahEntity>
+
+    @Query("SELECT COUNT(*) FROM ayahs")
+    suspend fun countAyahs(): Int
+
+    @Query("UPDATE ayahs SET transliteration = :transliteration WHERE id = :id")
+    suspend fun updateAyahTransliteration(id: Long, transliteration: String)
+
+    @Query("UPDATE ayahs SET text_arabic = :textArabic WHERE id = :id")
+    suspend fun updateAyahTextArabic(id: Long, textArabic: String)
 
     @RawQuery(observedEntities = [AyahEntity::class])
     suspend fun searchAyahsFts(query: SupportSQLiteQuery): List<AyahEntity>
@@ -177,6 +187,34 @@ interface HadithDao {
     @Query("SELECT * FROM hadiths ORDER BY collection_id ASC, hadith_number ASC")
     suspend fun getAllHadiths(): List<HadithEntity>
 
+    @Query(
+        "SELECT collection_id, COUNT(*) AS record_count FROM hadiths " +
+            "WHERE source_revision = :sourceRevision " +
+            "AND source_sha256 = :sourceSha256 " +
+            "AND license_status = :licenseStatus " +
+            "AND is_complete = 1 " +
+            "GROUP BY collection_id ORDER BY collection_id ASC"
+    )
+    suspend fun getVerifiedBundleCollectionCounts(
+        sourceRevision: String,
+        sourceSha256: String,
+        licenseStatus: String
+    ): List<HadithBundleCollectionCount>
+
+    @RawQuery(observedEntities = [HadithEntity::class])
+    suspend fun searchFts(query: SupportSQLiteQuery): List<HadithEntity>
+
+    @Query(
+        "SELECT * FROM hadiths " +
+            "WHERE (:collectionId IS NULL OR collection_id = :collectionId) " +
+            "AND hadith_number = :number ORDER BY collection_id ASC LIMIT :limit"
+    )
+    suspend fun searchByNumber(
+        collectionId: String?,
+        number: Int,
+        limit: Int = 100
+    ): List<HadithEntity>
+
     @Query("SELECT COUNT(*) FROM hadiths")
     suspend fun countHadiths(): Int
 
@@ -193,17 +231,10 @@ interface HadithDao {
     fun getCollectionIds(): Flow<List<String>>
 
     @Query(
-        "SELECT * FROM hadiths " +
-            "WHERE (:collectionId IS NULL OR collection_id = :collectionId) AND " +
-            "(text_arabic LIKE '%' || :query || '%' OR " +
-            "translation_id LIKE '%' || :query || '%' OR " +
-            "translation_en LIKE '%' || :query || '%') " +
-            "ORDER BY hadith_number ASC LIMIT :limit"
+        "UPDATE hadiths SET translation_id = :translation " +
+            "WHERE id = :id AND license_status = 'reference'"
     )
-    suspend fun search(collectionId: String?, query: String, limit: Int = 100): List<HadithEntity>
-
-    @Query("UPDATE hadiths SET translation_id = :translation WHERE id = :id")
-    suspend fun updateIndonesianTranslation(id: Long, translation: String)
+    suspend fun updateIndonesianTranslationForReference(id: Long, translation: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHadiths(hadiths: List<HadithEntity>)
@@ -215,9 +246,14 @@ interface HadithDao {
     suspend fun insertChapters(chapters: List<HadithChapterEntity>)
 }
 
+data class HadithBundleCollectionCount(
+    @ColumnInfo(name = "collection_id") val collectionId: String,
+    @ColumnInfo(name = "record_count") val recordCount: Int
+)
+
 @Dao
 interface KnowledgeChunkDao {
-    @Query("SELECT * FROM knowledge_chunks")
+    @Query("SELECT * FROM knowledge_chunks ORDER BY id ASC")
     suspend fun getAllChunks(): List<KnowledgeChunkEntity>
 
     @Query("SELECT * FROM knowledge_chunks WHERE source_type = :sourceType")
@@ -225,6 +261,9 @@ interface KnowledgeChunkDao {
 
     @Query("SELECT COUNT(*) FROM knowledge_chunks")
     suspend fun getChunksCount(): Int
+
+    @RawQuery(observedEntities = [KnowledgeChunkEntity::class])
+    suspend fun searchFts(query: SupportSQLiteQuery): List<KnowledgeChunkEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChunks(chunks: List<KnowledgeChunkEntity>)
@@ -235,11 +274,17 @@ interface ChatDao {
     @Query("SELECT * FROM chat_messages WHERE conversation_id = :conversationId ORDER BY timestamp ASC")
     fun getMessages(conversationId: String): Flow<List<ChatMessageEntity>>
 
+    @Query("SELECT * FROM chat_messages ORDER BY timestamp DESC")
+    fun getAllMessages(): Flow<List<ChatMessageEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessageEntity): Long
 
     @Query("DELETE FROM chat_messages WHERE conversation_id = :conversationId")
     suspend fun clearConversation(conversationId: String)
+
+    @Query("DELETE FROM chat_messages")
+    suspend fun clearAllConversations()
 }
 
 @Dao
@@ -255,4 +300,22 @@ interface QuizDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAttempt(attempt: QuizAttemptEntity)
+}
+
+@Dao
+interface TafsirDao {
+    @Query("SELECT * FROM tafsirs WHERE surah_id = :surahId AND ayah_number = :ayahNumber LIMIT 1")
+    suspend fun getTafsirByAyah(surahId: Int, ayahNumber: Int): com.quranplus.app.core.database.entity.TafsirEntity?
+
+    @Query("SELECT * FROM tafsirs WHERE surah_id = :surahId ORDER BY ayah_number ASC")
+    fun getTafsirsForSurah(surahId: Int): Flow<List<com.quranplus.app.core.database.entity.TafsirEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(tafsirs: List<com.quranplus.app.core.database.entity.TafsirEntity>)
+
+    @Query("SELECT COUNT(*) FROM tafsirs")
+    suspend fun count(): Int
+
+    @Query("DELETE FROM tafsirs")
+    suspend fun clear()
 }

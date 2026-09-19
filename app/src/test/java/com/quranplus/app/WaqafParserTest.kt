@@ -36,6 +36,8 @@ class WaqafParserTest {
             WaqafParser.ActionCategory.PREFERRED_STOP,
             WaqafParser.findRuleBySymbol('ۗ')?.actionCategory
         )
+        assertNotNull(WaqafParser.findRuleBySymbol(WaqafParser.AYAH_END_SYM.single()))
+        assertEquals("Akhir Ayat (Waqaf Tam)", WaqafParser.findRuleBySymbol(WaqafParser.AYAH_END_SYM.single())?.latinName)
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -69,10 +71,9 @@ class WaqafParserTest {
 
     @Test
     fun GIVEN_sourceAlreadyHasEndMarker_WHEN_formattingAyahText_THEN_markerIsRenderedOnce() {
-        val result = WaqafParser.formatAyahTextWithEndMarker("بِسْمِ ۝٧ ", 1)
+        val result = WaqafParser.formatAyahTextWithEndMarker("بِسْمِ (٧) ", 1)
 
-        assertEquals(1, result.count { it == WaqafParser.AYAH_END_SYM.single() })
-        assertEquals("بِسْمِ ۝١ ", result)
+        assertEquals("بِسْمِ (١) ", result)
     }
 
     @Test
@@ -118,5 +119,27 @@ class WaqafParserTest {
                 result.length
             ).map { it.item }
         )
+    }
+
+    @Test
+    fun GIVEN_sajdahSymbol_WHEN_resolvingRules_THEN_returnsSajdahRule() {
+        val rule = WaqafParser.findRuleBySymbol('۩')
+        assertNotNull(rule)
+        assertEquals("سجدة", rule?.arabicName)
+        assertEquals("Tanda Sajdah (Sujud Tilawah)", rule?.latinName)
+    }
+
+    @Test
+    fun GIVEN_rukuSymbol_WHEN_resolvingRules_THEN_returnsRukuRule() {
+        val rule = WaqafParser.findRuleBySymbol('ع')
+        assertNotNull(rule)
+        assertEquals("ع", rule?.arabicName)
+        assertEquals("Tanda Ruku' (Akhir Maqra')", rule?.latinName)
+    }
+
+    @Test
+    fun GIVEN_rukuSymbol_WHEN_formattingAyahText_THEN_placesRukuCleanlyAfterAyahNumber() {
+        val result = WaqafParser.formatAyahTextWithEndMarker("عَظِيمٌۭ ࣖ", 7)
+        assertEquals("عَظِيمٌۭ (٧) ع ", result)
     }
 }

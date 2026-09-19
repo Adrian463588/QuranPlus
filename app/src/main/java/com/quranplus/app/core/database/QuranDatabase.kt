@@ -34,6 +34,7 @@ import com.quranplus.app.core.database.entity.SurahEntity
 import com.quranplus.app.core.database.entity.TahsinLessonEntity
 import com.quranplus.app.core.database.entity.QuizAttemptEntity
 import com.quranplus.app.core.database.entity.QuizQuestionEntity
+import com.quranplus.app.core.database.entity.TafsirEntity
 import com.quranplus.app.core.database.entity.WordByWordEntity
 
 @Database(
@@ -50,9 +51,10 @@ import com.quranplus.app.core.database.entity.WordByWordEntity
         KnowledgeChunkEntity::class,
         ChatMessageEntity::class,
         QuizQuestionEntity::class,
-        QuizAttemptEntity::class
+        QuizAttemptEntity::class,
+        TafsirEntity::class
     ],
-    version = 9,
+    version = 13,
     exportSchema = false
 )
 abstract class QuranDatabase : RoomDatabase() {
@@ -65,6 +67,7 @@ abstract class QuranDatabase : RoomDatabase() {
     abstract fun knowledgeChunkDao(): KnowledgeChunkDao
     abstract fun chatDao(): ChatDao
     abstract fun quizDao(): com.quranplus.app.core.database.dao.QuizDao
+    abstract fun tafsirDao(): com.quranplus.app.core.database.dao.TafsirDao
 
     companion object {
         private const val DB_NAME = "quranplus.db"
@@ -102,9 +105,14 @@ abstract class QuranDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_6_7)
                 .addMigrations(MIGRATION_7_8)
                 .addMigrations(MIGRATION_8_9)
+                .addMigrations(MIGRATION_9_10)
+                .addMigrations(MIGRATION_10_11)
+                .addMigrations(MIGRATION_11_12)
+                .addMigrations(MIGRATION_12_13)
                 .addCallback(FTS_CALLBACK)
                 .build()
         }
+
 
         private fun materializeSqliteVecExtension(context: Context): File? {
             val nativeLibrary = File(context.applicationInfo.nativeLibraryDir, SQLITE_VEC_LIBRARY)
@@ -311,13 +319,176 @@ abstract class QuranDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SQLiteConnection) {
+                database.executeSql(
+                    """
+                    CREATE TABLE IF NOT EXISTS tafsirs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        surah_id INTEGER NOT NULL,
+                        ayah_number INTEGER NOT NULL,
+                        tafsir_text TEXT NOT NULL,
+                        source TEXT NOT NULL DEFAULT 'Kemenag RI'
+                    )
+                    """.trimIndent()
+                )
+                database.executeSql(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_tafsirs_surah_ayah ON tafsirs(surah_id, ayah_number)"
+                )
+            }
+        }
+
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SQLiteConnection) {
+                createRetrievalFts5(database)
+            }
+        }
+
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(database: SQLiteConnection) {
+                database.executeSql(
+                    "ALTER TABLE chat_messages ADD COLUMN completion_status TEXT NOT NULL DEFAULT 'complete'"
+                )
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(database: SQLiteConnection) {
+                database.executeSql("DROP TRIGGER IF EXISTS hadiths_fts5_after_insert")
+                database.executeSql("DROP TRIGGER IF EXISTS hadiths_fts5_after_delete")
+                database.executeSql("DROP TRIGGER IF EXISTS hadiths_fts5_after_update")
+                database.executeSql("DROP TABLE IF EXISTS hadiths_fts5")
+                createRetrievalFts5(database)
+            }
+        }
+
+
         private fun createFts5(database: SupportSQLiteDatabase) {
             fts5Statements().forEach(database::execSQL)
+            retrievalFts5Statements().forEach(database::execSQL)
         }
 
         private fun createFts5(database: SQLiteConnection) {
             fts5Statements().forEach { sql -> database.executeSql(sql) }
         }
+
+        private fun createRetrievalFts5(database: SQLiteConnection) {
+            retrievalFts5Statements().forEach { sql -> database.executeSql(sql) }
+        }
+
+        private fun retrievalFts5Statements(): List<String> = listOf(
+            """
+            CREATE VIRTUAL TABLE IF NOT EXISTS hadiths_fts5 USING fts5(
+                collection_id,
+                title,
+                text_arabic,
+                text_arabic_normalized,
+                translation_id,
+                translation_en,
+                reference,
+                tokenize = 'unicode61 remove_diacritics 2'
+            )
+            """.trimIndent(),
+            "DELETE FROM hadiths_fts5",
+            """
+            INSERT INTO hadiths_fts5(
+                rowid, collection_id, title, text_arabic, text_arabic_normalized,
+                translation_id, translation_en, reference
+            )
+            SELECT id, collection_id, title, text_arabic,
+                ${arabicSearchExpression("text_arabic")}, translation_id, translation_en, reference
+            FROM hadiths
+            """.trimIndent(),
+            """
+            CREATE TRIGGER IF NOT EXISTS hadiths_fts5_after_insert
+            AFTER INSERT ON hadiths BEGIN
+                INSERT INTO hadiths_fts5(
+                    rowid, collection_id, title, text_arabic, text_arabic_normalized,
+                    translation_id, translation_en, reference
+                ) VALUES (
+                    new.id, new.collection_id, new.title, new.text_arabic,
+                    ${arabicSearchExpression("new.text_arabic")},
+                    new.translation_id, new.translation_en, new.reference
+                );
+            END
+            """.trimIndent(),
+            """
+            CREATE TRIGGER IF NOT EXISTS hadiths_fts5_after_delete
+            AFTER DELETE ON hadiths BEGIN
+                INSERT INTO hadiths_fts5(
+                    hadiths_fts5, rowid, collection_id, title, text_arabic,
+                    text_arabic_normalized, translation_id, translation_en, reference
+                ) VALUES (
+                    'delete', old.id, old.collection_id, old.title, old.text_arabic,
+                    ${arabicSearchExpression("old.text_arabic")},
+                    old.translation_id, old.translation_en, old.reference
+                );
+            END
+            """.trimIndent(),
+            """
+            CREATE TRIGGER IF NOT EXISTS hadiths_fts5_after_update
+            AFTER UPDATE ON hadiths BEGIN
+                INSERT INTO hadiths_fts5(
+                    hadiths_fts5, rowid, collection_id, title, text_arabic,
+                    text_arabic_normalized, translation_id, translation_en, reference
+                ) VALUES (
+                    'delete', old.id, old.collection_id, old.title, old.text_arabic,
+                    ${arabicSearchExpression("old.text_arabic")},
+                    old.translation_id, old.translation_en, old.reference
+                );
+                INSERT INTO hadiths_fts5(
+                    rowid, collection_id, title, text_arabic, text_arabic_normalized,
+                    translation_id, translation_en, reference
+                ) VALUES (
+                    new.id, new.collection_id, new.title, new.text_arabic,
+                    ${arabicSearchExpression("new.text_arabic")},
+                    new.translation_id, new.translation_en, new.reference
+                );
+            END
+            """.trimIndent(),
+            """
+            CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunks_fts5 USING fts5(
+                source_type,
+                source_id,
+                title,
+                text_content,
+                tokenize = 'unicode61 remove_diacritics 2'
+            )
+            """.trimIndent(),
+            "DELETE FROM knowledge_chunks_fts5",
+            """
+            INSERT INTO knowledge_chunks_fts5(rowid, source_type, source_id, title, text_content)
+            SELECT id, source_type, source_id, title, text_content
+            FROM knowledge_chunks
+            """.trimIndent(),
+            """
+            CREATE TRIGGER IF NOT EXISTS knowledge_chunks_fts5_after_insert
+            AFTER INSERT ON knowledge_chunks BEGIN
+                INSERT INTO knowledge_chunks_fts5(
+                    rowid, source_type, source_id, title, text_content
+                ) VALUES (new.id, new.source_type, new.source_id, new.title, new.text_content);
+            END
+            """.trimIndent(),
+            """
+            CREATE TRIGGER IF NOT EXISTS knowledge_chunks_fts5_after_delete
+            AFTER DELETE ON knowledge_chunks BEGIN
+                INSERT INTO knowledge_chunks_fts5(
+                    knowledge_chunks_fts5, rowid, source_type, source_id, title, text_content
+                ) VALUES ('delete', old.id, old.source_type, old.source_id, old.title, old.text_content);
+            END
+            """.trimIndent(),
+            """
+            CREATE TRIGGER IF NOT EXISTS knowledge_chunks_fts5_after_update
+            AFTER UPDATE ON knowledge_chunks BEGIN
+                INSERT INTO knowledge_chunks_fts5(
+                    knowledge_chunks_fts5, rowid, source_type, source_id, title, text_content
+                ) VALUES ('delete', old.id, old.source_type, old.source_id, old.title, old.text_content);
+                INSERT INTO knowledge_chunks_fts5(
+                    rowid, source_type, source_id, title, text_content
+                ) VALUES (new.id, new.source_type, new.source_id, new.title, new.text_content);
+            END
+            """.trimIndent()
+        )
 
         private fun SQLiteConnection.executeSql(sql: String) {
             prepare(sql).use { it.step() }
@@ -397,6 +568,7 @@ abstract class QuranDatabase : RoomDatabase() {
 
             override fun onCreate(database: SQLiteConnection) {
                 createFts5(database)
+                createRetrievalFts5(database)
             }
         }
     }

@@ -23,6 +23,11 @@ object CitationJsonCodec {
                     .put("deep_link_target", citation.deepLinkTarget)
                     .put("surah_number", citation.surahNumber)
                     .put("ayah_number", citation.ayahNumber)
+                    .put("evidence_kind", citation.evidenceKind.name)
+                    .put("authority_tier", citation.authorityTier.name)
+                    .put("provider_id", citation.providerId)
+                    .put("canonical_url", citation.canonicalUrl)
+                    .put("retrieved_at", citation.retrievedAt)
             )
         }
         return array.toString()
@@ -30,28 +35,44 @@ object CitationJsonCodec {
 
     fun decode(json: String?): List<RetrievedCitation> {
         if (json.isNullOrBlank()) return emptyList()
-        val array = JSONArray(json)
-        return buildList(array.length()) {
-            for (index in 0 until array.length()) {
-                val item = array.getJSONObject(index)
-                add(
-                    RetrievedCitation(
-                        sourceId = item.getString("source_id"),
-                        sourceType = item.getString("source_type"),
-                        title = item.getString("title"),
-                        reference = item.getString("reference"),
-                        textSnippet = item.getString("text_snippet"),
-                        score = item.getDouble("score").toFloat(),
-                        collection = item.optionalString("collection"),
-                        identifier = item.optString("identifier").takeIf(String::isNotBlank)
-                            ?: item.getString("source_id"),
-                        deepLinkTarget = item.optionalString("deep_link_target"),
-                        surahNumber = item.optionalInt("surah_number"),
-                        ayahNumber = item.optionalInt("ayah_number")
+        return runCatching {
+            val array = JSONArray(json)
+            buildList(array.length()) {
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: continue
+                    val sourceId = item.optionalString("source_id") ?: continue
+                    val sourceType = item.optionalString("source_type") ?: continue
+                    val textSnippet = item.optionalString("text_snippet") ?: continue
+                    val title = item.optionalString("title") ?: sourceId
+                    val reference = item.optionalString("reference") ?: title
+                    val score = item.optDouble("score", 0.0).toFloat().takeIf(Float::isFinite) ?: 0f
+                    add(
+                        RetrievedCitation(
+                            sourceId = sourceId,
+                            sourceType = sourceType,
+                            title = title,
+                            reference = reference,
+                            textSnippet = textSnippet,
+                            score = score,
+                            collection = item.optionalString("collection"),
+                            identifier = item.optionalString("identifier") ?: sourceId,
+                            deepLinkTarget = item.optionalString("deep_link_target"),
+                            surahNumber = item.optionalInt("surah_number"),
+                            ayahNumber = item.optionalInt("ayah_number"),
+                            evidenceKind = item.optionalString("evidence_kind")
+                                ?.let { value -> runCatching { com.quranplus.app.features.rag.domain.EvidenceKind.valueOf(value) }.getOrNull() }
+                                ?: com.quranplus.app.features.rag.domain.EvidenceKind.fromSourceType(sourceType),
+                            authorityTier = item.optionalString("authority_tier")
+                                ?.let { value -> runCatching { com.quranplus.app.features.rag.domain.AuthorityTier.valueOf(value) }.getOrNull() }
+                                ?: com.quranplus.app.features.rag.domain.authorityTierFor(sourceType),
+                            providerId = item.optionalString("provider_id") ?: "local",
+                            canonicalUrl = item.optionalString("canonical_url"),
+                            retrievedAt = item.optLong("retrieved_at", 0L).takeIf { it > 0L }
+                        )
                     )
-                )
+                }
             }
-        }
+        }.getOrDefault(emptyList())
     }
 
     private fun JSONObject.optionalInt(key: String): Int? {

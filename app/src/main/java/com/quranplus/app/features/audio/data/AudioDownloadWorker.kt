@@ -46,7 +46,10 @@ class AudioDownloadWorker(
                 failure("Checksum audio tidak dapat diambil: ${error.localizedMessage}")
             }
         }
-        val assetStore = AudioAssetStore(applicationContext)
+        val safAssetStore = runCatching {
+            org.koin.java.KoinJavaComponent.getKoin().get<com.quranplus.app.features.rag.data.SafAssetStore>()
+        }.getOrNull()
+        val assetStore = AudioAssetStore(applicationContext, safAssetStore)
         val downloader = ResumableDownloader(applicationContext)
 
         for (ayahNumber in 1..totalAyahs) {

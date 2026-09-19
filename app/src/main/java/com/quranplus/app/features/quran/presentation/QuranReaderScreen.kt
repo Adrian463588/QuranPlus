@@ -17,10 +17,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -28,10 +32,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement.spacedBy
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.AutoStories
@@ -43,6 +51,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -102,18 +111,23 @@ import androidx.compose.ui.semantics.semantics
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.material3.SuggestionChip
 import com.quranplus.app.core.audio.AudioPlayerManager
 import com.quranplus.app.core.audio.PlaybackState
 import com.quranplus.app.core.ui.components.AppEmptyState
+import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.components.TajwidLegendSheet
+import com.quranplus.app.core.ui.theme.QuranColors
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.TransliterationStyle
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
+import com.quranplus.app.core.utils.SurahMapper
 import com.quranplus.app.core.utils.TajwidParser
 import com.quranplus.app.core.utils.WaqafParser
 import com.quranplus.app.core.utils.alignQuranWords
 import com.quranplus.app.features.quran.domain.Ayah
+import com.quranplus.app.features.quran.domain.Surah
 import com.quranplus.app.features.quran.domain.WordByWord
 import com.quranplus.app.features.quran.presentation.components.AyahActionBottomSheet
 import com.quranplus.app.features.settings.data.PreferencesManager
@@ -144,11 +158,15 @@ fun QuranReaderScreen(
     val showTranslation by preferencesManager.showTranslation.collectAsStateWithLifecycle(initialValue = true)
     val enableTajwid by preferencesManager.enableTajwid.collectAsStateWithLifecycle(initialValue = true)
     val translationMode by preferencesManager.translationMode.collectAsStateWithLifecycle(initialValue = TranslationMode.ENGLISH)
+    val surahListState by viewModel.surahListState.collectAsStateWithLifecycle()
+    val allSurahs = (surahListState as? UiState.Success)?.data.orEmpty()
     val view = LocalView.current
     val activity = view.context as? Activity
 
     var showTajwidSheet by remember { mutableStateOf(false) }
     var showReaderMenu by remember { mutableStateOf(false) }
+    var showAyahJumpSheet by remember { mutableStateOf(false) }
+    var targetAyahToScroll by remember { mutableStateOf<Int?>(null) }
     var showNavigationSheet by remember { mutableStateOf(false) }
     var showFontSlider by remember { mutableStateOf(false) }
     var isWordByWordMode by remember { mutableStateOf(false) }
@@ -157,8 +175,9 @@ fun QuranReaderScreen(
     var selectedWaqafRule by remember { mutableStateOf<WaqafParser.WaqafRule?>(null) }
     var selectedTajwidRule by remember { mutableStateOf<TajwidParser.TajwidType?>(null) }
 
-    val sheetState = rememberModalBottomSheetState()
-    val navigationSheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val navigationSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val ayahJumpSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
@@ -200,6 +219,13 @@ fun QuranReaderScreen(
         pageCount = { TOTAL_SURAHS }
     )
 
+    LaunchedEffect(surahNumber) {
+        val targetPage = (surahNumber - 1).coerceIn(0, TOTAL_SURAHS - 1)
+        if (pagerState.currentPage != targetPage) {
+            pagerState.scrollToPage(targetPage)
+        }
+    }
+
     // Load surah when pager page changes
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { page ->
@@ -232,6 +258,15 @@ fun QuranReaderScreen(
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     showReaderMenu = false
                                     onNavigateToQuranRoot()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Lompat ke Ayat") },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null) },
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showAyahJumpSheet = true
+                                    showReaderMenu = false
                                 }
                             )
                             DropdownMenuItem(
@@ -362,12 +397,31 @@ fun QuranReaderScreen(
                     saver = LazyListState.Saver
                 ) { LazyListState() }
 
-                LaunchedEffect(page, pageListState, ayahsState, initialAyahNumber) {
+                var hasScrolledToInitial by rememberSaveable(page, initialAyahNumber) {
+                    mutableStateOf(false)
+                }
+
+                LaunchedEffect(page, pageListState, ayahsState, initialAyahNumber, hasScrolledToInitial) {
+                    if (hasScrolledToInitial) return@LaunchedEffect
                     if (page != pagerState.currentPage || ayahsState !is UiState.Success) return@LaunchedEffect
                     val data = (ayahsState as UiState.Success<List<Ayah>>).data
+                    if (data.firstOrNull()?.surahNumber != page + 1) return@LaunchedEffect
                     if (page + 1 == surahNumber && initialAyahNumber in 1..data.size) {
                         val headerOffset = if (page + 1 != 9) 1 else 0
-                        pageListState.animateScrollToItem(headerOffset + initialAyahNumber - 1)
+                        pageListState.scrollToItem(headerOffset + initialAyahNumber - 1)
+                        hasScrolledToInitial = true
+                    }
+                }
+
+                LaunchedEffect(targetAyahToScroll, page, ayahsState) {
+                    val target = targetAyahToScroll ?: return@LaunchedEffect
+                    if (page != pagerState.currentPage || ayahsState !is UiState.Success) return@LaunchedEffect
+                    val data = (ayahsState as UiState.Success<List<Ayah>>).data
+                    if (data.firstOrNull()?.surahNumber != page + 1) return@LaunchedEffect
+                    if (target in 1..data.size) {
+                        val headerOffset = if (page + 1 != 9) 1 else 0
+                        pageListState.scrollToItem(headerOffset + target - 1)
+                        targetAyahToScroll = null
                     }
                 }
 
@@ -531,12 +585,40 @@ fun QuranReaderScreen(
             )
         }
 
+        if (showAyahJumpSheet) {
+            AyahJumpSheet(
+                sheetState = ayahJumpSheetState,
+                currentSurahNumber = surah?.number ?: (pagerState.currentPage + 1),
+                currentAyahCount = surah?.ayahCount ?: 7,
+                surahs = allSurahs,
+                onDismissRequest = { showAyahJumpSheet = false },
+                onJump = { targetSurah, targetAyah ->
+                    showAyahJumpSheet = false
+                    scope.launch {
+                        targetAyahToScroll = targetAyah
+                        val targetPage = (targetSurah - 1).coerceIn(0, TOTAL_SURAHS - 1)
+                        if (pagerState.currentPage != targetPage) {
+                            pagerState.scrollToPage(targetPage)
+                        }
+                    }
+                }
+            )
+        }
+
         if (showNavigationSheet) {
             ReaderNavigationSheet(
                 sheetState = navigationSheetState,
                 viewModel = viewModel,
                 onDismissRequest = { showNavigationSheet = false },
-                onNavigateToAyah = onNavigateToAyah
+                onNavigateToAyah = { targetSurah, targetAyah ->
+                    scope.launch {
+                        targetAyahToScroll = targetAyah
+                        val targetPage = (targetSurah - 1).coerceIn(0, TOTAL_SURAHS - 1)
+                        if (pagerState.currentPage != targetPage) {
+                            pagerState.scrollToPage(targetPage)
+                        }
+                    }
+                }
             )
         }
 
@@ -553,8 +635,12 @@ fun QuranReaderScreen(
                 onDismissRequest = { selectedAyahForAction = null },
                 onBookmarkToggle = { note ->
                     viewModel.toggleBookmark(ayah, currentSurah.nameLatin, note)
+                },
+                onLoadTafsir = { surahNumber, ayahNumber ->
+                    viewModel.getTafsir(surahNumber, ayahNumber)
                 }
             )
+
             }
         }
 
@@ -566,22 +652,47 @@ fun QuranReaderScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(rule.badgeColor.copy(alpha = 0.15f))
+                                .border(1.5.dp, rule.badgeColor.copy(alpha = 0.6f), RoundedCornerShape(10.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(rule.symbol, style = getQuranArabicStyle(20f), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text(
+                                text = rule.displayGlyph,
+                                style = getQuranArabicStyle(18f).copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = rule.badgeColor,
+                                    lineHeight = 24.sp
+                                ),
+                                textAlign = TextAlign.Center
+                            )
                         }
                         Spacer(modifier = Modifier.width(Spacing.sm))
-                        Text(rule.latinName, fontWeight = FontWeight.Bold)
+                        Column {
+                            Text(rule.latinName, fontWeight = FontWeight.Bold)
+                            Text("Tanda: ${rule.arabicName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 },
                 text = {
                     Column {
-                        Text(text = "Rekomendasi: ${rule.actionCategory.label}", fontWeight = FontWeight.Bold, color = rule.badgeColor)
+                        Surface(
+                            color = rule.badgeColor.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "Rekomendasi: ${rule.actionCategory.label}",
+                                fontWeight = FontWeight.Bold,
+                                color = rule.badgeColor,
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(Spacing.sm))
+                        Text(text = "Arti: ${rule.meaning}", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.height(Spacing.xs))
-                        Text(text = rule.detailedRule, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(text = rule.detailedRule, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 confirmButton = {
@@ -593,23 +704,55 @@ fun QuranReaderScreen(
         }
 
         selectedTajwidRule?.let { rule ->
+            val ruleColor = rule.color ?: MaterialTheme.colorScheme.primary
             AlertDialog(
                 onDismissRequest = { selectedTajwidRule = null },
-                title = { Text(rule.label, fontWeight = FontWeight.Bold) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(ruleColor)
+                                .border(1.5.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+                        Text(rule.label, fontWeight = FontWeight.Bold)
+                    }
+                },
                 text = {
                     Column {
-                        Text(rule.description, color = MaterialTheme.colorScheme.onSurface)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(rule.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                            if (rule.exampleArabic.isNotBlank()) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                ) {
+                                    Text(
+                                        text = rule.exampleArabic,
+                                        style = getQuranArabicStyle(15f).copy(color = ruleColor, lineHeight = 20.sp),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(
                             text = "Durasi: ${rule.harakatDuration}",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
+                            color = ruleColor,
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelMedium
                         )
                         Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(
                             text = rule.ruleExplanation,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
@@ -619,6 +762,302 @@ fun QuranReaderScreen(
                     }
                 }
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AyahJumpSheet(
+    sheetState: androidx.compose.material3.SheetState,
+    currentSurahNumber: Int,
+    currentAyahCount: Int,
+    surahs: List<Surah>,
+    onDismissRequest: () -> Unit,
+    onJump: (targetSurah: Int, targetAyah: Int) -> Unit
+) {
+    var selectedSurahNumber by remember(currentSurahNumber) { mutableIntStateOf(currentSurahNumber) }
+    var ayahInput by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showSurahPicker by remember { mutableStateOf(false) }
+    var surahFilterQuery by remember { mutableStateOf("") }
+
+    val selectedSurah = remember(selectedSurahNumber, surahs) {
+        surahs.firstOrNull { it.number == selectedSurahNumber }
+    }
+    val fallbackRef = remember(selectedSurahNumber) {
+        SurahMapper.getSurah(selectedSurahNumber)
+    }
+    val maxAyahs = selectedSurah?.ayahCount ?: fallbackRef?.ayahCount ?: currentAyahCount
+    val surahLatinName = selectedSurah?.nameLatin ?: fallbackRef?.latinName ?: "Surah $selectedSurahNumber"
+
+    val presetAyahs = remember(selectedSurahNumber, maxAyahs) {
+        buildList {
+            add(1)
+            if (selectedSurahNumber == 2) {
+                add(100)
+                add(200)
+                add(255)
+            } else if (selectedSurahNumber == 5) {
+                add(30)
+                add(60)
+                add(90)
+            } else {
+                if (maxAyahs > 20) add(maxAyahs / 4)
+                if (maxAyahs > 10) add(maxAyahs / 2)
+                if (maxAyahs > 20) add((maxAyahs * 3) / 4)
+            }
+            if (maxAyahs > 1) add(maxAyahs)
+        }.distinct().filter { it in 1..maxAyahs }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = sheetState,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = Spacing.lg)
+                .padding(bottom = Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            if (showSurahPicker) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = {
+                        showSurahPicker = false
+                        surahFilterQuery = ""
+                    }) {
+                        Icon(imageVector = Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                        Spacer(modifier = Modifier.width(Spacing.xs))
+                        Text("Kembali")
+                    }
+                    Text(
+                        text = "Pilih Surah",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismissRequest) {
+                        Icon(imageVector = Icons.Rounded.Close, contentDescription = "Tutup")
+                    }
+                }
+
+                OutlinedTextField(
+                    value = surahFilterQuery,
+                    onValueChange = { surahFilterQuery = it },
+                    placeholder = { Text("Cari surah (misal: Baqarah, Maidah)...") },
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                val allList = remember(surahs) {
+                    if (surahs.isNotEmpty()) surahs
+                    else (1..114).mapNotNull { num ->
+                        val r = SurahMapper.getSurah(num) ?: return@mapNotNull null
+                        Surah(r.number, "", r.latinName, "", "", r.ayahCount)
+                    }
+                }
+                val filteredSurahs = remember(surahFilterQuery, allList) {
+                    if (surahFilterQuery.isBlank()) allList
+                    else allList.filter { s ->
+                        SurahMapper.matchesSurah(surahFilterQuery, s.number, s.nameLatin, s.nameArabic, s.nameEnglish)
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    items(filteredSurahs, key = { it.number }) { itemSurah ->
+                        Surface(
+                            onClick = {
+                                selectedSurahNumber = itemSurah.number
+                                showSurahPicker = false
+                                surahFilterQuery = ""
+                                ayahInput = ""
+                                errorMessage = null
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (itemSurah.number == selectedSurahNumber) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${itemSurah.number}.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(36.dp)
+                                )
+                                Text(
+                                    text = itemSurah.nameLatin,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "${itemSurah.ayahCount} ayat",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Lompat / Cari Ayat",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismissRequest) {
+                        Icon(imageVector = Icons.Rounded.Close, contentDescription = "Tutup")
+                    }
+                }
+
+                Text(
+                    text = "Pilih surah dan masukkan nomor ayat untuk langsung menuju ke posisi ayat yang dituju.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Surah Selector Surface
+                Surface(
+                    onClick = { showSurahPicker = true },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.md, vertical = Spacing.sm + 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$selectedSurahNumber",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(Spacing.md))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Surah: $surahLatinName",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Total $maxAyahs ayat • Ketuk untuk ganti surah",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Rounded.MoreVert,
+                            contentDescription = "Ganti surah",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Ayah Number Input
+                OutlinedTextField(
+                    value = ayahInput,
+                    onValueChange = {
+                        ayahInput = it.filter(Char::isDigit)
+                        errorMessage = null
+                    },
+                    label = { Text("Nomor Ayat (1–$maxAyahs)") },
+                    placeholder = {
+                        Text("Contoh: ${if (selectedSurahNumber == 2) "255" else if (selectedSurahNumber == 5) "60" else "1"}")
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    isError = errorMessage != null,
+                    supportingText = errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Preset Quick Chips
+                if (presetAyahs.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Pintas:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        presetAyahs.forEach { ayahNum ->
+                            val label = when {
+                                selectedSurahNumber == 2 && ayahNum == 255 -> "255 (Kursi)"
+                                selectedSurahNumber == 5 && ayahNum == 60 -> "60"
+                                ayahNum == 1 -> "1"
+                                ayahNum == maxAyahs -> "Akhir ($maxAyahs)"
+                                else -> "$ayahNum"
+                            }
+                            SuggestionChip(
+                                onClick = {
+                                    ayahInput = ayahNum.toString()
+                                    errorMessage = null
+                                },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
+                }
+
+                // Confirm Button
+                AppPrimaryButton(
+                    onClick = {
+                        val ayah = ayahInput.toIntOrNull()
+                        if (ayah == null || ayah !in 1..maxAyahs) {
+                            errorMessage = "Masukkan nomor ayat antara 1 dan $maxAyahs."
+                        } else {
+                            onJump(selectedSurahNumber, ayah)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(imageVector = Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null)
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Text("Lompat ke Ayat")
+                }
+            }
         }
     }
 }
@@ -646,13 +1085,16 @@ private fun ReaderNavigationSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
-        sheetState = sheetState
+        sheetState = sheetState,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
                 .padding(horizontal = Spacing.lg)
-                .padding(bottom = Spacing.xxl),
+                .padding(bottom = Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
             Text(
@@ -759,19 +1201,67 @@ fun AyahReaderItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "${ayah.ayahNumber}",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${ayah.ayahNumber}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                if (ayah.textArabic.contains("۩") || ayah.textArabic.contains("\u06E9")) {
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Surface(
+                        color = QuranColors.BadgeWaqafStop.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp),
+                        onClick = {
+                            WaqafParser.findRuleBySymbol('۩')?.let(onWaqafClick)
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "۩ Ayat Sajdah",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = QuranColors.BadgeWaqafStop
+                            )
+                        }
+                    }
+                }
+
+                if (ayah.textArabic.contains("ࣖ") || ayah.textArabic.contains("\u08D6")) {
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Surface(
+                        color = QuranColors.Secondary.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp),
+                        onClick = {
+                            WaqafParser.findRuleBySymbol('ع')?.let(onWaqafClick)
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "ع Akhir Ruku'",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = QuranColors.Secondary
+                            )
+                        }
+                    }
+                }
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -839,63 +1329,56 @@ fun AyahReaderItem(
                 )
             }
         } else {
-            // Keep the ayah number in a dedicated marker badge. U+06DD is
-            // retained in the annotated source for alignment, but its digit
-            // shaping is not reliable across Android font fallbacks.
-            val displayArabic = remember(annotatedArabic) {
-                WaqafParser.removeAyahEndMarker(annotatedArabic)
-            }
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AyahEndMarker(
-                        ayahNumber = ayah.ayahNumber,
-                        fontSizeSp = fontSizeSp,
-                        modifier = Modifier.padding(end = Spacing.xs)
-                    )
-                    ClickableText(
-                        text = displayArabic,
-                        style = getQuranArabicStyle(fontSizeSp).copy(
-                            textAlign = TextAlign.End,
-                            lineHeight = (fontSizeSp * 1.8f).sp
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .semantics {
-                                contentDescription = "Teks Arab ayat ${ayah.ayahNumber}. Ketuk tanda atau warna Tajwid untuk detail."
-                            },
-                        onClick = { offset ->
-                            if (displayArabic.text.isEmpty()) return@ClickableText
-                            val safeOffset = offset.coerceIn(0, displayArabic.text.lastIndex)
-                            displayArabic
-                                .getStringAnnotations(
-                                    WaqafParser.WAQAF_ANNOTATION,
-                                    safeOffset,
-                                    safeOffset + 1
-                                )
-                                .firstOrNull()
-                                ?.let { annotation ->
-                                    WaqafParser.findRuleBySymbol(annotation.item.first())?.let(onWaqafClick)
-                                    return@ClickableText
-                                }
-                            displayArabic
-                                .getStringAnnotations(
-                                    TajwidParser.TAJWID_ANNOTATION,
-                                    safeOffset,
-                                    safeOffset + 1
-                                )
-                                .firstOrNull()
-                                ?.let { annotation ->
-                                    runCatching { TajwidParser.TajwidType.valueOf(annotation.item) }
-                                        .getOrNull()
-                                        ?.let(onTajwidClick)
-                                }
+            ClickableText(
+                text = annotatedArabic,
+                style = getQuranArabicStyle(fontSizeSp).copy(
+                    textAlign = TextAlign.End,
+                    lineHeight = (fontSizeSp * 2.0f).sp
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = "Teks Arab ayat ${ayah.ayahNumber}. Ketuk tanda atau warna Tajwid untuk detail."
+                    },
+                onClick = { offset ->
+                    if (annotatedArabic.text.isEmpty()) return@ClickableText
+                    val safeOffset = offset.coerceIn(0, annotatedArabic.text.lastIndex)
+                    annotatedArabic
+                        .getStringAnnotations(
+                            WaqafParser.AYAH_END_ANNOTATION,
+                            safeOffset,
+                            safeOffset + 1
+                        )
+                        .firstOrNull()
+                        ?.let {
+                            WaqafParser.findRuleBySymbol(WaqafParser.AYAH_END_SYM.first())?.let(onWaqafClick)
+                            return@ClickableText
                         }
-                    )
+                    annotatedArabic
+                        .getStringAnnotations(
+                            WaqafParser.WAQAF_ANNOTATION,
+                            safeOffset,
+                            safeOffset + 1
+                        )
+                        .firstOrNull()
+                        ?.let { annotation ->
+                            WaqafParser.findRuleBySymbol(annotation.item.first())?.let(onWaqafClick)
+                            return@ClickableText
+                        }
+                    annotatedArabic
+                        .getStringAnnotations(
+                            TajwidParser.TAJWID_ANNOTATION,
+                            safeOffset,
+                            safeOffset + 1
+                        )
+                        .firstOrNull()
+                        ?.let { annotation ->
+                            runCatching { TajwidParser.TajwidType.valueOf(annotation.item) }
+                                .getOrNull()
+                                ?.let(onTajwidClick)
+                        }
                 }
-            }
+            )
         }
 
         if (!isWordByWordMode) {
@@ -1220,9 +1703,8 @@ private fun findAyahEndMarkerStart(annotatedAyah: AnnotatedString): Int? {
         ?.start
     if (annotatedStart != null) return annotatedStart
 
-    return annotatedAyah.text
-        .indexOf(WaqafParser.AYAH_END_SYM)
-        .takeIf { it >= 0 }
+    val idx = annotatedAyah.text.indexOfFirst { it == '(' || it == '﴿' || it == WaqafParser.AYAH_END_SYM.single() }
+    return idx.takeIf { it >= 0 }
 }
 
 @Composable
@@ -1301,6 +1783,14 @@ fun DockedMiniPlayerBar(
 
                         IconButton(onClick = { audioPlayerManager.nextAyah() }) {
                             Icon(imageVector = Icons.Rounded.SkipNext, contentDescription = "Ayat Berikutnya")
+                        }
+
+                        IconButton(onClick = { audioPlayerManager.stop() }) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = "Tutup Audio",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }

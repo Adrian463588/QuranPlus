@@ -3,6 +3,7 @@ package com.quranplus.app.core.database
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.withTransaction
+import com.quranplus.app.core.database.entity.AyahEntity
 import com.quranplus.app.core.database.entity.HadithChapterEntity
 import com.quranplus.app.core.database.entity.HadithCollectionEntity
 import com.quranplus.app.core.database.entity.HadithEntity
@@ -27,21 +28,27 @@ class ReferenceAssetSynchronizer(
     private val hadithSourceRevision = "hadith-json-1.3.0"
 
     suspend fun synchronize() = withContext(Dispatchers.IO) {
-        val temporaryAsset = copyAssetToCache()
         try {
-            SQLiteDatabase.openDatabase(
-                temporaryAsset.path,
-                null,
-                SQLiteDatabase.OPEN_READONLY
-            ).use { source ->
-                synchronizeWordByWord(source)
-                synchronizeHadithCollections(source)
-                synchronizeHadithContent(source)
-                synchronizeTahsin(source)
-                synchronizeQuiz(source)
+            val temporaryAsset = copyAssetToCache()
+            try {
+                SQLiteDatabase.openDatabase(
+                    temporaryAsset.path,
+                    null,
+                    SQLiteDatabase.OPEN_READONLY
+                ).use { source ->
+                    synchronizeWordByWord(source)
+                    synchronizeHadithCollections(source)
+                    synchronizeHadithContent(source)
+                    synchronizeTahsin(source)
+                    synchronizeQuiz(source)
+                    synchronizeTafsir(source)
+                }
+            } finally {
+                temporaryAsset.delete()
             }
-        } finally {
-            temporaryAsset.delete()
+
+        } catch (_: Exception) {
+            // Non-critical reference synchronization failure should never crash the app
         }
     }
 
@@ -175,7 +182,7 @@ class ReferenceAssetSynchronizer(
             null
         ).use { cursor ->
             while (cursor.moveToNext()) {
-                database.hadithDao().updateIndonesianTranslation(
+                database.hadithDao().updateIndonesianTranslationForReference(
                     id = cursor.getLong(0),
                     translation = cursor.getString(1)
                 )
@@ -272,7 +279,40 @@ class ReferenceAssetSynchronizer(
         database.quizDao().insertQuestions(questions)
     }
 
+    private suspend fun synchronizeTafsir(source: SQLiteDatabase) {
+        if (!source.hasTable("tafsirs")) return
+        val sourceCount = source.queryCount("tafsirs")
+        if (sourceCount == 0) return
+        val targetCount = database.tafsirDao().count()
+        if (targetCount >= sourceCount) return
+
+        database.tafsirDao().clear()
+
+        val batch = ArrayList<com.quranplus.app.core.database.entity.TafsirEntity>(BATCH_SIZE)
+        source.rawQuery(
+            "SELECT surah_id, ayah_number, tafsir_text, source FROM tafsirs ORDER BY id ASC",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                batch += com.quranplus.app.core.database.entity.TafsirEntity(
+                    surahId = cursor.getInt(0),
+                    ayahNumber = cursor.getInt(1),
+                    tafsirText = cursor.getString(2),
+                    source = cursor.getString(3)
+                )
+                if (batch.size == BATCH_SIZE) {
+                    database.tafsirDao().insertAll(batch)
+                    batch.clear()
+                }
+            }
+        }
+        if (batch.isNotEmpty()) {
+            database.tafsirDao().insertAll(batch)
+        }
+    }
+
     private fun copyAssetToCache(): File {
+
         val target = File.createTempFile("quranplus-reference-", ".db", context.cacheDir)
         context.assets.open("databases/quranplus.db").use { input ->
             target.outputStream().use { output -> input.copyTo(output) }

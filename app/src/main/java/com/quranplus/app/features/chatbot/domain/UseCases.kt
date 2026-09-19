@@ -16,10 +16,24 @@ class ClearChatHistoryUseCase(private val repository: ChatRepository) {
     suspend operator fun invoke(conversationId: String) = repository.clearHistory(conversationId)
 }
 
+class GetChatSessionsUseCase(private val repository: ChatRepository) {
+    operator fun invoke(): Flow<List<ChatSession>> = repository.getChatSessions()
+}
+
+class ClearAllChatHistoryUseCase(private val repository: ChatRepository) {
+    suspend operator fun invoke() = repository.clearAllHistory()
+}
+
 class GenerateRagAnswerUseCase(private val repository: ChatRepository) {
     suspend operator fun invoke(
+        conversationId: String,
         userQuery: String,
         persona: AiPersona,
         customPrompt: String? = null
-    ): RagGenerationResult = repository.generateRagResponse(userQuery, persona, customPrompt)
+    ): RagGenerationResult = repository.generateRagResponse(
+        conversationId,
+        userQuery,
+        persona,
+        customPrompt
+    )
 }

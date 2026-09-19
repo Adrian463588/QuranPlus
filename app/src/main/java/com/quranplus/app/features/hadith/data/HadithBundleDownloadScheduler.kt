@@ -40,7 +40,7 @@ class HadithBundleDownloadScheduler(
         .addTag(WORK_TAG)
         .build()
         .also { request ->
-            workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+                workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request)
         }
         .id
 

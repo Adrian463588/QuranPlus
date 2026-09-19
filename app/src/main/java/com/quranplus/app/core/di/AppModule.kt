@@ -4,6 +4,7 @@ import com.quranplus.app.core.database.QuranDatabase
 import com.quranplus.app.core.database.ReferenceAssetSynchronizer
 import com.quranplus.app.core.network.ResumableDownloader
 import com.quranplus.app.features.chatbot.data.ChatRepositoryImpl
+import com.quranplus.app.features.chatbot.data.InternetResearcher
 import com.quranplus.app.features.chatbot.data.LiteRtLmRunner
 import com.quranplus.app.features.chatbot.data.ModelDownloadScheduler
 import com.quranplus.app.features.chatbot.data.ModelRepository
@@ -38,6 +39,8 @@ import com.quranplus.app.features.quran.domain.GetLastReadUseCase
 import com.quranplus.app.features.quran.domain.GetWordsBySurahUseCase
 import com.quranplus.app.features.quran.domain.GetSurahDetailUseCase
 import com.quranplus.app.features.quran.domain.GetSurahListUseCase
+import com.quranplus.app.features.quran.domain.GetTafsirUseCase
+import com.quranplus.app.features.quran.domain.GetTafsirsForSurahUseCase
 import com.quranplus.app.features.quran.domain.QuranRepository
 import com.quranplus.app.features.quran.domain.WordByWordRepository
 import com.quranplus.app.features.quran.domain.SaveLastReadUseCase
@@ -46,11 +49,13 @@ import com.quranplus.app.features.quran.domain.ToggleBookmarkUseCase
 import com.quranplus.app.features.quran.presentation.QuranViewModel
 import com.quranplus.app.features.rag.data.EmbeddingService
 import com.quranplus.app.features.rag.data.OnnxEmbeddingService
+
 import com.quranplus.app.features.rag.data.VectorRetrieverImpl
 import com.quranplus.app.features.rag.data.SqliteVecVectorIndex
 import com.quranplus.app.features.rag.data.RagCorpusIndexer
 import com.quranplus.app.features.rag.domain.IndexCorpusUseCase
 import com.quranplus.app.features.rag.domain.RagPipeline
+import com.quranplus.app.features.rag.domain.RagRuntimeCoordinator
 import com.quranplus.app.features.rag.domain.VectorIndex
 import com.quranplus.app.features.rag.domain.VectorRetriever
 import com.quranplus.app.features.rag.data.SafDocumentImporter
@@ -73,11 +78,15 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
 
+import com.quranplus.app.features.chatbot.domain.GetChatSessionsUseCase
+import com.quranplus.app.features.chatbot.domain.ClearAllChatHistoryUseCase
+
 val appModule = module {
     // Database & DAOs
     single { QuranDatabase.getInstance(androidContext()) }
     single { ReferenceAssetSynchronizer(androidContext(), get()) }
     single { get<QuranDatabase>().quranDao() }
+    single { get<QuranDatabase>().tafsirDao() }
     single { get<QuranDatabase>().wordByWordDao() }
     single { get<QuranDatabase>().bookmarkDao() }
     single { get<QuranDatabase>().lastReadDao() }
@@ -90,18 +99,21 @@ val appModule = module {
     // Core Managers & Services
     single { PreferencesManager(androidContext()) }
     single { AudioDownloadScheduler(androidContext()) }
-    single { com.quranplus.app.core.audio.AudioPlayerManager(androidContext()) }
+    single { com.quranplus.app.core.audio.AudioAssetStore(androidContext(), get()) }
+    single { com.quranplus.app.core.audio.AudioPlayerManager(androidContext(), get()) }
     single { ResumableDownloader(androidContext()) }
     single { ModelDownloadScheduler(androidContext()) }
     single { HadithBundleDownloadScheduler(androidContext()) }
-    single<EmbeddingService> { OnnxEmbeddingService(androidContext(), get()) }
+    single<EmbeddingService> { OnnxEmbeddingService(androidContext(), get(), get()) }
     single<VectorIndex> { SqliteVecVectorIndex(get()) }
     single<VectorRetriever> { VectorRetrieverImpl(get()) }
-    single { RagCorpusIndexer(get(), get(), get()) }
+    single { RagRuntimeCoordinator() }
+    single { RagCorpusIndexer(get(), get(), get(), get()) }
     single { RagPipeline() }
+    single { InternetResearcher(androidContext()) }
     single { ModelRepository(androidContext(), get()) }
     single { AiReadinessChecker(get(), get(), get(), get()) }
-    single { LiteRtLmRunner(androidContext(), get()) }
+    single { LiteRtLmRunner(androidContext(), get(), get()) }
     single { SafAssetStore(androidContext(), get()) }
     single { SafDocumentImporter(androidContext(), get(), get()) }
     single { HadithReferenceImporter(androidContext(), get()) }
@@ -109,12 +121,14 @@ val appModule = module {
     single { HadithBundleManager(get(), get(), get(), get()) }
 
     // Repositories
-    single<QuranRepository> { QuranRepositoryImpl(get(), get(), get()) }
+    single<QuranRepository> { QuranRepositoryImpl(get(), get(), get(), get()) }
     single<WordByWordRepository> { WordByWordRepositoryImpl(get()) }
     single<HadithRepository> { HadithRepositoryImpl(get()) }
     single<TahsinRepository> { TahsinRepositoryImpl(get()) }
     single<QuizRepository> { QuizRepositoryImpl(get()) }
-    single<ChatRepository> { ChatRepositoryImpl(get(), get(), get(), get(), get()) }
+    single<ChatRepository> {
+        ChatRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get())
+    }
 
     // Use Cases — Quran
     factory { GetSurahListUseCase(get()) }
@@ -131,6 +145,9 @@ val appModule = module {
     factory { SaveLastReadUseCase(get()) }
     factory { GetLastReadUseCase(get()) }
     factory { GetWordsBySurahUseCase(get()) }
+    factory { GetTafsirUseCase(get()) }
+    factory { GetTafsirsForSurahUseCase(get()) }
+
 
     // Use Cases — Hadist
     factory { GetHadithCollectionsUseCase(get()) }
@@ -145,18 +162,21 @@ val appModule = module {
 
     // Use Cases — Chat
     factory { GetChatHistoryUseCase(get()) }
+    factory { GetChatSessionsUseCase(get()) }
     factory { SaveChatMessageUseCase(get()) }
     factory { ClearChatHistoryUseCase(get()) }
+    factory { ClearAllChatHistoryUseCase(get()) }
     factory { GenerateRagAnswerUseCase(get()) }
     factory { IndexCorpusUseCase(get()) }
 
     // ViewModels
-    viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    viewModel { AudioDownloadViewModel(get()) }
-    viewModel { ChatViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { AudioDownloadViewModel(get(), get(), get()) }
+
+    viewModel { ChatViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { HadithViewModel(get(), get(), get()) }
     viewModel { TahsinViewModel(get(), get(), get()) }
     viewModel { QuizViewModel(get(), get()) }
-    viewModel { SettingsViewModel(get()) }
+    viewModel { SettingsViewModel(get(), get(), get()) }
     viewModel { RagDocumentViewModel(get(), get(), get(), get(), get()) }
 }

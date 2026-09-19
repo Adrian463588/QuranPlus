@@ -54,6 +54,14 @@ class AudioDownloadScheduler(context: Context) {
         infos.firstOrNull()?.toAudioDownloadState(totalAyahs) ?: AudioDownloadState.Idle
     }
 
+    fun cancel(qari: Qari, surahNumber: Int) {
+        workManager.cancelUniqueWork(workName(qari, surahNumber))
+    }
+
+    fun cancelAll() {
+        workManager.cancelAllWorkByTag("quranplus-audio")
+    }
+
     private fun workName(qari: Qari, surahNumber: Int): String =
         "quranplus-audio-${qari.id}-$surahNumber"
 

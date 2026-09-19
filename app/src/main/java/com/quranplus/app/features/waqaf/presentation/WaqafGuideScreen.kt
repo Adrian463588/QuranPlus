@@ -1,6 +1,8 @@
 package com.quranplus.app.features.waqaf.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,26 +49,6 @@ import com.quranplus.app.core.utils.WaqafParser
 fun WaqafGuideScreen(
     onBackClick: () -> Unit
 ) {
-    if (!WaqafParser.SOURCE_CATALOG_VERIFIED) {
-        Scaffold(
-            topBar = {
-                AppTopBar(
-                    title = "Panduan Waqaf & Ibtida'",
-                    subtitle = "Menunggu katalog sumber terverifikasi",
-                    onBackClick = onBackClick
-                )
-            }
-        ) { padding ->
-            AppEmptyState(
-                icon = Icons.Rounded.Info,
-                title = "Panduan Waqaf diblokir",
-                description = "Katalog aturan dan contoh ayat belum memiliki provenance yang direview. Tidak ada penjelasan pengganti yang ditampilkan.",
-                modifier = Modifier.padding(padding)
-            )
-        }
-        return
-    }
-
     val waqafRules = WaqafParser.ALL_WAQAF_RULES
 
     Scaffold(
@@ -156,7 +138,8 @@ private fun WaqafRuleCard(rule: WaqafParser.WaqafRule) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
             Row(
@@ -164,22 +147,29 @@ private fun WaqafRuleCard(rule: WaqafParser.WaqafRule) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f, fill = false),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(rule.badgeColor.copy(alpha = 0.15f))
+                            .border(1.5.dp, rule.badgeColor.copy(alpha = 0.6f), RoundedCornerShape(14.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = rule.symbol,
-                            style = getQuranArabicStyle(22f),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            text = rule.displayGlyph,
+                            style = getQuranArabicStyle(20f).copy(
+                                fontWeight = FontWeight.Bold,
+                                color = rule.badgeColor,
+                                lineHeight = 28.sp
+                            ),
                             textAlign = TextAlign.Center
                         )
                     }
-                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Spacer(modifier = Modifier.width(Spacing.md))
                     Column {
                         Text(
                             text = rule.latinName,
@@ -188,16 +178,17 @@ private fun WaqafRuleCard(rule: WaqafParser.WaqafRule) {
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = rule.arabicName,
-                            style = getQuranArabicStyle(14f),
+                            text = "Tanda: ${rule.arabicName}",
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
                 Surface(
-                    color = rule.badgeColor.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(8.dp)
+                    color = rule.badgeColor.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, rule.badgeColor.copy(alpha = 0.3f))
                 ) {
                     Text(
                         text = rule.actionCategory.label,
@@ -209,7 +200,7 @@ private fun WaqafRuleCard(rule: WaqafParser.WaqafRule) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(Spacing.sm))
+            Spacer(modifier = Modifier.height(Spacing.md))
 
             Text(
                 text = "Arti: ${rule.meaning}",
@@ -230,17 +221,17 @@ private fun WaqafRuleCard(rule: WaqafParser.WaqafRule) {
             // Example Verse Box
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(Spacing.sm)) {
+                Column(modifier = Modifier.padding(Spacing.md)) {
                     Text(
                         text = rule.exampleAyah,
                         style = getQuranArabicStyle(18f),
                         textAlign = TextAlign.End,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(Spacing.xs))
                     Text(
                         text = "Contoh: ${rule.exampleRef}",
                         style = MaterialTheme.typography.labelSmall,

@@ -80,12 +80,12 @@ class TajwidParserTest {
         val taggedText = "[h:1[ٱ] [q[قْ]"
         val parsed = TajwidParser.parseBracketTags(taggedText)
         val annotated = TajwidParser.buildColoredAyahText(
-            arabicText = "${parsed.text} ۝١ ",
+            arabicText = "${parsed.text} (١) ",
             tajwidTags = taggedText,
             enableTajwid = true
         )
 
-        assertEquals("ٱ قْ ۝١ ", annotated.text)
+        assertEquals("ٱ قْ (١) ", annotated.text)
         assertEquals(
             "HAMZAT_WASL",
             annotated.getStringAnnotations(
@@ -155,5 +155,41 @@ class TajwidParserTest {
         TajwidTagCatalog.mappings.forEach { mapping ->
             assertNotNull(TajwidParser.TajwidType.fromSourceTag(mapping.sourceTag))
         }
+    }
+
+    @Test
+    fun GIVEN_surah3Ayah4WithTatweelAndTanwin_WHEN_buildColoredAyahText_THEN_appliesTajwidColorsAccurately() {
+        val displayArabic = "مِن قَبْلُ هُدًۭى لِّلنَّاسِ وَأَنزَلَ ٱلْفُرْقَانَ ۗ إِنَّ ٱلَّذِينَ كَفَرُوا۟ بِـَٔايَٰتِ ٱللَّهِ لَهُمْ عَذَابٌۭ شَدِيدٌۭ ۗ وَٱللَّهُ عَزِيزٌۭ ذُو ٱنتِقَامٍۗ (٤) "
+        val tajwidTags = "مِ[f:128[ن ق]َ[q:129[بْ]لُ هُ[u:968[دًى ل]ِّل[g[نّ]َاسِ وَأَ[f:91[نز]َلَ [h:1726[ٱ]لْفُرْقَانَ\u200cۗ إِ[g[نّ]َ [h:24[ٱ]لَّذِينَ كَفَرُو[s[اْ] بِـَٔـايَ[n[ـٰ]تِ [h:322[ٱ]للَّهِ لَهُمْ عَذَا[f:1727[بٌ ش]َدِي[a:1728[دٌ\u200cۗ و]َ[h:72[ٱ]للَّهُ عَزِي[f:1729[زٌ ذ]ُو [h:1730[ٱ][f:1731[نت]ِق[p[َا]مٍ"
+
+        val annotated = TajwidParser.buildColoredAyahText(
+            arabicText = displayArabic,
+            tajwidTags = tajwidTags,
+            enableTajwid = true
+        )
+
+        assertNotNull(annotated)
+        val tajwidAnnotations = annotated.getStringAnnotations(TajwidParser.TAJWID_ANNOTATION, 0, annotated.length)
+        assertTrue("Tajweed annotations should not be empty for Surah 3:4", tajwidAnnotations.isNotEmpty())
+        assertTrue(tajwidAnnotations.any { it.item == "IKHFA_HAQIQI" })
+        assertTrue(tajwidAnnotations.any { it.item == "QALQALAH" })
+        assertTrue(tajwidAnnotations.any { it.item == "IDGHAM_BILAGHUNNAH" })
+        assertTrue(tajwidAnnotations.any { it.item == "GHUNNAH" })
+    }
+
+    @Test
+    fun GIVEN_surah2Ayah4WithAlifHamzaVariants_WHEN_buildColoredAyahText_THEN_alignsAndColors() {
+        val displayArabic = "وَٱلَّذِينَ يُؤْمِنُونَ بِمَآ أُنزِلَ إِلَيْكَ وَمَآ أُنزِلَ مِن قَبْلِكَ وَبِٱلْءَاخِرَةِ هُمْ يُوقِنُونَ (٤) "
+        val tajwidTags = "وَ[h:9999[ٱ]لَّذِينَ يُؤْمِنُونَ بِم[o[َآ] أُ[f:17[نز]ِلَ إِلَيْكَ وَم[o[َآ] أُ[f:17[نز]ِلَ مِ[f:18[ن ق]َ[q:19[بْ]لِكَ وَبِ[h:20[ٱ]لْأَخِرَةِ هُمْ يُوقِن[p[ُو]نَ"
+
+        val annotated = TajwidParser.buildColoredAyahText(
+            arabicText = displayArabic,
+            tajwidTags = tajwidTags,
+            enableTajwid = true
+        )
+
+        assertNotNull(annotated)
+        val tajwidAnnotations = annotated.getStringAnnotations(TajwidParser.TAJWID_ANNOTATION, 0, annotated.length)
+        assertTrue("Tajweed annotations should not be empty for Surah 2:4", tajwidAnnotations.isNotEmpty())
     }
 }

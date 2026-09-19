@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Quiz
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.components.AppTopBar
+import com.quranplus.app.core.ui.theme.QuranColors
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
 import com.quranplus.app.features.quran.presentation.UiState
@@ -181,49 +183,44 @@ fun TahsinLessonRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val badgeInfo = resolveTahsinBadge(lesson)
+
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(14.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Spacing.md),
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm + 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Adaptive Arabic Letter Badge (Never Clips)
-            val badgeText = lesson.letterArabic.takeIf { it.isNotBlank() }
-            val fontSize = when {
-                badgeText == null -> 18f
-                badgeText.length <= 3 -> 18f
-                badgeText.length <= 6 -> 14f
-                else -> 12f
-            }
-
+            // Elegant Arabic Calligraphy / Tajweed Badge
             Box(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(badgeInfo.containerColor),
                 contentAlignment = Alignment.Center
             ) {
-                if (badgeText != null) {
+                if (badgeInfo.arabicText != null) {
                     Text(
-                        text = badgeText,
-                        style = getQuranArabicStyle(fontSize),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        text = badgeInfo.arabicText,
+                        style = getQuranArabicStyle(badgeInfo.fontSize),
+                        color = badgeInfo.contentColor,
                         textAlign = TextAlign.Center,
                         maxLines = 1
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Rounded.School,
+                        imageVector = badgeInfo.icon ?: Icons.Rounded.School,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        tint = badgeInfo.contentColor,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -250,11 +247,133 @@ fun TahsinLessonRow(
                 )
             }
 
-            // Completion Icon
-            Icon(
-                imageVector = if (lesson.isCompleted) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                contentDescription = null,
-                tint = if (lesson.isCompleted) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline
+            Spacer(modifier = Modifier.width(Spacing.xs))
+
+            // Trailing Progress Indicator / Detail Chevron
+            if (lesson.isCompleted) {
+                Icon(
+                    imageVector = Icons.Rounded.CheckCircle,
+                    contentDescription = "Selesai",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+    }
+}
+
+private data class TahsinBadgeInfo(
+    val arabicText: String? = null,
+    val fontSize: Float = 16f,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    val containerColor: androidx.compose.ui.graphics.Color,
+    val contentColor: androidx.compose.ui.graphics.Color
+)
+
+@Composable
+private fun resolveTahsinBadge(lesson: TahsinLesson): TahsinBadgeInfo {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val primaryContainer = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+    val secondaryColor = MaterialTheme.colorScheme.secondary
+    val secondaryContainer = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+
+    return when (lesson.category) {
+        TahsinCategory.MAKHARIJ -> {
+            val rawArabic = lesson.letterArabic.trim()
+            val isPureArabic = rawArabic.isNotEmpty() && rawArabic.all {
+                it.isWhitespace() || (it in '\u0600'..'\u06FF') || it == '-' || it == '/' || it == ','
+            }
+            if (isPureArabic && rawArabic.length <= 8) {
+                val size = when {
+                    rawArabic.length <= 2 -> 20f
+                    rawArabic.length <= 4 -> 16f
+                    else -> 13f
+                }
+                TahsinBadgeInfo(
+                    arabicText = rawArabic,
+                    fontSize = size,
+                    containerColor = primaryContainer,
+                    contentColor = primaryColor
+                )
+            } else {
+                TahsinBadgeInfo(
+                    arabicText = "مَخْرَج",
+                    fontSize = 13f,
+                    containerColor = primaryContainer,
+                    contentColor = primaryColor
+                )
+            }
+        }
+
+        TahsinCategory.SIFAT -> {
+            val title = lesson.title
+            val text = when {
+                title.contains("Hams", true) -> "هَمْس"
+                title.contains("Syiddah", true) -> "شِدَّة"
+                title.contains("Isti'la", true) -> "اِسْتِعْلَاء"
+                title.contains("Ithbaq", true) -> "إِطْبَاق"
+                title.contains("Idzlaq", true) -> "إِذْلَاق"
+                title.contains("Qalqalah", true) -> "قَلْقَلَة"
+                title.contains("Shafir", true) -> "صَفِير"
+                title.contains("Lien", true) -> "لِين"
+                title.contains("Inhiraf", true) -> "اِنْحِرَاف"
+                title.contains("Takrir", true) -> "تَكْرِير"
+                title.contains("Tafasysyi", true) -> "تَفَشِّي"
+                title.contains("Istithalah", true) -> "اِسْتِطَالَة"
+                title.contains("Ghunnah", true) -> "غُنَّة"
+                else -> "صِفَة"
+            }
+            val size = if (text.length <= 5) 15f else 12f
+            TahsinBadgeInfo(
+                arabicText = text,
+                fontSize = size,
+                containerColor = secondaryContainer,
+                contentColor = secondaryColor
+            )
+        }
+
+        TahsinCategory.HUKUM_TAJWID -> {
+            val title = lesson.title
+            val (text, color) = when {
+                title.contains("Mad Wajib", true) -> "مَدّ ٤-٥" to QuranColors.TajwidMadWajib
+                title.contains("Mad Jaiz", true) -> "مَدّ ٢-٥" to QuranColors.TajwidMadWajib
+                title.contains("Mad 'Aridh", true) -> "مَدّ ٢-٦" to QuranColors.TajwidMad
+                title.contains("Mad Lazim", true) -> "مَدّ ٦" to QuranColors.TajwidMadLazim
+                title.contains("Mad Shilah", true) -> "صِلَة" to QuranColors.TajwidMad
+                title.contains("Mad Thabi'i", true) -> "مَدّ ٢" to QuranColors.TajwidMad
+                title.contains("Mad", true) -> "مَدّ" to QuranColors.TajwidMad
+                title.contains("Izhar Halqi", true) || title.contains("Idzhar", true) -> "إِظْهَار" to QuranColors.TajwidIzhar
+                title.contains("Idgham Bighunnah", true) -> "إِدْغَام" to QuranColors.TajwidIdgham
+                title.contains("Idgham Bilaghunnah", true) -> "إِدْغَام" to QuranColors.TajwidIdghamBila
+                title.contains("Iqlab", true) -> "إِقْلَاب" to QuranColors.TajwidIqlab
+                title.contains("Ikhfa Haqiqi", true) -> "إِخْفَاء" to QuranColors.TajwidIkhfa
+                title.contains("Ikhfa Syafawi", true) -> "إِخْفَاء" to QuranColors.TajwidIkhfaSyafawi
+                title.contains("Idgham Mimi", true) -> "إِدْغَام" to QuranColors.TajwidIdghamMimi
+                title.contains("Izhar Syafawi", true) -> "إِظْهَار" to QuranColors.TajwidIzhar
+                title.contains("Ghunnah", true) -> "غُنَّة" to QuranColors.TajwidGhunnah
+                title.contains("Idgham Mutamatsilain", true) -> "مِثْلَيْن" to QuranColors.TajwidIdgham
+                title.contains("Idgham Mutajanisain", true) -> "مُتَجَانِس" to QuranColors.TajwidIdghamMutajanisain
+                title.contains("Idgham Mutaqaribain", true) -> "مُتَقَارِب" to QuranColors.TajwidIdghamMutaqaribain
+                title.contains("Qamariyah", true) -> "قَمَرِيَّة" to QuranColors.TajwidIzhar
+                title.contains("Syamsiyah", true) -> "شَمْسِيَّة" to QuranColors.TajwidIdgham
+                title.contains("Ra'", true) -> "رَاء" to primaryColor
+                title.contains("Qalqalah", true) -> "قَلْقَلَة" to QuranColors.TajwidQalqalah
+                title.contains("Waqaf", true) -> "وَقْف" to QuranColors.BadgeWaqafOptional
+                else -> "تَجْوِيد" to primaryColor
+            }
+            val size = if (text.length <= 5) 15f else 12f
+            TahsinBadgeInfo(
+                arabicText = text,
+                fontSize = size,
+                containerColor = color.copy(alpha = 0.18f),
+                contentColor = color
             )
         }
     }

@@ -41,6 +41,25 @@ class HadithCollectionSectionTest {
         assertTrue(!item.hasLocalContent)
     }
 
+    @Test
+    fun GIVEN_hadithQuery_WHEN_parsingNumberQuery_THEN_extractsCorrectHadithNumber() {
+        fun extractNumber(query: String): Int? {
+            val trimmed = query.trim()
+            val cleanNumberStr = trimmed.replace(Regex("(?i)^(hadits?|no\\.?|nomor)\\s*"), "").trim()
+            return cleanNumberStr.toIntOrNull()
+                ?: Regex("""\b\d+\b""").find(trimmed)?.value?.toIntOrNull()
+        }
+
+        assertEquals(42, extractNumber("42"))
+        assertEquals(42, extractNumber("no 42"))
+        assertEquals(42, extractNumber("no. 42"))
+        assertEquals(42, extractNumber("hadits 42"))
+        assertEquals(42, extractNumber("hadit 42"))
+        assertEquals(42, extractNumber("nomor 42"))
+        assertEquals(1, extractNumber("1"))
+        assertEquals(null, extractNumber("shalat"))
+    }
+
     private fun collection(
         id: String,
         title: String,

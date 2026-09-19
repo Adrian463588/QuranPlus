@@ -29,7 +29,10 @@ data class VerifiedAudioAsset(
     val sourceUrl: String
 )
 
-class AudioAssetStore(context: Context) {
+class AudioAssetStore(
+    private val context: Context,
+    private val safAssetStore: com.quranplus.app.features.rag.data.SafAssetStore? = null
+) {
     private val root = File(context.filesDir, AUDIO_DIRECTORY)
     private val manifestFile = File(root, AUDIO_MANIFEST_NAME)
 
@@ -50,7 +53,26 @@ class AudioAssetStore(context: Context) {
                 it.surahNumber == surahNumber &&
                 it.ayahNumber == ayahNumber
         } ?: return null
-        return verifiedFile(entry)
+        val local = verifiedFile(entry)
+        if (local != null) return local
+
+        // If local cache was cleared or uninstalled, attempt on-demand materialization from SAF
+        if (safAssetStore != null) {
+            val dest = fileFor(qari, surahNumber, ayahNumber)
+            val materialized = kotlinx.coroutines.runBlocking {
+                runCatching {
+                    safAssetStore.materializeFile(
+                        relativeDirectory = "audio/${entry.qariId}",
+                        filename = entry.fileName,
+                        destination = dest
+                    )
+                }.getOrDefault(false)
+            }
+            if (materialized) {
+                return verifiedFile(entry)
+            }
+        }
+        return null
     }
 
     @Synchronized
@@ -70,20 +92,105 @@ class AudioAssetStore(context: Context) {
             .plus(entry)
             .sortedWith(compareBy(VerifiedAudioAsset::qariId, VerifiedAudioAsset::surahNumber, VerifiedAudioAsset::ayahNumber))
         writeManifest(entries)
+
+        // Persist to SAF if user has linked a persistent folder
+        if (safAssetStore != null) {
+            kotlinx.coroutines.runBlocking {
+                runCatching {
+                    safAssetStore.publishFile(
+                        source = file,
+                        relativeDirectory = "audio/${entry.qariId}",
+                        filename = entry.fileName,
+                        mimeType = "audio/mpeg"
+                    )
+                    writeSafManifest(entries)
+                }
+            }
+        }
+    }
+
+    suspend fun restoreFromSaf(): Int {
+        val saf = safAssetStore ?: return 0
+        return runCatching {
+            val jsonText = saf.readText("audio/manifests", "manifest.json") ?: return 0
+            val safEntries = parseManifestJson(jsonText)
+            if (safEntries.isEmpty()) return 0
+            val localEntries = readManifest().toMutableList()
+            var count = 0
+            for (safEntry in safEntries) {
+                if (localEntries.none { it.qariId == safEntry.qariId && it.surahNumber == safEntry.surahNumber && it.ayahNumber == safEntry.ayahNumber }) {
+                    localEntries.add(safEntry)
+                    count++
+                }
+            }
+            if (count > 0) {
+                writeManifest(localEntries.sortedWith(compareBy(VerifiedAudioAsset::qariId, VerifiedAudioAsset::surahNumber, VerifiedAudioAsset::ayahNumber)))
+            }
+            count
+        }.getOrDefault(0)
     }
 
     @Synchronized
-    fun getSurahAudioBytes(qari: Qari, surahNumber: Int): Long = readManifest()
-        .asSequence()
-        .filter { it.qariId == qari.id && it.surahNumber == surahNumber }
-        .mapNotNull(::storedFile)
-        .sumOf(File::length)
+    fun getSurahAudioBytes(qari: Qari, surahNumber: Int): Long {
+        val manifestBytes = readManifest()
+            .asSequence()
+            .filter { it.qariId == qari.id && it.surahNumber == surahNumber }
+            .mapNotNull(::storedFile)
+            .sumOf(File::length)
+        if (manifestBytes > 0L) return manifestBytes
+
+        val dir = File(root, qari.id)
+        if (!dir.isDirectory) return 0L
+        val prefix = "%03d".format(Locale.ROOT, surahNumber)
+        return dir.listFiles { file ->
+            file.isFile && file.name.startsWith(prefix) && file.name.endsWith(".mp3")
+        }?.sumOf(File::length) ?: 0L
+    }
 
     @Synchronized
-    fun getAudioStorageBytes(): Long = readManifest()
-        .asSequence()
-        .mapNotNull(::storedFile)
-        .sumOf(File::length)
+    fun isSurahFullyDownloaded(qari: Qari, surahNumber: Int, totalAyahs: Int): Boolean {
+        if (totalAyahs <= 0) return false
+        val manifestCount = readManifest().count { it.qariId == qari.id && it.surahNumber == surahNumber }
+        if (manifestCount >= totalAyahs) return true
+
+        val dir = File(root, qari.id)
+        if (!dir.isDirectory) return false
+        val descriptor = EveryAyahAudioSource.descriptor(qari)
+        for (ayah in 1..totalAyahs) {
+            val file = File(dir, descriptor.fileName(surahNumber, ayah))
+            if (!file.isFile || file.length() <= 0L) return false
+        }
+        return true
+    }
+
+    @Synchronized
+    fun getSurahDownloadedAyahCount(qari: Qari, surahNumber: Int, totalAyahs: Int): Int {
+        val manifestCount = readManifest().count { it.qariId == qari.id && it.surahNumber == surahNumber }
+        if (manifestCount > 0) return manifestCount
+        val dir = File(root, qari.id)
+        if (!dir.isDirectory) return 0
+        val descriptor = EveryAyahAudioSource.descriptor(qari)
+        var count = 0
+        for (ayah in 1..totalAyahs) {
+            val file = File(dir, descriptor.fileName(surahNumber, ayah))
+            if (file.isFile && file.length() > 0L) count++
+        }
+        return count
+    }
+
+    @Synchronized
+    fun getAudioStorageBytes(): Long {
+        val manifestBytes = readManifest()
+            .asSequence()
+            .mapNotNull(::storedFile)
+            .sumOf(File::length)
+        if (manifestBytes > 0L) return manifestBytes
+
+        if (!root.isDirectory) return 0L
+        return root.walkTopDown()
+            .filter { it.isFile && it.extension.equals("mp3", ignoreCase = true) }
+            .sumOf(File::length)
+    }
 
     @Synchronized
     fun clear() {
@@ -114,41 +221,45 @@ class AudioAssetStore(context: Context) {
     private fun readManifest(): List<VerifiedAudioAsset> {
         if (!manifestFile.isFile) return emptyList()
         return runCatching {
-            val array = JSONArray(manifestFile.readText(Charsets.UTF_8))
-            buildList(array.length()) {
-                for (index in 0 until array.length()) {
-                    val item = array.getJSONObject(index)
-                    val algorithm = AudioChecksumAlgorithm.fromValue(
-                        item.optString("checksum_algorithm", "SHA256")
-                    ) ?: continue
-                    val checksum = item.optString("checksum")
-                        .ifBlank { item.optString("sha256") }
-                    val expectedLength = if (algorithm == AudioChecksumAlgorithm.MD5) 32 else 64
-                    if (checksum.length != expectedLength ||
-                        !checksum.matches(Regex("[0-9a-fA-F]{$expectedLength}"))
-                    ) continue
-                    val qariId = item.optString("qari_id")
-                    val fileName = item.optString("file_name")
-                    val surahNumber = item.optInt("surah_number", -1)
-                    val ayahNumber = item.optInt("ayah_number", -1)
-                    if (qariId.isBlank() || File(qariId).name != qariId ||
-                        fileName.isBlank() || File(fileName).name != fileName ||
-                        surahNumber <= 0 || ayahNumber <= 0
-                    ) continue
-                    add(
-                        VerifiedAudioAsset(
-                            qariId = qariId,
-                            surahNumber = surahNumber,
-                            ayahNumber = ayahNumber,
-                            fileName = fileName,
-                            checksum = checksum.lowercase(Locale.ROOT),
-                            checksumAlgorithm = algorithm,
-                            sourceUrl = item.optString("source_url")
-                        )
-                    )
-                }
-            }
+            parseManifestJson(manifestFile.readText(Charsets.UTF_8))
         }.getOrDefault(emptyList())
+    }
+
+    private fun parseManifestJson(jsonText: String): List<VerifiedAudioAsset> {
+        val array = JSONArray(jsonText)
+        return buildList(array.length()) {
+            for (index in 0 until array.length()) {
+                val item = array.getJSONObject(index)
+                val algorithm = AudioChecksumAlgorithm.fromValue(
+                    item.optString("checksum_algorithm", "SHA256")
+                ) ?: continue
+                val checksum = item.optString("checksum")
+                    .ifBlank { item.optString("sha256") }
+                val expectedLength = if (algorithm == AudioChecksumAlgorithm.MD5) 32 else 64
+                if (checksum.length != expectedLength ||
+                    !checksum.matches(Regex("[0-9a-fA-F]{$expectedLength}"))
+                ) continue
+                val qariId = item.optString("qari_id")
+                val fileName = item.optString("file_name")
+                val surahNumber = item.optInt("surah_number", -1)
+                val ayahNumber = item.optInt("ayah_number", -1)
+                if (qariId.isBlank() || File(qariId).name != qariId ||
+                    fileName.isBlank() || File(fileName).name != fileName ||
+                    surahNumber <= 0 || ayahNumber <= 0
+                ) continue
+                add(
+                    VerifiedAudioAsset(
+                        qariId = qariId,
+                        surahNumber = surahNumber,
+                        ayahNumber = ayahNumber,
+                        fileName = fileName,
+                        checksum = checksum.lowercase(Locale.ROOT),
+                        checksumAlgorithm = algorithm,
+                        sourceUrl = item.optString("source_url")
+                    )
+                )
+            }
+        }
     }
 
     private fun writeManifest(entries: List<VerifiedAudioAsset>) {
@@ -156,21 +267,8 @@ class AudioAssetStore(context: Context) {
             error("Folder audio tidak dapat dibuat")
         }
         val temporary = File(root, "$AUDIO_MANIFEST_NAME.tmp")
-        val json = JSONArray().apply {
-            entries.forEach { entry ->
-                put(
-                    JSONObject()
-                        .put("qari_id", entry.qariId)
-                        .put("surah_number", entry.surahNumber)
-                        .put("ayah_number", entry.ayahNumber)
-                        .put("file_name", entry.fileName)
-                        .put("checksum", entry.checksum)
-                        .put("checksum_algorithm", entry.checksumAlgorithm.name)
-                        .put("source_url", entry.sourceUrl)
-                )
-            }
-        }
-        temporary.writeText(json.toString(), Charsets.UTF_8)
+        val json = manifestJson(entries)
+        temporary.writeText(json, Charsets.UTF_8)
         try {
             Files.move(
                 temporary.toPath(),
@@ -185,6 +283,30 @@ class AudioAssetStore(context: Context) {
                 StandardCopyOption.REPLACE_EXISTING
             )
         }
+    }
+
+    private suspend fun writeSafManifest(entries: List<VerifiedAudioAsset>) {
+        if (safAssetStore == null) return
+        val json = manifestJson(entries)
+        safAssetStore.publishText(json, "audio/manifests", "manifest.json")
+    }
+
+    private fun manifestJson(entries: List<VerifiedAudioAsset>): String {
+        val json = JSONArray().apply {
+            entries.forEach { entry ->
+                put(
+                    JSONObject()
+                        .put("qari_id", entry.qariId)
+                        .put("surah_number", entry.surahNumber)
+                        .put("ayah_number", entry.ayahNumber)
+                        .put("file_name", entry.fileName)
+                        .put("checksum", entry.checksum)
+                        .put("checksum_algorithm", entry.checksumAlgorithm.name)
+                        .put("source_url", entry.sourceUrl)
+                )
+            }
+        }
+        return json.toString()
     }
 
     private fun calculateDigest(file: File, algorithm: AudioChecksumAlgorithm): String {

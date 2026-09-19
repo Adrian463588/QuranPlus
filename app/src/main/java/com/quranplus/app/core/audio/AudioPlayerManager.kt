@@ -6,6 +6,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.quranplus.app.core.utils.SurahMapper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -76,6 +77,7 @@ class AudioPlayerManager(
 ) {
 
     private val scope = CoroutineScope(Dispatchers.Main + Job())
+    private val notificationManager = AudioNotificationManager(context)
     private var player: ExoPlayer? = null
     private var progressJob: Job? = null
 
@@ -91,6 +93,9 @@ class AudioPlayerManager(
     private val _repeatMode = MutableStateFlow(AudioRepeatMode.OFF)
     val repeatMode: StateFlow<AudioRepeatMode> = _repeatMode.asStateFlow()
 
+    private val _autoContinueSurah = MutableStateFlow(false)
+    val autoContinueSurah: StateFlow<Boolean> = _autoContinueSurah.asStateFlow()
+
     private val _selectedQari = MutableStateFlow(Qari.MISHARY_ALAFASY)
     val selectedQari: StateFlow<Qari> = _selectedQari.asStateFlow()
 
@@ -99,8 +104,9 @@ class AudioPlayerManager(
 
     private var currentRepeatCounter = 0
 
-    fun getAyahAudioUrl(qari: Qari, surahNumber: Int, ayahNumber: Int): String? {
+    fun getAyahAudioUrl(qari: Qari, surahNumber: Int, ayahNumber: Int): String {
         return audioAssetStore.findVerifiedFile(qari, surahNumber, ayahNumber)?.absolutePath
+            ?: EveryAyahAudioSource.descriptor(qari).audioUrl(surahNumber, ayahNumber)
     }
 
     fun playAyah(
@@ -108,32 +114,41 @@ class AudioPlayerManager(
         surahName: String,
         ayahNumber: Int,
         totalAyahsInSurah: Int,
-        qari: Qari = _selectedQari.value
+        qari: Qari = _selectedQari.value,
+        autoContinue: Boolean = _autoContinueSurah.value
     ) {
         stop()
-        val audioFile = audioAssetStore.findVerifiedFile(qari, surahNumber, ayahNumber)
-        _currentTrack.value = CurrentAudioTrack(surahNumber, surahName, ayahNumber, totalAyahsInSurah, qari)
-        if (audioFile == null) {
-            _playbackState.value = PlaybackState.Error(
-                "Audio ayat belum tersedia sebagai asset terverifikasi untuk ${qari.displayName}."
-            )
-            return
+        _autoContinueSurah.value = autoContinue
+        val localAudioFile = audioAssetStore.findVerifiedFile(qari, surahNumber, ayahNumber)
+        val audioUri = if (localAudioFile != null) {
+            Uri.fromFile(localAudioFile)
+        } else {
+            val descriptor = EveryAyahAudioSource.descriptor(qari)
+            Uri.parse(descriptor.audioUrl(surahNumber, ayahNumber))
         }
+        val resolvedTotalAyahs = if (totalAyahsInSurah > 0) totalAyahsInSurah
+            else (SurahMapper.getSurah(surahNumber)?.ayahCount ?: 1)
+        val track = CurrentAudioTrack(surahNumber, surahName, ayahNumber, resolvedTotalAyahs, qari)
+        _currentTrack.value = track
 
         currentRepeatCounter = 0
         _playbackState.value = PlaybackState.Buffering
+        notificationManager.updateNotification(track, _playbackState.value)
+
         player = ExoPlayer.Builder(context).build().also { exoPlayer ->
-            exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(audioFile)))
+            exoPlayer.setMediaItem(MediaItem.fromUri(audioUri))
             exoPlayer.playbackParameters = PlaybackParameters(_playbackSpeed.value)
             exoPlayer.addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(state: Int) {
                     when (state) {
                         Player.STATE_BUFFERING -> {
                             _playbackState.value = PlaybackState.Buffering
+                            notificationManager.updateNotification(track, _playbackState.value)
                         }
                         Player.STATE_READY -> {
                             _playbackState.value = PlaybackState.Playing(surahNumber, ayahNumber)
                             startProgressTracker()
+                            notificationManager.updateNotification(track, _playbackState.value)
                         }
                         Player.STATE_ENDED -> handleTrackCompletion()
                         Player.STATE_IDLE -> Unit
@@ -141,7 +156,8 @@ class AudioPlayerManager(
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    _playbackState.value = PlaybackState.Error("Gagal memutar asset audio: ${error.errorCodeName}")
+                    _playbackState.value = PlaybackState.Error("Gagal memutar audio: ${error.errorCodeName}")
+                    notificationManager.dismissNotification()
                 }
             })
             exoPlayer.prepare()
@@ -153,11 +169,9 @@ class AudioPlayerManager(
         val track = _currentTrack.value ?: return
         val currentPlayer = player ?: return
         if (currentPlayer.isPlaying) {
-            currentPlayer.pause()
-            _playbackState.value = PlaybackState.Paused(track.surahNumber, track.ayahNumber)
+            pause()
         } else {
-            currentPlayer.play()
-            _playbackState.value = PlaybackState.Playing(track.surahNumber, track.ayahNumber)
+            resume()
         }
     }
 
@@ -165,6 +179,18 @@ class AudioPlayerManager(
         val track = _currentTrack.value ?: return
         player?.pause()
         _playbackState.value = PlaybackState.Paused(track.surahNumber, track.ayahNumber)
+        notificationManager.updateNotification(track, _playbackState.value)
+    }
+
+    fun resume() {
+        val track = _currentTrack.value ?: return
+        val currentPlayer = player ?: return
+        if (!currentPlayer.isPlaying) {
+            currentPlayer.play()
+            _playbackState.value = PlaybackState.Playing(track.surahNumber, track.ayahNumber)
+            startProgressTracker()
+            notificationManager.updateNotification(track, _playbackState.value)
+        }
     }
 
     fun stop() {
@@ -173,6 +199,10 @@ class AudioPlayerManager(
         player = null
         _playbackState.value = PlaybackState.Idle
         _playbackProgress.value = 0f
+        _currentTrack.value = null
+        _autoContinueSurah.value = false
+        currentRepeatCounter = 0
+        notificationManager.dismissNotification()
     }
 
     fun setPlaybackSpeed(speed: Float) {
@@ -186,6 +216,10 @@ class AudioPlayerManager(
         currentRepeatCounter = 0
     }
 
+    fun setAutoContinueSurah(enabled: Boolean) {
+        _autoContinueSurah.value = enabled
+    }
+
     fun setSelectedQari(qari: Qari) {
         _selectedQari.value = qari
     }
@@ -193,14 +227,30 @@ class AudioPlayerManager(
     fun nextAyah() {
         val track = _currentTrack.value ?: return
         if (track.ayahNumber < track.totalAyahsInSurah) {
-            playAyah(track.surahNumber, track.surahName, track.ayahNumber + 1, track.totalAyahsInSurah, track.qari)
+            playAyah(
+                surahNumber = track.surahNumber,
+                surahName = track.surahName,
+                ayahNumber = track.ayahNumber + 1,
+                totalAyahsInSurah = track.totalAyahsInSurah,
+                qari = track.qari,
+                autoContinue = _autoContinueSurah.value
+            )
+        } else {
+            stop()
         }
     }
 
     fun previousAyah() {
         val track = _currentTrack.value ?: return
         if (track.ayahNumber > 1) {
-            playAyah(track.surahNumber, track.surahName, track.ayahNumber - 1, track.totalAyahsInSurah, track.qari)
+            playAyah(
+                surahNumber = track.surahNumber,
+                surahName = track.surahName,
+                ayahNumber = track.ayahNumber - 1,
+                totalAyahsInSurah = track.totalAyahsInSurah,
+                qari = track.qari,
+                autoContinue = _autoContinueSurah.value
+            )
         }
     }
 
@@ -223,6 +273,18 @@ class AudioPlayerManager(
         return audioAssetStore.getSurahAudioBytes(qari, surahNumber)
     }
 
+    fun isSurahFullyDownloaded(qari: Qari, surahNumber: Int, totalAyahs: Int): Boolean {
+        return audioAssetStore.isSurahFullyDownloaded(qari, surahNumber, totalAyahs)
+    }
+
+    fun getSurahDownloadedAyahCount(qari: Qari, surahNumber: Int, totalAyahs: Int): Int {
+        return audioAssetStore.getSurahDownloadedAyahCount(qari, surahNumber, totalAyahs)
+    }
+
+    suspend fun restoreFromSaf(): Int {
+        return audioAssetStore.restoreFromSaf()
+    }
+
     private fun handleTrackCompletion() {
         val track = _currentTrack.value ?: return
         currentRepeatCounter++
@@ -237,7 +299,8 @@ class AudioPlayerManager(
             player?.seekTo(0)
             player?.play()
             _playbackState.value = PlaybackState.Playing(track.surahNumber, track.ayahNumber)
-        } else if (track.ayahNumber < track.totalAyahsInSurah) {
+            notificationManager.updateNotification(track, _playbackState.value)
+        } else if (_autoContinueSurah.value && track.ayahNumber < track.totalAyahsInSurah) {
             nextAyah()
         } else {
             stop()
@@ -257,5 +320,4 @@ class AudioPlayerManager(
             }
         }
     }
-
 }

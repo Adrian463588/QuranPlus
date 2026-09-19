@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
 
+import androidx.compose.material.icons.rounded.Quiz
+
 private data class MoreAction(
     val label: String,
     val description: String,
@@ -37,38 +39,45 @@ fun MoreScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToWaqaf: () -> Unit,
     onNavigateToGharib: () -> Unit,
-    onNavigateToAudio: () -> Unit
+    onNavigateToAudio: () -> Unit,
+    onNavigateToQuiz: () -> Unit = {}
 ) {
     val actions = listOf(
         MoreAction(
             label = "Bookmark",
-            description = "Ayat yang disimpan",
+            description = "Ayat-ayat pilihan yang disimpan",
             icon = Icons.Rounded.Bookmark,
             onClick = onNavigateToBookmarks
         ),
         MoreAction(
             label = "Pengaturan",
-            description = "Tampilan, data, dan model AI",
+            description = "Tampilan, tilawah, dan preferensi AI",
             icon = Icons.Rounded.Settings,
             onClick = onNavigateToSettings
         ),
         MoreAction(
-            label = "Waqaf",
-            description = "Panduan tanda berhenti",
+            label = "Panduan Waqaf & Ibtida'",
+            description = "Tata cara berhenti dan memulai bacaan",
             icon = Icons.AutoMirrored.Rounded.MenuBook,
             onClick = onNavigateToWaqaf
         ),
         MoreAction(
-            label = "Gharib",
-            description = "Bacaan khusus dalam mushaf",
+            label = "Ensiklopedia Gharib",
+            description = "Bacaan khusus dalam mushaf Al-Qur'an",
             icon = Icons.Rounded.School,
             onClick = onNavigateToGharib
         ),
         MoreAction(
-            label = "Audio",
-            description = "Pemutar dan pengaturan murottal",
+            label = "Audio Murottal",
+            description = "Pemutar dan unduhan audio offline",
             icon = Icons.Rounded.Audiotrack,
             onClick = onNavigateToAudio
+        ),
+        MoreAction(
+            label = "Kuis Tajwid & Waqaf",
+            description = "Uji pemahaman kaidah tartil",
+            icon = Icons.Rounded.Quiz,
+            onClick = onNavigateToQuiz
         )
     )
 

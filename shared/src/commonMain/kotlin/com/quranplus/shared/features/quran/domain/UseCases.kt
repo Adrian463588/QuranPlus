@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.Flow
 class GetSurahListUseCase(private val repository: QuranRepository) {
     operator fun invoke(): Flow<List<Surah>> = repository.getAllSurahs()
 }
-
 class GetSurahDetailUseCase(private val repository: QuranRepository) {
     suspend operator fun invoke(surahNumber: Int): Surah? = repository.getSurah(surahNumber)
 }
@@ -69,4 +68,14 @@ class SaveLastReadUseCase(private val repository: QuranRepository) {
 
 class GetLastReadUseCase(private val repository: QuranRepository) {
     operator fun invoke(): Flow<LastRead?> = repository.getLastRead()
+}
+
+class GetTafsirUseCase(private val repository: QuranRepository) {
+    suspend operator fun invoke(surahNumber: Int, ayahNumber: Int): Tafsir? =
+        repository.getTafsir(surahNumber, ayahNumber)
+}
+
+class GetTafsirsForSurahUseCase(private val repository: QuranRepository) {
+    operator fun invoke(surahNumber: Int): Flow<List<Tafsir>> =
+        repository.getTafsirsForSurah(surahNumber)
 }

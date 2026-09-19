@@ -80,8 +80,10 @@ class PreferencesManager(private val context: Context) {
         val SELECTED_PERSONA = stringPreferencesKey("selected_persona")
         val CUSTOM_SYSTEM_PROMPT = stringPreferencesKey("custom_system_prompt")
         val SELECTED_MODEL = stringPreferencesKey("selected_model")
+        val SELECTED_EMBEDDING_MODEL = stringPreferencesKey("selected_embedding_model")
         val TRANSLATION_MODE = stringPreferencesKey("translation_mode")
         val SAF_ROOT_URI = stringPreferencesKey("saf_root_uri")
+        val ONLINE_RESEARCH_ENABLED = booleanPreferencesKey("online_research_enabled")
     }
 
     val isDarkMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -117,12 +119,21 @@ class PreferencesManager(private val context: Context) {
         preferences[PreferencesKeys.SELECTED_MODEL].orEmpty()
     }
 
+    val selectedEmbeddingModel: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.SELECTED_EMBEDDING_MODEL] ?: "all-minilm-l6-v2-onnx"
+    }
+
     val translationMode: Flow<TranslationMode> = context.dataStore.data.map { preferences ->
         TranslationMode.fromId(preferences[PreferencesKeys.TRANSLATION_MODE] ?: TranslationMode.ENGLISH.id)
     }
 
     val safRootUri: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[PreferencesKeys.SAF_ROOT_URI]
+    }
+
+    /** Allows a transparent internet fallback only when local retrieval is insufficient. */
+    val onlineResearchEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.ONLINE_RESEARCH_ENABLED] ?: true
     }
 
     suspend fun setDarkMode(enabled: Boolean) {
@@ -173,6 +184,12 @@ class PreferencesManager(private val context: Context) {
         }
     }
 
+    suspend fun setSelectedEmbeddingModel(modelId: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SELECTED_EMBEDDING_MODEL] = modelId
+        }
+    }
+
     suspend fun setTranslationMode(mode: TranslationMode) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.TRANSLATION_MODE] = mode.id
@@ -188,6 +205,12 @@ class PreferencesManager(private val context: Context) {
     suspend fun clearSafRootUri() {
         context.dataStore.edit { preferences ->
             preferences.remove(PreferencesKeys.SAF_ROOT_URI)
+        }
+    }
+
+    suspend fun setOnlineResearchEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ONLINE_RESEARCH_ENABLED] = enabled
         }
     }
 }

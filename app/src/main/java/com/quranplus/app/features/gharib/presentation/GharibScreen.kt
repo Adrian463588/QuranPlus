@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.AlertDialog
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quranplus.app.core.audio.AudioPlayerManager
+import com.quranplus.app.core.audio.PlaybackState
 import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.components.AppEmptyState
@@ -70,30 +72,11 @@ fun GharibScreen(
     onNavigateToAyah: (surahNumber: Int, ayahNumber: Int) -> Unit,
     onBackClick: () -> Unit
 ) {
-    if (!GharibDataRepository.RECORD_LEVEL_REVIEW_COMPLETE) {
-        Scaffold(
-            topBar = {
-                AppTopBar(
-                    title = "Ensiklopedia Bacaan Gharib",
-                    subtitle = "Belum tersedia untuk distribusi",
-                    onBackClick = onBackClick
-                )
-            }
-        ) { padding ->
-            AppEmptyState(
-                icon = Icons.Rounded.AutoStories,
-                title = "Gharib masih diblokir",
-                description = "Data referensi menunggu review per-record dan verifikasi provenance sebelum ditampilkan."
-                    .plus(" Audio asli juga harus tersedia sebelum playback diaktifkan."),
-                modifier = Modifier.padding(padding)
-            )
-        }
-        return
-    }
-
     var selectedFilter by remember { mutableStateOf("ALL") }
     var selectedSajdahItem by remember { mutableStateOf<GharibReading?>(null) }
     val selectedQari by audioPlayerManager.selectedQari.collectAsStateWithLifecycle()
+    val playbackState by audioPlayerManager.playbackState.collectAsStateWithLifecycle()
+    val currentTrack by audioPlayerManager.currentTrack.collectAsStateWithLifecycle()
 
     val filters = listOf(
         "ALL" to "Semua",
@@ -158,8 +141,17 @@ fun GharibScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 items(filteredList, key = { it.id }) { reading ->
+                    val isTrackActive = currentTrack?.surahNumber == reading.surahNumber &&
+                        currentTrack?.ayahNumber == reading.ayahNumber
+                    val isCurrentlyPlaying = isTrackActive &&
+                        (playbackState is PlaybackState.Playing || playbackState is PlaybackState.Buffering)
+                    val isCurrentlyPaused = isTrackActive && playbackState is PlaybackState.Paused
+
                     GharibCardItem(
                         reading = reading,
+                        isCurrentlyPlaying = isCurrentlyPlaying,
+                        isCurrentlyPaused = isCurrentlyPaused,
+                        onTogglePlayPause = { audioPlayerManager.togglePlayPause() },
                         onPlayAudio = SurahMapper.findSurah(reading.surahName)
                             ?.takeIf {
                                 audioPlayerManager.getAyahAudioUrl(
@@ -262,6 +254,9 @@ fun GharibScreen(
 @Composable
 fun GharibCardItem(
     reading: GharibReading,
+    isCurrentlyPlaying: Boolean = false,
+    isCurrentlyPaused: Boolean = false,
+    onTogglePlayPause: () -> Unit = {},
     onPlayAudio: (() -> Unit)?,
     onNavigate: () -> Unit,
     onShowSajdahDialog: () -> Unit
@@ -384,13 +379,30 @@ fun GharibCardItem(
             // Action Buttons
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 OutlinedButton(
-                    onClick = { onPlayAudio?.invoke() },
-                    enabled = onPlayAudio != null,
+                    onClick = {
+                        if (isCurrentlyPlaying || isCurrentlyPaused) {
+                            onTogglePlayPause()
+                        } else {
+                            onPlayAudio?.invoke()
+                        }
+                    },
+                    enabled = onPlayAudio != null || isCurrentlyPlaying || isCurrentlyPaused,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(imageVector = Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(
+                        imageVector = if (isCurrentlyPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (onPlayAudio != null) "Putar Audio" else "Audio belum tersedia")
+                    Text(
+                        text = when {
+                            isCurrentlyPlaying -> "Jeda Audio"
+                            isCurrentlyPaused -> "Lanjutkan Audio"
+                            onPlayAudio != null -> "Putar Audio"
+                            else -> "Audio belum tersedia"
+                        }
+                    )
                 }
 
                 if (reading.ruleType == GharibType.AYAT_SAJDAH) {
@@ -438,9 +450,9 @@ fun IsymamLipDiagram() {
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                LipStageCard(step = "1. Buka", label = "Ta' (تَـ)", description = "Bibir normal terbuka")
+                LipStageCard(step = "1. Buka", label = "تَـ", description = "Bibir normal terbuka")
                 Text("➔", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                LipStageCard(step = "2. Moncongkan", label = "Memoncong ۫", description = "Bibir maju tanpa suara")
+                LipStageCard(step = "2. Moncongkan", label = "ـمْ۫ـ", description = "Bibir maju tanpa suara")
                 Text("➔", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 LipStageCard(step = "3. Sempurnakan", label = "ـنَّا", description = "Dengung Nun 2 harakat")
             }
@@ -452,19 +464,30 @@ fun IsymamLipDiagram() {
 private fun LipStageCard(step: String, label: String, description: String) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(90.dp)
+        modifier = Modifier.width(96.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(42.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(step, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-        Text(description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, fontSize = 9.sp)
+        Text(
+            text = description,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            fontSize = 10.sp
+        )
     }
 }

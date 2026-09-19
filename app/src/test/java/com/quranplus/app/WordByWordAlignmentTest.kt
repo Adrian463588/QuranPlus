@@ -30,9 +30,8 @@ class WordByWordAlignmentTest {
 
         assertNotNull(slices)
         assertEquals(3, slices!!.size)
-        assertEquals(0, slices.joinToString("") { it.text.text }.count { it == '۝' })
         assertEquals(WaqafParser.WAQAF_MUANAQAH_SYM, slices[1].text.text.substringAfter("ٱلْكِتَٰبُ").trim())
-        assertEquals("۝٢", extractAyahEndMarker(text)?.text?.trim())
+        assertEquals("(٢)", extractAyahEndMarker(text)?.text?.trim())
     }
 
     @Test
@@ -49,19 +48,19 @@ class WordByWordAlignmentTest {
     fun GIVEN_verifiedUthmaniVariant_WHEN_aligningAyah_THEN_keepsWordAvailable() {
         val slices = buildWordRenderSlices(
             words = listOf(word(1, "هُدًى")),
-            annotatedAyah = AnnotatedString("هُدًۭى ۝١")
+            annotatedAyah = AnnotatedString("هُدًۭى (١)")
         )
 
         assertNotNull(slices)
         assertEquals("هُدًۭى", slices!!.single().text.text)
-        assertEquals("۝١", extractAyahEndMarker(AnnotatedString("هُدًۭى ۝١"))?.text?.trim())
+        assertEquals("(١)", extractAyahEndMarker(AnnotatedString("هُدًۭى (١)"))?.text?.trim())
     }
 
     @Test
     fun GIVEN_verifiedCompositeSourceWord_WHEN_aligningAyah_THEN_keepsItsFullArabicRange() {
         val slices = buildWordRenderSlices(
             words = listOf(word(1, "إِلْ يَاسِينَ")),
-            annotatedAyah = AnnotatedString("إِلْ يَاسِينَ ۝١")
+            annotatedAyah = AnnotatedString("إِلْ يَاسِينَ (١)")
         )
 
         assertNotNull(slices)

@@ -35,4 +35,6 @@ interface QuranRepository {
         juz: Int = 1,
         page: Int = 1
     )
+    suspend fun getTafsir(surahNumber: Int, ayahNumber: Int): Tafsir?
+    fun getTafsirsForSurah(surahNumber: Int): Flow<List<Tafsir>>
 }

@@ -85,6 +85,19 @@ class HadithViewModel(
         if (isCatalog()) updateCatalogState() else search()
     }
 
+    fun openReference(collectionId: String, hadithNumber: Int) {
+        if (collectionId.isBlank() || hadithNumber <= 0) return
+        _selectedCollection.value = collectionId
+        _query.value = hadithNumber.toString()
+        search()
+    }
+
+    fun resetToCatalog() {
+        _query.value = ""
+        _selectedCollection.value = null
+        updateCatalogState()
+    }
+
     fun startBundleDownload() {
         viewModelScope.launch {
             val status = runCatching { bundleManager.status() }.getOrNull()

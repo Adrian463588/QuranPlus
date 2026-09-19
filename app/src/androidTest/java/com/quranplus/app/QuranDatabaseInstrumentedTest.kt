@@ -43,10 +43,34 @@ class QuranDatabaseInstrumentedTest {
                 arrayOf<Any>("\"الله\"*", 5)
             )
         )
+        val hadithFts = database.hadithDao().searchFts(
+            SimpleSQLiteQuery(
+                """
+                SELECT h.* FROM hadiths AS h
+                JOIN hadiths_fts5 ON h.id = hadiths_fts5.rowid
+                WHERE hadiths_fts5 MATCH ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf<Any>("\"bundle\"*")
+            )
+        )
+        val documentFts = database.knowledgeChunkDao().searchFts(
+            SimpleSQLiteQuery(
+                """
+                SELECT k.* FROM knowledge_chunks AS k
+                JOIN knowledge_chunks_fts5 ON k.id = knowledge_chunks_fts5.rowid
+                WHERE knowledge_chunks_fts5 MATCH ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf<Any>("\"document\"*")
+            )
+        )
 
         assertEquals(114, surahs.size)
         assertFalse(ayahs.isEmpty())
         assertTrue(searchResults.isNotEmpty())
+        assertTrue(hadithFts.isEmpty())
+        assertTrue(documentFts.isEmpty())
         assertEquals(0, bundledTableCount(context, "hadiths"))
         assertEquals(0, bundledTableCount(context, "hadith_collections"))
         assertEquals(77429, database.wordByWordDao().count())
@@ -73,7 +97,8 @@ class QuranDatabaseInstrumentedTest {
         val repository = QuranRepositoryImpl(
             quranDao = database.quranDao(),
             bookmarkDao = database.bookmarkDao(),
-            lastReadDao = database.lastReadDao()
+            lastReadDao = database.lastReadDao(),
+            tafsirDao = database.tafsirDao()
         )
 
         val results = repository.searchAyahs(
@@ -100,7 +125,8 @@ class QuranDatabaseInstrumentedTest {
         val repository = QuranRepositoryImpl(
             quranDao = database.quranDao(),
             bookmarkDao = database.bookmarkDao(),
-            lastReadDao = database.lastReadDao()
+            lastReadDao = database.lastReadDao(),
+            tafsirDao = database.tafsirDao()
         )
 
         val results = repository.searchAyahs(

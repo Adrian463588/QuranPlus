@@ -137,7 +137,10 @@ class SafAssetStore(
         val file = parts.dropLast(1).fold(root) { parent, segment ->
             parent.findFile(segment) ?: throw IllegalStateException("Folder SAF tidak ditemukan: $segment")
         }.findFile(parts.last()) ?: throw IllegalStateException("Asset SAF tidak ditemukan: $relativePath")
-        val temporary = File(destination.parentFile ?: context.cacheDir, "${destination.name}.tmp")
+        // Keep SAF materialization separate from the downloader's resumable
+        // `${destination.name}.tmp` candidate. A startup restore must never
+        // overwrite an active WorkManager transfer.
+        val temporary = File(destination.parentFile ?: context.cacheDir, "${destination.name}.saf.tmp")
         try {
             resolver.openInputStream(file.uri)?.use { input ->
                 temporary.outputStream().use { output -> input.copyTo(output) }
@@ -177,8 +180,53 @@ class SafAssetStore(
         createDirectoryPath(root, relativeDirectory).listFiles().count { it.isFile }
 
     private fun createRequiredDirectories(root: DocumentFile) {
-        listOf("models", "rag", "rag/source", "rag/index", "manifests")
+        listOf("models", "rag", "rag/source", "rag/index", "manifests", "audio", "audio/manifests")
             .forEach { createDirectoryPath(root, it) }
+    }
+
+    suspend fun readText(
+        relativeDirectory: String,
+        filename: String
+    ): String? = withContext(Dispatchers.IO) {
+        val root = runCatching { linkedRootOrThrow() }.getOrNull() ?: return@withContext null
+        val directory = createDirectoryPath(root, relativeDirectory)
+        val file = directory.findFile(filename) ?: return@withContext null
+        resolver.openInputStream(file.uri)?.use { input ->
+            input.bufferedReader(Charsets.UTF_8).readText()
+        }
+    }
+
+    suspend fun hasFile(
+        relativeDirectory: String,
+        filename: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        val root = runCatching { linkedRootOrThrow() }.getOrNull() ?: return@withContext false
+        val directory = createDirectoryPath(root, relativeDirectory)
+        val file = directory.findFile(filename)
+        file != null && file.isFile && file.length() > 0L
+    }
+
+    suspend fun materializeFile(
+        relativeDirectory: String,
+        filename: String,
+        destination: File
+    ): Boolean = withContext(Dispatchers.IO) {
+        val root = runCatching { linkedRootOrThrow() }.getOrNull() ?: return@withContext false
+        val directory = createDirectoryPath(root, relativeDirectory)
+        val file = directory.findFile(filename) ?: return@withContext false
+        if (!file.isFile || file.length() <= 0L) return@withContext false
+        destination.parentFile?.mkdirs()
+        val temporary = File(destination.parentFile ?: context.cacheDir, "${destination.name}.tmp")
+        try {
+            resolver.openInputStream(file.uri)?.use { input ->
+                temporary.outputStream().use { output -> input.copyTo(output) }
+            } ?: return@withContext false
+            if (destination.exists() && !destination.delete()) return@withContext false
+            temporary.renameTo(destination)
+        } catch (e: Exception) {
+            temporary.delete()
+            false
+        }
     }
 
     private fun createDirectoryPath(root: DocumentFile, relativeDirectory: String): DocumentFile =

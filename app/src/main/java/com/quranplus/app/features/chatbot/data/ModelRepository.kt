@@ -3,6 +3,8 @@ package com.quranplus.app.features.chatbot.data
 import android.content.Context
 import com.quranplus.app.features.rag.data.SafAssetStore
 import org.json.JSONObject
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.security.MessageDigest
 
@@ -24,6 +26,10 @@ data class ModelAssetManifest(
     val runtime: String = "LiteRT-LM",
     val role: ModelAssetRole = ModelAssetRole.CHATBOT,
     val embeddingDimension: Int? = null,
+    /** Tokenizer contract used by the ONNX embedder; null means unsupported by this build. */
+    val tokenizerAsset: String? = null,
+    val tokenizerType: String? = null,
+    val tokenizerSha256: String? = null,
     val licenseId: String = "",
     val licenseUrl: String = "",
     val isRecommended: Boolean = false
@@ -46,7 +52,10 @@ data class ModelAssetManifest(
             ModelAssetRole.EMBEDDING ->
                 format.equals("onnx", true) &&
                     runtime.equals("ONNX Runtime", true) &&
-                    embeddingDimension == EMBEDDING_DIMENSION
+                    embeddingDimension == EMBEDDING_DIMENSION &&
+                    tokenizerAsset == WORDPIECE_VOCABULARY_ASSET &&
+                    tokenizerType.equals("wordpiece", true) &&
+                    tokenizerSha256?.matches(SHA256_PATTERN) == true
         }
 
     val hasVerifiedManifest: Boolean
@@ -65,6 +74,14 @@ data class ModelAssetManifest(
     val downloadBlocker: String
         get() = when {
             artifactUrl.isBlank() -> "Artifact unduhan belum tersedia."
+            role == ModelAssetRole.EMBEDDING && tokenizerAsset.isNullOrBlank() ->
+                "Tokenizer yang cocok belum tersedia di aplikasi."
+            role == ModelAssetRole.EMBEDDING && tokenizerType.isNullOrBlank() ->
+                "Jenis tokenizer artifact belum dikontrak."
+            role == ModelAssetRole.EMBEDDING && !tokenizerType.equals("wordpiece", true) ->
+                "Tokenizer artifact belum didukung oleh runtime aplikasi."
+            role == ModelAssetRole.EMBEDDING && tokenizerSha256?.matches(SHA256_PATTERN) != true ->
+                "SHA-256 tokenizer belum tersedia."
             !isRuntimeCompatible -> "Format/runtime belum cocok dengan aplikasi."
             !isPinnedHttpsArtifact(artifactUrl) || !isPinnedHttpsSource(sourceUrl) ->
                 "Artifact harus memakai revisi sumber yang dipin."
@@ -83,6 +100,7 @@ data class ModelAssetManifest(
 
     private companion object {
         const val EMBEDDING_DIMENSION = 384
+        const val WORDPIECE_VOCABULARY_ASSET = "embedding/vocab.txt"
         const val MIB = 1024L * 1024L
         const val GIB = 1024L * MIB
         val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
@@ -101,20 +119,6 @@ class ModelRepository(
     /** Only artifacts with a real pinned URL, size, SHA-256, and license are downloadable. */
     val availableModelConfigs: List<ModelInfo> = listOf(
         ModelInfo(
-            id = "alif-islamic-v4-base",
-            name = "Alif Islamic v4 Base",
-            filename = "alif-islamic-v4-base.task",
-            artifactUrl = "https://huggingface.co/ahmedtamseer3/alif-islamic-v4-base/resolve/f7847ebcc1568007ab585bcaf1bffd062bca534c/alif-islamic-v4-base.task",
-            sourceUrl = "https://huggingface.co/ahmedtamseer3/alif-islamic-v4-base/tree/f7847ebcc1568007ab585bcaf1bffd062bca534c",
-            sha256 = "79deeca9f2120c08454ccb09f0399b42d4b3146e8d3fdc0bde4cfa2787f2bbaa",
-            sizeBytes = 946_786_704L,
-            format = "task",
-            runtime = "MediaPipe LLM",
-            licenseId = "Apache-2.0",
-            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0",
-            isRecommended = false
-        ),
-        ModelInfo(
             id = "qwen2.5-1.5b-instruct",
             name = "Qwen 2.5 1.5B Instruct",
             filename = "Qwen2.5-1.5B-Instruct_seq128_q8_ekv4096.task",
@@ -127,6 +131,20 @@ class ModelRepository(
             licenseId = "Apache-2.0",
             licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0",
             isRecommended = true
+        ),
+        ModelInfo(
+            id = "alif-islamic-v4-base",
+            name = "Alif Islamic v4 Base",
+            filename = "alif-islamic-v4-base.task",
+            artifactUrl = "https://huggingface.co/ahmedtamseer3/alif-islamic-v4-base/resolve/f7847ebcc1568007ab585bcaf1bffd062bca534c/alif-islamic-v4-base.task",
+            sourceUrl = "https://huggingface.co/ahmedtamseer3/alif-islamic-v4-base/tree/f7847ebcc1568007ab585bcaf1bffd062bca534c",
+            sha256 = "79deeca9f2120c08454ccb09f0399b42d4b3146e8d3fdc0bde4cfa2787f2bbaa",
+            sizeBytes = 946_786_704L,
+            format = "task",
+            runtime = "LiteRT-LM",
+            licenseId = "Apache-2.0",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0",
+            isRecommended = false
         ),
         ModelInfo(
             id = "gemma4-e2b-it",
@@ -142,26 +160,6 @@ class ModelRepository(
             licenseUrl = "https://ai.google.dev/gemma/terms"
         ),
         ModelInfo(
-            id = "gemma3-1b-it",
-            name = "Gemma 3 1B IT",
-            filename = "gemma3-1b-it-int4.litertlm",
-            sourceUrl = "https://huggingface.co/litert-community/Gemma3-1B-IT",
-            format = "litertlm",
-            runtime = "LiteRT-LM",
-            licenseId = "Gemma Terms",
-            licenseUrl = "https://ai.google.dev/gemma/terms"
-        ),
-        ModelInfo(
-            id = "qwen2.5-1.5b-instruct-duoneural",
-            name = "Qwen 2.5 1.5B Instruct (GGUF)",
-            filename = "qwen2.5-1.5b-instruct.gguf",
-            sourceUrl = "https://huggingface.co/DuoNeural/Qwen2.5-1.5B-Instruct-LiteRT",
-            format = "gguf",
-            runtime = "llama.cpp",
-            licenseId = "Apache-2.0",
-            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
-        ),
-        ModelInfo(
             id = "all-minilm-l6-v2-onnx",
             name = "all-MiniLM-L6-v2 (ONNX RAG)",
             filename = "model_qint8_arm64.onnx",
@@ -173,22 +171,61 @@ class ModelRepository(
             runtime = "ONNX Runtime",
             role = ModelAssetRole.EMBEDDING,
             embeddingDimension = 384,
+            tokenizerAsset = "embedding/vocab.txt",
+            tokenizerType = "wordpiece",
+            tokenizerSha256 = "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
             licenseId = "Apache-2.0",
-            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0",
+            isRecommended = true
         ),
         ModelInfo(
-            id = "qwen3-embedding-0.6b",
-            name = "Qwen3 Embedding 0.6B",
-            filename = "qwen3-embedding-0.6b",
-            sourceUrl = "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B",
-            format = "safetensors",
-            runtime = "Transformers",
+            id = "bge-small-en-v1.5-onnx",
+            name = "BAAI BGE Small EN v1.5 (ONNX)",
+            filename = "bge_small_en_v1.5_qint8.onnx",
+            // The requested arm64 ONNX path is not published upstream. Keep
+            // this catalog entry visible but fail closed instead of offering
+            // a download that can never complete.
+            artifactUrl = "",
+            sourceUrl = "https://huggingface.co/BAAI/bge-small-en-v1.5/tree/5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+            sha256 = null,
+            sizeBytes = null,
+            format = "onnx",
+            runtime = "ONNX Runtime",
             role = ModelAssetRole.EMBEDDING,
-            embeddingDimension = 1024,
+            embeddingDimension = 384,
+            licenseId = "MIT",
+            licenseUrl = "https://opensource.org/licenses/MIT"
+        ),
+        ModelInfo(
+            id = "paraphrase-multilingual-minilm-l12-v2-onnx",
+            name = "Multilingual MiniLM L12 v2 (ONNX)",
+            filename = "multilingual_minilm_l12_v2_qint8.onnx",
+            artifactUrl = "https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/resolve/e8f8c211226b894fcb81acc59f3b34ba3efd5f42/onnx/model_qint8_arm64.onnx",
+            sourceUrl = "https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/tree/e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+            // The immutable Git LFS OID is the true artifact SHA-256. The model is
+            // still unavailable until a matching SentencePiece tokenizer and
+            // tokenizer runtime are shipped with this APK.
+            sha256 = "783fea82d71a58179b830a4dbd2d58447e640609e98eedf9ffa12622d375a672",
+            sizeBytes = 118_412_398L,
+            format = "onnx",
+            runtime = "ONNX Runtime",
+            role = ModelAssetRole.EMBEDDING,
+            embeddingDimension = 384,
+            tokenizerAsset = "embedding/sentencepiece.bpe.model",
+            tokenizerType = "sentencepiece",
             licenseId = "Apache-2.0",
             licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
         )
     )
+
+    val availableChatbotModels: List<ModelInfo>
+        get() = availableModelConfigs.filter { it.role == ModelAssetRole.CHATBOT }
+
+    val availableEmbeddingModels: List<ModelInfo>
+        get() = availableModelConfigs.filter { it.role == ModelAssetRole.EMBEDDING }
+
+    fun isAnyEmbeddingModelReady(): Boolean =
+        availableEmbeddingModels.any(::isModelReady)
 
     fun getModelsDirectory(): File {
         val directory = File(context.filesDir, "models")
@@ -204,32 +241,64 @@ class ModelRepository(
     fun isModelReady(filename: String): Boolean =
         availableModelConfigs.firstOrNull { it.filename == filename }?.let(::isModelReady) == true
 
-    fun getActiveModelFile(): File = availableModelConfigs
-        .filter { it.role == ModelAssetRole.CHATBOT }
-        .firstOrNull(::isModelReady)
-        ?.let { getModelFile(it.filename) }
-        ?: error("Model LiteRT-LM belum tersedia")
+    fun getActiveModelFile(preferredModelId: String? = null): File {
+        val chatbotModels = availableModelConfigs.filter { it.role == ModelAssetRole.CHATBOT }
+        val preferred = chatbotModels.firstOrNull { it.id == preferredModelId && isModelReady(it) }
+        val model = preferred ?: chatbotModels.firstOrNull(::isModelReady)
+            ?: error("Model LiteRT-LM belum tersedia")
+        return getModelFile(model.filename)
+    }
+
+    fun getActiveModelInfo(preferredModelId: String? = null): ModelInfo? {
+        val chatbotModels = availableModelConfigs.filter { it.role == ModelAssetRole.CHATBOT }
+        val preferred = chatbotModels.firstOrNull { it.id == preferredModelId && isModelReady(it) }
+        return preferred ?: chatbotModels.firstOrNull(::isModelReady)
+    }
+
+    fun getActiveEmbeddingModelFile(preferredModelId: String? = null): File? {
+        val embeddingModels = availableModelConfigs.filter { it.role == ModelAssetRole.EMBEDDING }
+        val preferred = embeddingModels.firstOrNull { it.id == preferredModelId && isModelReady(it) }
+        val model = preferred ?: embeddingModels.firstOrNull(::isModelReady) ?: return null
+        return getModelFile(model.filename)
+    }
+
+    fun getActiveEmbeddingModelInfo(preferredModelId: String? = null): ModelInfo? {
+        val embeddingModels = availableModelConfigs.filter { it.role == ModelAssetRole.EMBEDDING }
+        val preferred = embeddingModels.firstOrNull { it.id == preferredModelId && isModelReady(it) }
+        return preferred ?: embeddingModels.firstOrNull(::isModelReady)
+    }
 
     fun isAnyModelReady(): Boolean = availableModelConfigs
         .filter { it.role == ModelAssetRole.CHATBOT }
         .any(::isModelReady)
 
-    suspend fun restoreVerifiedModelsFromSaf() {
-        availableModelConfigs
-            .filter { it.isDownloadable && !isModelReady(it) }
-            .forEach { model ->
-                runCatching {
-                    safAssetStore.materialize(
-                        relativePath = "models/${model.filename}",
-                        destination = getModelFile(model.filename),
-                        expectedSha256 = model.sha256.orEmpty()
-                    )
-                }
+    suspend fun restoreVerifiedModelsFromSaf() =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            startupVerificationMutex.withLock {
+                if (startupVerificationComplete) return@withLock
+                availableModelConfigs
+                    .filter(ModelInfo::isDownloadable)
+                    .forEach { model ->
+                        // A process-local readiness bit is not durable trust.
+                        // Hash every existing artifact once per startup, even
+                        // when its byte length still matches the manifest.
+                        if (!verifyModelSha256Async(model)) {
+                            runCatching {
+                                safAssetStore.materialize(
+                                    relativePath = "models/${model.filename}",
+                                    destination = getModelFile(model.filename),
+                                    expectedSha256 = model.sha256.orEmpty()
+                                )
+                            }
+                            verifyModelSha256Async(model)
+                        }
+                    }
+                startupVerificationComplete = true
             }
-    }
+        }
 
-    suspend fun persistVerifiedModel(modelInfo: ModelInfo) {
-        if (!isModelReady(modelInfo)) return
+    suspend fun persistVerifiedModel(modelInfo: ModelInfo) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (!isModelReady(modelInfo)) return@withContext
         val publishedUri = safAssetStore.publishFile(
             source = getModelFile(modelInfo.filename),
             relativeDirectory = "models",
@@ -251,6 +320,9 @@ class ModelRepository(
                 .put("format", modelInfo.format)
                 .put("runtime", modelInfo.runtime)
                 .put("role", modelInfo.role.name)
+                .put("tokenizer_asset", modelInfo.tokenizerAsset)
+                .put("tokenizer_type", modelInfo.tokenizerType)
+                .put("tokenizer_sha256", modelInfo.tokenizerSha256)
                 .put("license_id", modelInfo.licenseId)
                 .put("license_url", modelInfo.licenseUrl)
                 .toString(),
@@ -259,11 +331,36 @@ class ModelRepository(
         )
     }
 
+    private val verifiedCache = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val startupVerificationMutex = Mutex()
+    private var startupVerificationComplete = false
+
     fun isModelReady(modelInfo: ModelInfo): Boolean {
         if (!modelInfo.isDownloadable) return false
         val file = getModelFile(modelInfo.filename)
-        return file.isFile && file.length() == modelInfo.sizeBytes &&
-            calculateSha256(file).equals(modelInfo.sha256, ignoreCase = true)
+        if (!file.isFile) return false
+        val expectedSize = modelInfo.sizeBytes ?: -1L
+        if (expectedSize > 0L && file.length() != expectedSize) return false
+        val cachedLastModified = verifiedCache[modelInfo.filename]
+        if (cachedLastModified != null && cachedLastModified == file.lastModified()) {
+            return true
+        }
+        return false
+    }
+
+    suspend fun verifyModelSha256Async(modelInfo: ModelInfo): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val file = getModelFile(modelInfo.filename)
+        if (!file.isFile || file.length() != (modelInfo.sizeBytes ?: -1L)) {
+            verifiedCache.remove(modelInfo.filename)
+            return@withContext false
+        }
+        val isDigestValid = calculateSha256(file).equals(modelInfo.sha256, ignoreCase = true)
+        if (isDigestValid) {
+            verifiedCache[modelInfo.filename] = file.lastModified()
+        } else {
+            verifiedCache.remove(modelInfo.filename)
+        }
+        isDigestValid
     }
 
     private fun calculateSha256(file: File): String {

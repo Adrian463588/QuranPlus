@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
@@ -37,7 +38,7 @@ class MainNavigationSmokeTest {
         composeRule.onNodeWithText("Cari ayat").performClick()
 
         waitForText("Pencarian FTS5 Cepat")
-        composeRule.onNodeWithText("Filter").assertIsDisplayed()
+        composeRule.onNodeWithText("Semua Surah").assertIsDisplayed()
     }
 
     @Test
@@ -86,33 +87,14 @@ class MainNavigationSmokeTest {
 
         composeRule.onNodeWithText("Tanya AI").performClick()
 
-        waitForText("Setup AI On-Device")
-        composeRule.onNodeWithText("Pilih Model AI yang Diinginkan:").assertIsDisplayed()
-        composeRule.onNodeWithTag("model_catalog")
-            .performScrollToNode(hasText("Gemma 3 1B IT"))
-        composeRule.onNodeWithText("Gemma 3 1B IT").assertIsDisplayed()
-        assertTrue(
-            composeRule.onAllNodesWithText("Buka sumber model")
-                .fetchSemanticsNodes().isNotEmpty()
-        )
-        assertTrue(
-            composeRule.onAllNodesWithText("Buka link unduh")
-                .fetchSemanticsNodes().isNotEmpty()
-        )
-        composeRule.onNodeWithTag("model_catalog")
-            .performScrollToNode(hasText("Qwen 2.5 1.5B Instruct"))
-        composeRule.onNodeWithText("Qwen 2.5 1.5B Instruct").assertIsDisplayed()
-        assertTrue(
-            composeRule.onAllNodesWithText("Siap diunduh dan diverifikasi.")
-                .fetchSemanticsNodes().isNotEmpty()
-        )
+        waitForText("Tanya AI On-Device")
+        composeRule.onNodeWithText("Pilih Model AI").assertIsDisplayed()
         composeRule.onNodeWithTag("model_catalog")
             .performScrollToNode(hasText("Gemma 4 E2B IT"))
         composeRule.onNodeWithText("Gemma 4 E2B IT").assertIsDisplayed()
-        assertTrue(
-            composeRule.onAllNodesWithText("Siap diunduh dan diverifikasi.")
-                .fetchSemanticsNodes().isNotEmpty()
-        )
+        composeRule.onNodeWithTag("model_catalog")
+            .performScrollToNode(hasText("Model Embedding RAG"))
+        composeRule.onNodeWithText("Model Embedding RAG").assertIsDisplayed()
     }
 
     @Test
@@ -122,8 +104,9 @@ class MainNavigationSmokeTest {
         composeRule.onNodeWithText("More").performClick()
         composeRule.onNodeWithText("Pengaturan").performClick()
 
-        waitForText("Fitur Tajwid & Murottal")
-        composeRule.onNodeWithText("Folder Model & RAG (SAF)").assertIsDisplayed()
+        waitForText("Tajwid Berwarna (High Contrast)")
+        composeRule.onNodeWithText("Folder Model & Dokumen (SAF)").performScrollTo()
+        composeRule.onNodeWithText("Folder Model & Dokumen (SAF)").assertIsDisplayed()
     }
 
     @Test

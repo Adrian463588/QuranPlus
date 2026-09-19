@@ -26,12 +26,17 @@ class HadithBundleDownloadWorker(
             return failure("Pilih folder SAF sebelum mengunduh bundle Hadist")
         }
 
-        val target = File(applicationContext.cacheDir, HadithBundleImporter.BUNDLE_FILENAME)
+        val target = File(
+            applicationContext.filesDir,
+            "downloads/${HadithBundleImporter.BUNDLE_FILENAME}"
+        )
         var terminalState: DownloadState = DownloadState.Idle
         ResumableDownloader(applicationContext)
             .downloadFile(
                 url = HadithBundleImporter.BUNDLE_URL,
-                targetDestination = target
+                targetDestination = target,
+                expectedSha256 = HadithBundleManifest.VERIFIED.archiveSha256,
+                expectedSizeBytes = HadithBundleManifest.VERIFIED.archiveSizeBytes
             )
             .collect { state ->
                 terminalState = state
@@ -70,11 +75,7 @@ class HadithBundleDownloadWorker(
                 state.file.delete()
                 failure(it.localizedMessage ?: "Bundle Hadist tidak dapat diimpor")
             }
-            is DownloadState.Paused -> if (runAttemptCount < MAX_RETRIES) {
-                Result.retry()
-            } else {
-                failure("Unduhan Hadist dihentikan setelah $MAX_RETRIES percobaan jaringan")
-            }
+            is DownloadState.Paused -> Result.retry()
             is DownloadState.ChecksumError -> failure(state.message)
             is DownloadState.Failed -> failure(state.message)
             else -> failure("Unduhan bundle Hadist berhenti tanpa status selesai")
@@ -95,6 +96,5 @@ class HadithBundleDownloadWorker(
     private companion object {
         const val KEY_RECORDS = "records"
         const val KEY_COLLECTIONS = "collections"
-        const val MAX_RETRIES = 3
     }
 }

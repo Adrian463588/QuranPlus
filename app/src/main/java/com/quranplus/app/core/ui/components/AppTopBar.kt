@@ -27,6 +27,7 @@ fun AppTopBar(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     onBackClick: (() -> Unit)? = null,
+    navigationIcon: (@Composable () -> Unit)? = null,
     onTitleClick: (() -> Unit)? = null,
     titleContentDescription: String? = null,
     actions: @Composable RowScope.() -> Unit = {}
@@ -35,7 +36,7 @@ fun AppTopBar(
         title = {
             if (subtitle != null) {
                 androidx.compose.foundation.layout.Column(
-                    modifier = titleModifier(
+                    modifier = Modifier.titleModifier(
                         onClick = onTitleClick,
                         contentDescription = titleContentDescription ?: title
                     )
@@ -62,7 +63,7 @@ fun AppTopBar(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = titleModifier(
+                    modifier = Modifier.titleModifier(
                         onClick = onTitleClick,
                         contentDescription = titleContentDescription ?: title
                     )
@@ -70,7 +71,9 @@ fun AppTopBar(
             }
         },
         navigationIcon = {
-            if (onBackClick != null) {
+            if (navigationIcon != null) {
+                navigationIcon()
+            } else if (onBackClick != null) {
                 IconButton(onClick = onBackClick) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -90,14 +93,14 @@ fun AppTopBar(
     )
 }
 
-private fun titleModifier(
+private fun Modifier.titleModifier(
     onClick: (() -> Unit)?,
     contentDescription: String
-): Modifier = Modifier
+): Modifier = this
     .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
     .then(
         if (onClick == null) Modifier else Modifier.clickable(onClick = onClick)
     )
-    .semantics {
+    .semantics(mergeDescendants = true) {
         this.contentDescription = contentDescription
     }
