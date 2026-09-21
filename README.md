@@ -146,13 +146,21 @@ cd QuranPlus
 
 Tampilan antarmuka responsif Material 3 yang dioptimalkan untuk perangkat layar compact hingga tablet layar besar (teruji pada Samsung Galaxy Tab S7):
 
-| Al-Qur'an Home | Reader Tajwid & Audio | Tanya AI (RAG Terverifikasi) |
-|:---:|:---:|:---:|
-| ![Quran Home](art/device-sm-g988b-current-home.png) | ![Reader](art/device-sm-g988b-current-reader.png) | ![Tanya AI](art/device-sm-g988b-current-ai.png) |
+### 🖥️ Tampilan Tablet Layar Lebar (Samsung Galaxy Tab S7)
 
-| Hadist 9 Kitab | Dzikir & Hizib | Materi Tahsin |
+| Al-Qur'an Home & Navigasi | Reader Tajwid & Terjemahan | Tanya AI (RAG Terverifikasi) |
 |:---:|:---:|:---:|
-| ![Hadist](art/device-sm-g988b-current-hadith.png) | ![Word-by-word](art/device-sm-g988b-current-word.png) | ![Tahsin](art/screenshot_tahsin_home.png) |
+| ![Quran Home Tablet](art/tab-s7-quran-home.png) | ![Reader Tajwid Tablet](art/tab-s7-quran-reader.png) | ![Tanya AI Tablet](art/tab-s7-tanya-ai.png) |
+
+| Ensiklopedia 9 Kitab Hadist | Dzikir, Wirid & Hizib | Menu Tambahan & Fitur Pintar |
+|:---:|:---:|:---:|
+| ![Hadist 9 Kitab Tablet](art/tab-s7-hadith-bukhari.png) | ![Dzikir & Hizib Tablet](art/tab-s7-dzikir-hizib.png) | ![Menu More Tablet](art/tab-s7-more-menu.png) |
+
+### 📱 Fitur Khusus & Tampilan Mobile
+
+| Tahsin & Makharijul Huruf | Ensiklopedia Bacaan Gharib | Audio Manager Murottal Offline |
+|:---:|:---:|:---:|
+| ![Tahsin Detail](art/mobile-tahsin-detail.png) | ![Gharib](art/mobile-gharib-encyclopedia.png) | ![Audio Manager](art/mobile-audio-manager.png) |
 
 ---
 
