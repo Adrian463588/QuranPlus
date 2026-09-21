@@ -142,9 +142,23 @@ cd QuranPlus
 
 ---
 
-## 📱 Preview Aplikasi di Tablet & Smartphone
+## 📱 Preview Aplikasi di Smartphone & Tablet
 
-Tampilan antarmuka responsif Material 3 yang dioptimalkan untuk perangkat layar compact hingga tablet layar besar (teruji pada Samsung Galaxy Tab S7):
+Tampilan antarmuka responsif Material 3 yang dioptimalkan untuk perangkat layar compact (smartphone) hingga layar lebar (tablet):
+
+### 📱 Tampilan Smartphone (Samsung Galaxy S20 Ultra)
+
+| Beranda Al-Qur'an | Mushaf & Tajwid Berwarna | Tanya AI (On-Device RAG) |
+|:---:|:---:|:---:|
+| ![Al-Quran Home](art/mobile-quran-home.png) | ![Al-Quran Reader](art/mobile-quran-reader.png) | ![Tanya AI](art/mobile-tanya-ai.png) |
+
+| Ensiklopedia 9 Kitab Hadist | Dzikir Pagi-Petang & Counter | Pembelajaran Tahsin & Makharij |
+|:---:|:---:|:---:|
+| ![Hadist 9 Kitab](art/mobile-hadith.png) | ![Dzikir & Hizib](art/mobile-dzikir-hizib.png) | ![Tahsin Detail](art/mobile-tahsin-detail.png) |
+
+| Ensiklopedia Bacaan Gharib | Audio Manager Murottal Offline |
+|:---:|:---:|
+| ![Gharib](art/mobile-gharib-encyclopedia.png) | ![Audio Manager](art/mobile-audio-manager.png) |
 
 ### 🖥️ Tampilan Tablet Layar Lebar (Samsung Galaxy Tab S7)
 
@@ -152,15 +166,9 @@ Tampilan antarmuka responsif Material 3 yang dioptimalkan untuk perangkat layar 
 |:---:|:---:|:---:|
 | ![Quran Home Tablet](art/tab-s7-quran-home.png) | ![Reader Tajwid Tablet](art/tab-s7-quran-reader.png) | ![Tanya AI Tablet](art/tab-s7-tanya-ai.png) |
 
-| Ensiklopedia 9 Kitab Hadist | Dzikir, Wirid & Hizib | Menu Tambahan & Fitur Pintar |
+| Ensiklopedia 9 Kitab Hadist | Dzikir, Wirid & Hizib | Menu Tambahan & Pengaturan |
 |:---:|:---:|:---:|
 | ![Hadist 9 Kitab Tablet](art/tab-s7-hadith-bukhari.png) | ![Dzikir & Hizib Tablet](art/tab-s7-dzikir-hizib.png) | ![Menu More Tablet](art/tab-s7-more-menu.png) |
-
-### 📱 Fitur Khusus & Tampilan Mobile
-
-| Tahsin & Makharijul Huruf | Ensiklopedia Bacaan Gharib | Audio Manager Murottal Offline |
-|:---:|:---:|:---:|
-| ![Tahsin Detail](art/mobile-tahsin-detail.png) | ![Gharib](art/mobile-gharib-encyclopedia.png) | ![Audio Manager](art/mobile-audio-manager.png) |
 
 ---
 
