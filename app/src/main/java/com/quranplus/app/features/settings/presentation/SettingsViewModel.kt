@@ -8,6 +8,7 @@ import com.quranplus.app.features.chatbot.data.ModelInfo
 import com.quranplus.app.features.chatbot.data.ModelRepository
 import com.quranplus.app.features.settings.data.AiPersona
 import com.quranplus.app.features.settings.data.PreferencesManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,6 +22,25 @@ class SettingsViewModel(
     private val modelRepository: ModelRepository? = null,
     private val modelDownloadScheduler: ModelDownloadScheduler? = null
 ) : ViewModel() {
+
+    private val _installedModelIds = MutableStateFlow<Set<String>>(emptySet())
+    val installedModelIds: StateFlow<Set<String>> = _installedModelIds.asStateFlow()
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            modelRepository?.restoreVerifiedModelsFromSaf()
+            refreshInstalledModels()
+        }
+    }
+
+    fun refreshInstalledModels() {
+        val repo = modelRepository ?: return
+        val ready = repo.availableEmbeddingModels
+            .filter { repo.isModelReady(it) }
+            .map { it.id }
+            .toSet()
+        _installedModelIds.value = ready
+    }
 
     val isDarkMode: StateFlow<Boolean> = preferencesManager.isDarkMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -61,33 +81,35 @@ class SettingsViewModel(
     private var downloadJob: Job? = null
 
     fun isModelInstalled(modelInfo: ModelInfo): Boolean =
-        modelRepository?.isModelReady(modelInfo) == true
+        _installedModelIds.value.contains(modelInfo.id) || modelRepository?.isModelReady(modelInfo) == true
 
     fun startEmbeddingModelDownload(modelInfo: ModelInfo) {
         val scheduler = modelDownloadScheduler ?: return
+        _downloadingModel.value = modelInfo
         if (!modelInfo.isDownloadable || modelInfo.sha256.isNullOrBlank()) {
             _downloadState.value = DownloadState.Failed(
                 "Unduhan belum tersedia: ${modelInfo.downloadBlocker}"
             )
             return
         }
-        _downloadingModel.value = modelInfo
         downloadJob?.cancel()
         val requestId = runCatching { scheduler.enqueue(modelInfo) }
             .getOrElse { error ->
                 _downloadState.value = DownloadState.Failed(
                     error.localizedMessage ?: "Unduhan model tidak dapat dijadwalkan"
                 )
-                _downloadingModel.value = null
                 return
             }
-        downloadJob = viewModelScope.launch {
+        downloadJob = viewModelScope.launch(Dispatchers.IO) {
             scheduler.observe(requestId, modelInfo).collect { state ->
                 _downloadState.value = state
                 if (state is DownloadState.Completed) {
+                    val verified = modelRepository?.verifyModelSha256Async(modelInfo) ?: false
                     _downloadingModel.value = null
-                } else if (state is DownloadState.Failed || state is DownloadState.ChecksumError) {
-                    _downloadingModel.value = null
+                    if (verified) {
+                        refreshInstalledModels()
+                        preferencesManager.setSelectedEmbeddingModel(modelInfo.id)
+                    }
                 }
             }
         }
@@ -135,6 +157,9 @@ class SettingsViewModel(
     }
 
     fun setSelectedEmbeddingModel(modelId: String) {
-        viewModelScope.launch { preferencesManager.setSelectedEmbeddingModel(modelId) }
+        viewModelScope.launch {
+            preferencesManager.setSelectedEmbeddingModel(modelId)
+            refreshInstalledModels()
+        }
     }
 }

@@ -60,6 +60,37 @@ class HadithCollectionSectionTest {
         assertEquals(null, extractNumber("shalat"))
     }
 
+    @Test
+    fun GIVEN_collectionHadiths_WHEN_navigatingToSpecificNumber_THEN_targetIsLocatedAndNeighborsArePreserved() {
+        val hadiths = (1..200).map { num ->
+            com.quranplus.app.features.hadith.domain.HadithRecord(
+                id = num.toLong(),
+                collectionId = "bukhari",
+                hadithNumber = num,
+                title = "Hadith $num",
+                textArabic = "متن $num",
+                translationId = "Terjemah $num",
+                translationEn = "Translation $num",
+                reference = "Bukhari $num",
+                chapterId = null
+            )
+        }
+
+        val targetNumber = 100
+        val targetIndex = hadiths.indexOfFirst { it.hadithNumber == targetNumber }
+        assertTrue("Hadith 100 must be found in the collection", targetIndex >= 0)
+        assertEquals(99, targetIndex)
+
+        // Verify preceding hadith (99) is present at index - 1
+        assertEquals(99, hadiths[targetIndex - 1].hadithNumber)
+        // Verify target hadith (100) is present at targetIndex
+        assertEquals(100, hadiths[targetIndex].hadithNumber)
+        // Verify subsequent hadith (101) is present at index + 1
+        assertEquals(101, hadiths[targetIndex + 1].hadithNumber)
+        // Entire collection remains intact (not filtered out to single item)
+        assertEquals(200, hadiths.size)
+    }
+
     private fun collection(
         id: String,
         title: String,

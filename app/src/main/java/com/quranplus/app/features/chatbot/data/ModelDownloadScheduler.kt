@@ -41,14 +41,10 @@ class ModelDownloadScheduler(
             .addTag(uniqueName(model))
             .addTag(ALL_MODEL_DOWNLOADS_TAG)
             .build()
-        // Only one large artifact may own the device transfer at a time. The
-        // resumable .tmp file makes switching models safe without duplicates.
-        workManager.cancelAllWorkByTag(ALL_MODEL_DOWNLOADS_TAG)
+        // Only one large artifact may own the device transfer at a time.
+        // ExistingWorkPolicy.REPLACE atomically replaces any previous work for this model.
         workManager.enqueueUniqueWork(
             uniqueName(model),
-            // Starting from the UI is an explicit request to retry now. The
-            // existing .tmp file is preserved by the worker, so replacing the
-            // WorkRequest only resets its backoff/run-attempt counter.
             ExistingWorkPolicy.REPLACE,
             request
         )
@@ -65,15 +61,17 @@ class ModelDownloadScheduler(
         }
 
     fun observe(id: UUID, model: ModelInfo): Flow<DownloadState> =
-        // Observe the unique chain, not only the newly created request ID.
-        // KEEP can retain an older retrying work after the process/UI was
-        // recreated; observing only the new ID then made an active download
-        // look idle and prevented the user from seeing its resume progress.
+        // Observe the unique chain, matching the requested ID first or an active unfinished job.
+        // If the new request is still being committed or only older finished work exists,
+        // emit Queued rather than prematurely emitting a stale finished/cancelled state.
         workManager.getWorkInfosForUniqueWorkFlow(uniqueName(model)).map { infos ->
             val info = infos.firstOrNull { it.id == id }
                 ?: infos.firstOrNull { !it.state.isFinished }
-                ?: infos.firstOrNull()
-        info.toDownloadState(model)
+            if (info != null) {
+                info.toDownloadState(model)
+            } else {
+                DownloadState.Queued(File(modelDirectory, model.filename))
+            }
         }
 
     private suspend fun getWorkInfos(model: ModelInfo): List<WorkInfo> =

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.quranplus.app.core.ui.components.AppTopBar
 import com.quranplus.app.core.ui.theme.Spacing
 
+import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Quiz
 
 private data class MoreAction(
@@ -40,9 +41,16 @@ fun MoreScreen(
     onNavigateToWaqaf: () -> Unit,
     onNavigateToGharib: () -> Unit,
     onNavigateToAudio: () -> Unit,
-    onNavigateToQuiz: () -> Unit = {}
+    onNavigateToQuiz: () -> Unit = {},
+    onNavigateToDzikir: () -> Unit = {}
 ) {
     val actions = listOf(
+        MoreAction(
+            label = "Dzikir, Wirid & Hizib",
+            description = "Dzikir Pagi-Petang, Ratib, Hizib Bahr, Hizib Nashr & Al-Ma'tsurat",
+            icon = Icons.Rounded.AutoStories,
+            onClick = onNavigateToDzikir
+        ),
         MoreAction(
             label = "Bookmark",
             description = "Ayat-ayat pilihan yang disimpan",

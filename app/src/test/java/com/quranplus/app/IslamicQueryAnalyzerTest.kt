@@ -54,4 +54,72 @@ class IslamicQueryAnalyzerTest {
         assertTrue(plan.prefersHadith)
         assertTrue(plan.keywords.size <= 12)
     }
+
+    @Test
+    fun GIVEN_halalHaramQuestion_WHEN_analyzed_THEN_extractsMaidah3AsCanonicalTarget() {
+        val plan = IslamicQueryAnalyzer.analyze("apa hukum halal haram makanan dalam Islam")
+
+        assertEquals(IslamicQuestionDomain.HUKUM_FIQIH, plan.domain)
+        assertTrue(plan.keywords.contains("halal"))
+        assertTrue(plan.keywords.contains("haram"))
+        assertTrue(plan.canonicalAyahTargets.contains(Pair(5, 3)))
+    }
+
+    @Test
+    fun GIVEN_keutamaanAyatKursi_WHEN_analyzed_THEN_extractsAlBaqarah255AndPrefersHadith() {
+        val plan = IslamicQueryAnalyzer.analyze("keutamaan baca ayat kursi")
+
+        assertTrue("kursi" in plan.keywords)
+        assertTrue(plan.canonicalAyahTargets.contains(Pair(2, 255)))
+        assertTrue(plan.prefersHadith)
+        assertTrue(plan.prefersQuran)
+        assertTrue("fadhilah" in plan.keywords || "keutamaan" in plan.keywords)
+    }
+
+    @Test
+    fun GIVEN_puasaQuestion_WHEN_analyzed_THEN_routesToIbadahAndAlBaqarah183() {
+        val plan = IslamicQueryAnalyzer.analyze("apa saja syarat dan rukun puasa")
+
+        assertEquals(IslamicQuestionDomain.IBADAH, plan.domain)
+        assertTrue("puasa" in plan.keywords)
+        assertTrue(plan.canonicalAyahTargets.contains(Pair(2, 183)))
+    }
+
+    @Test
+    fun GIVEN_rukunIslamAndIman_WHEN_analyzed_THEN_containsAppropriateKeywords() {
+        val planIslam = IslamicQueryAnalyzer.analyze("sebutkan rukun islam")
+        assertTrue("syahadat" in planIslam.keywords || "rukun" in planIslam.keywords)
+
+        val planIman = IslamicQueryAnalyzer.analyze("sebutkan rukun iman")
+        assertTrue("iman" in planIman.keywords)
+    }
+
+    @Test
+    fun GIVEN_ayatKursiWithGenericAction_WHEN_analyzed_THEN_isolatesCoreTopicFromGenericIntent() {
+        val plan = IslamicQueryAnalyzer.analyze("Apa keutamaan membaca Ayat Kursi?")
+
+        assertTrue("kursi" in plan.coreTopicTerms)
+        assertTrue("membaca" in plan.intentTerms)
+        assertTrue("keutamaan" in plan.intentTerms)
+        assertTrue("membaca" !in plan.coreTopicTerms)
+        assertTrue("keutamaan" !in plan.coreTopicTerms)
+    }
+
+    @Test
+    fun GIVEN_talakQuestion_WHEN_analyzed_THEN_extractsTalakCoreTopicAndCanonicalAyah() {
+        val plan = IslamicQueryAnalyzer.analyze("bagaimana hukum talak")
+
+        assertTrue("talak" in plan.coreTopicTerms)
+        assertTrue(plan.canonicalAyahTargets.contains(Pair(65, 1)) || plan.canonicalAyahTargets.contains(Pair(2, 228)))
+        assertEquals(IslamicQuestionDomain.HUKUM_FIQIH, plan.domain)
+    }
+
+    @Test
+    fun GIVEN_puasaSunnahQuestion_WHEN_analyzed_THEN_identifiesSunnahFastingTopics() {
+        val plan = IslamicQueryAnalyzer.analyze("bagaimana puasa sunah yang dianjurkan")
+
+        assertTrue("puasa" in plan.coreTopicTerms)
+        assertTrue("senin" in plan.coreTopicTerms || "kamis" in plan.coreTopicTerms || "daud" in plan.coreTopicTerms)
+        assertEquals(IslamicQuestionDomain.IBADAH, plan.domain)
+    }
 }

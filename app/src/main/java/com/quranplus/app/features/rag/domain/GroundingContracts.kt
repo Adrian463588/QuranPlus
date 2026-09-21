@@ -59,7 +59,11 @@ object CitationTargetValidator {
         "nu.or.id",
         "islam.nu.or.id",
         "tarjih.or.id",
-        "muhammadiyah.or.id"
+        "muhammadiyah.or.id",
+        "rumaysho.com",
+        "muslim.or.id",
+        "almanhaj.or.id",
+        "detik.com"
     )
 
     fun validateHttpsUrl(rawUrl: String?): String? {
@@ -90,5 +94,6 @@ fun RetrievedCitation.isInternetSourced(): Boolean =
             "sunnah-public",
             "nu-online",
             "tarjih-muhammadiyah",
+            "duckduckgo-web",
             "mediawiki-wikipedia"
         )

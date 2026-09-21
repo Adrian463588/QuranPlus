@@ -41,12 +41,13 @@ class RagCorpusIndexer(
 
         Log.i(TAG, "Building RAG index for ${records.size} records")
 
+        val embedded = ArrayList<VectorRecord>(records.size)
+        records.forEachIndexed { index, record ->
+            runtimeCoordinator.awaitInferenceIdle()
+            embedded += record.copy(embedding = embeddingService.embed(record.text))
+            if (index % YIELD_INTERVAL == 0) yield()
+        }
         val indexedCount = runtimeCoordinator.withExclusiveIndex {
-            val embedded = ArrayList<VectorRecord>(records.size)
-            records.forEachIndexed { index, record ->
-                embedded += record.copy(embedding = embeddingService.embed(record.text))
-                if (index % YIELD_INTERVAL == 0) yield()
-            }
             vectorIndex.replace(embedded, metadata)
         }
         Log.i(TAG, "RAG index ready ($indexedCount records)")

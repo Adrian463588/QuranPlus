@@ -7,8 +7,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -49,6 +51,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.ViewSidebar
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -93,6 +96,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -109,15 +113,20 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -199,53 +208,10 @@ fun ChatScreen(
         }
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = true,
-        drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier.width(320.dp),
-                drawerContainerColor = MaterialTheme.colorScheme.surface
-            ) {
-                ChatHistoryDrawerContent(
-                    sessions = sessions,
-                    activeConversationId = currentConversationId,
-                    onSelectSession = { sessionId ->
-                        viewModel.selectSession(sessionId)
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onNewChat = {
-                        viewModel.createNewSession()
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onDeleteSession = { sessionId ->
-                        sessionToDelete = sessionId
-                    },
-                    onClearAll = {
-                        showClearAllDialog = true
-                    },
-                    onCloseDrawer = {
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    activePersona = selectedPersona,
-                    activeModelName = activeModel?.name ?: "Model AI",
-                    hadithBundleCount = hadithBundleState.localRecordCount,
-                    onOpenModelSelector = {
-                        coroutineScope.launch {
-                            drawerState.close()
-                            showModelBottomSheet = true
-                        }
-                    },
-                    onOpenHadithBundle = {
-                        coroutineScope.launch {
-                            drawerState.close()
-                            showBundleBottomSheet = true
-                        }
-                    }
-                )
-            }
-        }
-    ) {
+    val isTablet = LocalConfiguration.current.screenWidthDp >= 840
+    var showTabletSidebar by rememberSaveable { mutableStateOf(true) }
+
+    val chatMainContent: @Composable () -> Unit = {
         Scaffold(
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
@@ -255,12 +221,16 @@ fun ChatScreen(
                     navigationIcon = {
                         IconButton(
                             onClick = {
-                                coroutineScope.launch { drawerState.open() }
+                                if (isTablet) {
+                                    showTabletSidebar = !showTabletSidebar
+                                } else {
+                                    coroutineScope.launch { drawerState.open() }
+                                }
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Menu,
-                                contentDescription = "Menu Riwayat Obrolan",
+                                imageVector = if (isTablet) Icons.AutoMirrored.Rounded.ViewSidebar else Icons.Rounded.Menu,
+                                contentDescription = if (isTablet) "Toggle Sidebar Riwayat" else "Menu Riwayat Obrolan",
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
@@ -594,6 +564,115 @@ fun ChatScreen(
         }
     }
 
+    if (isTablet) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            AnimatedVisibility(
+                visible = showTabletSidebar,
+                enter = expandHorizontally() + fadeIn(),
+                exit = shrinkHorizontally() + fadeOut()
+            ) {
+                Row(modifier = Modifier.fillMaxHeight()) {
+                    Surface(
+                        modifier = Modifier
+                            .width(300.dp)
+                            .fillMaxHeight(),
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 1.dp
+                    ) {
+                        ChatHistoryDrawerContent(
+                            sessions = sessions,
+                            activeConversationId = currentConversationId,
+                            onSelectSession = { sessionId ->
+                                viewModel.selectSession(sessionId)
+                            },
+                            onNewChat = {
+                                viewModel.createNewSession()
+                            },
+                            onDeleteSession = { sessionId ->
+                                sessionToDelete = sessionId
+                            },
+                            onClearAll = {
+                                showClearAllDialog = true
+                            },
+                            onCloseDrawer = {
+                                showTabletSidebar = false
+                            },
+                            activePersona = selectedPersona,
+                            activeModelName = activeModel?.name ?: "Model AI",
+                            hadithBundleCount = hadithBundleState.localRecordCount,
+                            onOpenModelSelector = {
+                                showModelBottomSheet = true
+                            },
+                            onOpenHadithBundle = {
+                                showBundleBottomSheet = true
+                            }
+                        )
+                    }
+                    VerticalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+                    )
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            ) {
+                chatMainContent()
+            }
+        }
+    } else {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = true,
+            drawerContent = {
+                ModalDrawerSheet(
+                    modifier = Modifier.width(320.dp),
+                    drawerContainerColor = MaterialTheme.colorScheme.surface
+                ) {
+                    ChatHistoryDrawerContent(
+                        sessions = sessions,
+                        activeConversationId = currentConversationId,
+                        onSelectSession = { sessionId ->
+                            viewModel.selectSession(sessionId)
+                            coroutineScope.launch { drawerState.close() }
+                        },
+                        onNewChat = {
+                            viewModel.createNewSession()
+                            coroutineScope.launch { drawerState.close() }
+                        },
+                        onDeleteSession = { sessionId ->
+                            sessionToDelete = sessionId
+                        },
+                        onClearAll = {
+                            showClearAllDialog = true
+                        },
+                        onCloseDrawer = {
+                            coroutineScope.launch { drawerState.close() }
+                        },
+                        activePersona = selectedPersona,
+                        activeModelName = activeModel?.name ?: "Model AI",
+                        hadithBundleCount = hadithBundleState.localRecordCount,
+                        onOpenModelSelector = {
+                            coroutineScope.launch {
+                                drawerState.close()
+                                showModelBottomSheet = true
+                            }
+                        },
+                        onOpenHadithBundle = {
+                            coroutineScope.launch {
+                                drawerState.close()
+                                showBundleBottomSheet = true
+                            }
+                        }
+                    )
+                }
+            }
+        ) {
+            chatMainContent()
+        }
+    }
+
     // Model Selection Bottom Sheet
     if (showModelBottomSheet) {
         ModelSelectionModal(
@@ -780,163 +859,241 @@ private fun ChatHistoryDrawerContent(
 ) {
     val dateFormat = remember { SimpleDateFormat("d MMM, HH:mm", Locale("id", "ID")) }
 
-    Column(
+    LazyColumn(
         modifier = Modifier
-            .fillMaxHeight()
-            .padding(Spacing.md)
+            .fillMaxSize()
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Drawer Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
+        item(key = "drawer_header") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Text(
+                        text = "QuranPlus AI",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
                 }
+                IconButton(onClick = onCloseDrawer) {
+                    Icon(imageVector = Icons.Rounded.Close, contentDescription = "Tutup Menu")
+                }
+            }
+        }
+
+        item(key = "new_chat_button") {
+            OutlinedButton(
+                onClick = onNewChat,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = Spacing.xs),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
                 Spacer(modifier = Modifier.width(Spacing.sm))
                 Text(
-                    text = "QuranPlus AI",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    text = "Obrolan Baru",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-            }
-            IconButton(onClick = onCloseDrawer) {
-                Icon(imageVector = Icons.Rounded.Close, contentDescription = "Tutup Menu")
             }
         }
 
-        // New Chat Action Button
-        OutlinedButton(
-            onClick = onNewChat,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = Spacing.sm),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-            )
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Add,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(Spacing.sm))
+        item(key = "history_label") {
             Text(
-                text = "Obrolan Baru",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                text = "RIWAYAT OBROLAN",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xs)
             )
         }
 
-        Spacer(modifier = Modifier.height(Spacing.xs))
-
-        Text(
-            text = "RIWAYAT OBROLAN",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = Spacing.xs)
-        )
-
-        // Session List
         if (sessions.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Belum ada riwayat obrolan",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
+            item(key = "empty_sessions") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = Spacing.lg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Belum ada riwayat obrolan",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
+            items(items = sessions, key = { it.conversationId }) { session ->
+                val isSelected = session.conversationId == activeConversationId
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            if (isSelected)
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            else
+                                Color.Transparent
+                        )
+                        .then(
+                            if (isSelected)
+                                Modifier.border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            else Modifier
+                        )
+                        .clickable { onSelectSession(session.conversationId) }
+                        .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.Chat,
+                        contentDescription = null,
+                        tint = if (isSelected)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = session.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = if (isSelected)
+                                MaterialTheme.colorScheme.onSurface
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = dateFormat.format(Date(session.timestamp)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                    IconButton(
+                        onClick = { onDeleteSession(session.conversationId) },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DeleteOutline,
+                            contentDescription = "Hapus Obrolan",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        item(key = "divider_before_tools") {
+            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
+        }
+
+        item(key = "drawer_quick_tools") {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = Spacing.xs),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(items = sessions, key = { it.conversationId }) { session ->
-                    val isSelected = session.conversationId == activeConversationId
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onOpenModelSelector() },
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                if (isSelected)
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                                else
-                                    Color.Transparent
-                            )
-                            .then(
-                                if (isSelected)
-                                    Modifier.border(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                                        shape = RoundedCornerShape(10.dp)
-                                    )
-                                else Modifier
-                            )
-                            .clickable { onSelectSession(session.conversationId) }
-                            .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.Chat,
+                            imageVector = Icons.Rounded.Psychology,
                             contentDescription = null,
-                            tint = if (isSelected)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(Spacing.sm))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = session.title,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = if (isSelected)
-                                    MaterialTheme.colorScheme.onSurface
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Model AI: $activeModelName",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = dateFormat.format(Date(session.timestamp)),
+                                text = "Ketuk untuk mengganti model",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        IconButton(
-                            onClick = { onDeleteSession(session.conversationId) },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.DeleteOutline,
-                                contentDescription = "Hapus Obrolan",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(16.dp)
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onOpenHadithBundle() },
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.MenuBook,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(Spacing.sm))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (hadithBundleCount > 0) "Bundle Hadist: $hadithBundleCount Terpasang" else "Bundle Hadist Offline",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "9 Kitab Hadits Lengkap",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -944,122 +1101,48 @@ private fun ChatHistoryDrawerContent(
             }
         }
 
-        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
-
-        // Model & Bundle Quick Selectors in Drawer
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = Spacing.xs),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onOpenModelSelector() },
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Psychology,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(Spacing.sm))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Model AI: $activeModelName",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "Ketuk untuk mengganti model",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onOpenHadithBundle() },
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.MenuBook,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(Spacing.sm))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (hadithBundleCount > 0) "Bundle Hadist: $hadithBundleCount Terpasang" else "Bundle Hadist Offline",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "9 Kitab Hadits Lengkap",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-
-        // Footer Actions
         if (sessions.isNotEmpty()) {
-            TextButton(
-                onClick = onClearAll,
-                modifier = Modifier.fillMaxWidth()
+            item(key = "clear_all_button") {
+                TextButton(
+                    onClick = onClearAll,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteSweep,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Text(
+                        text = "Hapus Semua Riwayat",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
+
+        item(key = "drawer_persona_info") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.DeleteSweep,
+                    imageVector = Icons.Rounded.Psychology,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(18.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
                 )
-                Spacer(modifier = Modifier.width(Spacing.sm))
+                Spacer(modifier = Modifier.width(Spacing.xs))
                 Text(
-                    text = "Hapus Semua Riwayat",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelMedium
+                    text = "Persona Aktif: ${activePersona.title}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
-
-        // Persona Chip Info
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = Spacing.xs),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Psychology,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(Spacing.xs))
-            Text(
-                text = "Persona Aktif: ${activePersona.title}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -1338,16 +1421,21 @@ fun ChatBubbleItem(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    Text(
-                        text = message.content,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (isUser)
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        else
-                            MaterialTheme.colorScheme.onSurface,
-                        lineHeight = 22.sp,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
+                    if (isUser) {
+                        Text(
+                            text = message.content,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            lineHeight = 22.sp,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    } else {
+                        ChatMarkdownText(
+                            text = message.content,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
                     if (message.isStreaming) {
                         Spacer(modifier = Modifier.width(2.dp))
                         Box(
@@ -2119,6 +2207,142 @@ fun HadithBundleModal(
             }
 
             Spacer(modifier = Modifier.height(Spacing.xxl))
+        }
+    }
+}
+
+/**
+ * Renders AI response text with basic markdown support:
+ * - Lines starting with ### are rendered as bold section headings
+ * - Lines starting with ## are rendered as slightly larger bold headings
+ * - **bold** spans rendered as FontWeight.Bold
+ * - *italic* spans rendered as FontStyle.Italic
+ * - Lines starting with "- " are rendered as bullet items with indent
+ */
+@Composable
+private fun ChatMarkdownText(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val bodyStyle = MaterialTheme.typography.bodyMedium
+    val headingColor = MaterialTheme.colorScheme.primary
+
+    Column(modifier = modifier) {
+        text.lines().forEach { line ->
+            when {
+                line.startsWith("### ") -> {
+                    val content = line.removePrefix("### ").trim()
+                    Text(
+                        text = content,
+                        style = bodyStyle.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp
+                        ),
+                        color = headingColor
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                }
+                line.startsWith("## ") -> {
+                    val content = line.removePrefix("## ").trim()
+                    Text(
+                        text = content,
+                        style = bodyStyle.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp
+                        ),
+                        color = headingColor
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                }
+                line.startsWith("# ") -> {
+                    val content = line.removePrefix("# ").trim()
+                    Text(
+                        text = content,
+                        style = bodyStyle.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            lineHeight = 26.sp
+                        ),
+                        color = headingColor
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                line.startsWith("- ") || line.startsWith("• ") -> {
+                    val content = if (line.startsWith("- ")) line.removePrefix("- ") else line.removePrefix("• ")
+                    Row(modifier = Modifier.padding(start = 8.dp)) {
+                        Text(
+                            text = "• ",
+                            style = bodyStyle,
+                            color = color,
+                            lineHeight = 22.sp
+                        )
+                        Text(
+                            text = parseInlineMarkdown(content.trim()),
+                            style = bodyStyle,
+                            color = color,
+                            lineHeight = 22.sp
+                        )
+                    }
+                }
+                line.isBlank() -> {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                else -> {
+                    Text(
+                        text = parseInlineMarkdown(line),
+                        style = bodyStyle,
+                        color = color,
+                        lineHeight = 22.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Parses inline **bold** and *italic* markers into AnnotatedString spans.
+ * Falls back to plain text if no markers are present.
+ */
+private fun parseInlineMarkdown(text: String): AnnotatedString {
+    return buildAnnotatedString {
+        var i = 0
+        while (i < text.length) {
+            when {
+                // **bold**
+                text.startsWith("**", i) -> {
+                    val end = text.indexOf("**", i + 2)
+                    if (end > i + 2) {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(text.substring(i + 2, end))
+                        }
+                        i = end + 2
+                    } else {
+                        append(text[i])
+                        i++
+                    }
+                }
+                // *italic*
+                text.startsWith("*", i) && !text.startsWith("**", i) -> {
+                    val end = text.indexOf("*", i + 1)
+                    if (end > i + 1 && !text.startsWith("**", end)) {
+                        withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                            append(text.substring(i + 1, end))
+                        }
+                        i = end + 1
+                    } else {
+                        append(text[i])
+                        i++
+                    }
+                }
+                else -> {
+                    append(text[i])
+                    i++
+                }
+            }
         }
     }
 }

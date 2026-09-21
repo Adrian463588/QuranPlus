@@ -191,7 +191,7 @@ class LiteRtLmRunner(
         val stopIndex = STOP_TOKENS
             .mapNotNull { token -> response.indexOf(token).takeIf { it >= 0 } }
             .minOrNull()
-        val withoutStopToken = stopIndex?.let(response::substring) ?: response
+        val withoutStopToken = stopIndex?.let { response.substring(0, it) } ?: response
         return STOP_TOKENS.fold(withoutStopToken) { value, token -> value.replace(token, "") }
     }
 

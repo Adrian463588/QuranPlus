@@ -14,6 +14,7 @@ import com.quranplus.app.features.rag.domain.IslamicQueryPlan
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Cache
+import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -56,9 +57,7 @@ class InternetResearcher(
                 emptyList()
             }
 
-            val editorial = if (plan.domain != com.quranplus.app.features.rag.domain.IslamicQuestionDomain.SEJARAH_TARIKH &&
-                !plan.prefersHadith
-            ) {
+            val editorial = if (plan.domain != com.quranplus.app.features.rag.domain.IslamicQuestionDomain.SEJARAH_TARIKH) {
                 EditorialWebSearchProvider(client).search(
                     query = normalizedQuery,
                     plan = plan,
@@ -68,26 +67,39 @@ class InternetResearcher(
                 emptyList()
             }
 
-            // Wikipedia is useful for tarikh/general context only. It is never
+            val duckduckgo = if ((quran.size + hadith.size + editorial.size) < limit &&
+                plan.domain != com.quranplus.app.features.rag.domain.IslamicQuestionDomain.SEJARAH_TARIKH
+            ) {
+                DuckDuckGoWebSearchProvider(client).search(
+                    query = normalizedQuery,
+                    plan = plan,
+                    limit = limit - quran.size - hadith.size - editorial.size
+                )
+            } else {
+                emptyList()
+            }
+
+            // Wikipedia is useful for tarikh/general context or fallback. It is never
             // used as a substitute for a Quran, Hadith, or fatwa source.
-            val wiki = if (plan.domain == com.quranplus.app.features.rag.domain.IslamicQuestionDomain.SEJARAH_TARIKH ||
+            val wiki = if ((quran.isEmpty() && hadith.isEmpty() && editorial.isEmpty() && duckduckgo.isEmpty()) ||
+                plan.domain == com.quranplus.app.features.rag.domain.IslamicQuestionDomain.SEJARAH_TARIKH ||
                 plan.domain == com.quranplus.app.features.rag.domain.IslamicQuestionDomain.UMUM
             ) {
                 val indonesian = searchWiki(
                     host = INDONESIAN_WIKI_HOST,
                     query = normalizedQuery,
-                    limit = limit - quran.size
+                    limit = (limit - quran.size - hadith.size - editorial.size - duckduckgo.size).coerceAtLeast(1)
                 )
                 val english = searchWiki(
                     host = ENGLISH_WIKI_HOST,
                     query = normalizedQuery,
-                    limit = limit - quran.size - indonesian.size
+                    limit = limit - quran.size - hadith.size - editorial.size - duckduckgo.size - indonesian.size
                 )
                 indonesian + english
             } else {
                 emptyList()
             }
-            (quran + hadith + editorial + wiki)
+            (quran + hadith + editorial + duckduckgo + wiki)
                 .distinctBy { it.deepLinkTarget ?: it.sourceId }
                 .take(limit)
         }
@@ -177,7 +189,7 @@ internal class EditorialWebSearchProvider(
         plan: IslamicQueryPlan,
         limit: Int
     ): List<RetrievedCitation> {
-        if (limit <= 0 || plan.prefersHadith) return emptyList()
+        if (limit <= 0) return emptyList()
         val sources = when (plan.domain) {
             com.quranplus.app.features.rag.domain.IslamicQuestionDomain.HUKUM_FIQIH,
             com.quranplus.app.features.rag.domain.IslamicQuestionDomain.ADAB_AKHLAK,
@@ -311,7 +323,9 @@ internal object EditorialCitationParser {
     }
 
     private fun plainText(value: String): String =
-        Html.fromHtml(value, Html.FROM_HTML_MODE_LEGACY).toString()
+        runCatching {
+            Html.fromHtml(value, Html.FROM_HTML_MODE_LEGACY).toString()
+        }.getOrDefault(value.replace(Regex("<[^>]*>"), ""))
             .replace(Regex("\\s+"), " ")
             .trim()
 
@@ -541,6 +555,126 @@ internal class QuranCloudSearchProvider(
     private companion object {
         const val MAX_TEXT_LENGTH = 1000
     }
+}
+
+/**
+ * Keyless DuckDuckGo HTML fallback provider.
+ * Retrieves live Islamic scholarly and editorial articles from reputable sources.
+ */
+internal class DuckDuckGoWebSearchProvider(
+    private val client: OkHttpClient
+) : InternetSearchProvider {
+    override val providerId: String = "duckduckgo-web"
+
+    override suspend fun search(
+        query: String,
+        plan: IslamicQueryPlan,
+        limit: Int
+    ): List<RetrievedCitation> {
+        if (limit <= 0) return emptyList()
+
+        val targetedQuery = "$query site:nu.or.id OR site:rumaysho.com OR site:detik.com OR site:muslim.or.id"
+        val targetedResults = executePost(targetedQuery, limit)
+        if (targetedResults.isNotEmpty()) return targetedResults
+
+        val generalQuery = "$query islam"
+        return executePost(generalQuery, limit)
+    }
+
+    private fun executePost(searchQuery: String, limit: Int): List<RetrievedCitation> {
+        val formBody = FormBody.Builder()
+            .add("q", searchQuery.take(MAX_RESEARCH_QUERY_LENGTH))
+            .build()
+
+        val request = Request.Builder()
+            .url("https://html.duckduckgo.com/html/")
+            .post(formBody)
+            .header("Accept", "text/html,application/xhtml+xml")
+            .header("Accept-Language", "id-ID,id;q=0.9,en;q=0.8")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+            .build()
+
+        return runCatching {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use emptyList()
+                val body = readBoundedBody(response, MAX_WEB_RESPONSE_BYTES) ?: return@use emptyList()
+                DuckDuckGoCitationParser.parse(body, limit)
+            }
+        }.getOrDefault(emptyList())
+    }
+}
+
+internal object DuckDuckGoCitationParser {
+    private val blockPattern = Regex("(?is)<div[^>]*class=\"[^\"]*result__body[^\"]*\"[^>]*>(.*?)(?=<div[^>]*class=\"[^\"]*result__body|$)")
+    private val titleAnchorPattern = Regex("(?is)<h2[^>]*class=\"[^\"]*result__title[^\"]*\"[^>]*>\\s*<a[^>]+href=\"([^\"]+)\"[^>]*>(.*?)</a>")
+    private val snippetPattern = Regex("(?is)<a[^>]*class=\"[^\"]*result__snippet[^\"]*\"[^>]*>(.*?)</a>")
+
+    fun parse(html: String, limit: Int): List<RetrievedCitation> {
+        if (limit <= 0) return emptyList()
+        val blocks = blockPattern.findAll(html).map { it.groupValues[1] }.toList()
+        return buildList {
+            for (block in blocks) {
+                val titleMatch = titleAnchorPattern.find(block) ?: continue
+                val rawUrl = titleMatch.groupValues[1]
+                val titleHtml = titleMatch.groupValues[2]
+                val snippetHtml = snippetPattern.find(block)?.groupValues?.get(1).orEmpty()
+
+                val url = resolveDuckDuckGoUrl(rawUrl) ?: continue
+                val title = plainText(titleHtml).take(180)
+                val snippet = plainText(snippetHtml).take(800)
+                if (title.length < 5 || snippet.length < 15) continue
+
+                val host = runCatching { java.net.URI(url).host }.getOrNull() ?: "internet"
+                val sourceName = when {
+                    host.contains("nu.or.id") -> "NU Online"
+                    host.contains("rumaysho.com") -> "Rumaysho"
+                    host.contains("detik.com") -> "Detik Hikmah"
+                    host.contains("muslim.or.id") -> "Muslim.or.id"
+                    host.contains("almanhaj.or.id") -> "Almanhaj"
+                    else -> host
+                }
+
+                add(
+                    RetrievedCitation(
+                        sourceId = "web:ddg:${url.hashCode().toUInt()}",
+                        sourceType = "internet",
+                        title = "$sourceName • $title",
+                        reference = "$sourceName — $title",
+                        textSnippet = snippet,
+                        score = (0.80f - size * 0.02f).coerceAtLeast(0.65f),
+                        collection = host,
+                        identifier = url,
+                        deepLinkTarget = url,
+                        canonicalUrl = url,
+                        evidenceKind = EvidenceKind.WEB,
+                        authorityTier = AuthorityTier.TRUSTED_EDITORIAL,
+                        providerId = "duckduckgo-web",
+                        retrievedAt = System.currentTimeMillis()
+                    )
+                )
+                if (size >= limit) break
+            }
+        }.distinctBy { it.deepLinkTarget ?: it.sourceId }
+    }
+
+    private fun resolveDuckDuckGoUrl(rawUrl: String): String? {
+        val candidate = when {
+            rawUrl.contains("uddg=") -> {
+                val encoded = rawUrl.substringAfter("uddg=").substringBefore('&')
+                runCatching { java.net.URLDecoder.decode(encoded, Charsets.UTF_8.name()) }.getOrNull() ?: rawUrl
+            }
+            rawUrl.startsWith("//") -> "https:$rawUrl"
+            else -> rawUrl
+        }
+        return CitationTargetValidator.validateHttpsUrl(candidate)
+    }
+
+    private fun plainText(value: String): String =
+        runCatching {
+            Html.fromHtml(value, Html.FROM_HTML_MODE_LEGACY).toString()
+        }.getOrDefault(value.replace(Regex("<[^>]*>"), ""))
+            .replace(Regex("\\s+"), " ")
+            .trim()
 }
 
 private fun readBoundedBody(response: okhttp3.Response, maxBytes: Int): String? {

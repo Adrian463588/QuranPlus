@@ -58,49 +58,61 @@ class OnnxEmbeddingService(
 ) : EmbeddingService {
 
     private val environment by lazy { OrtEnvironment.getEnvironment() }
-    private val vocabulary by lazy { loadVocabulary() }
     private var currentSession: OrtSession? = null
     private var currentModelPath: String? = null
+    private var activeTokenizer: RagTokenizer? = null
+    private var activeTokenizerKey: String? = null
     private val sessionMutex = Mutex()
     private val inferenceMutex = Mutex()
+    private val tokenizerMutex = Mutex()
 
     override suspend fun embed(text: String): FloatArray = inferenceMutex.withLock {
         withContext(Dispatchers.Default) {
-        require(text.isNotBlank()) { "Embedding text must not be blank" }
-        val tokenIds = tokenize(text)
-        val attention = LongArray(MAX_SEQUENCE_LENGTH) { index -> if (tokenIds[index] == PAD_ID) 0 else 1 }
-        val tokenTypes = LongArray(MAX_SEQUENCE_LENGTH)
-        val activeSession = getOrCreateSession()
+            require(text.isNotBlank()) { "Embedding text must not be blank" }
+            val tokenizer = getActiveTokenizer()
+            val tokenIds = tokenizer.tokenize(text, MAX_SEQUENCE_LENGTH)
+            val padId = tokenizer.padId
+            val attention = LongArray(MAX_SEQUENCE_LENGTH) { index -> if (tokenIds[index] == padId) 0 else 1 }
+            val tokenTypes = LongArray(MAX_SEQUENCE_LENGTH)
+            val activeSession = getOrCreateSession()
+            val inputNames = activeSession.inputNames
 
-        OnnxTensor.createTensor(environment, arrayOf(tokenIds)).use { inputIds ->
-            OnnxTensor.createTensor(environment, arrayOf(attention)).use { attentionMask ->
-                OnnxTensor.createTensor(environment, arrayOf(tokenTypes)).use { typeIds ->
-                    val inputs = mapOf(
-                        "input_ids" to inputIds,
-                        "attention_mask" to attentionMask,
-                        "token_type_ids" to typeIds
-                    )
-                    activeSession.run(inputs).use { output ->
-                        poolOutput(output[0].value, attention)
+            OnnxTensor.createTensor(environment, arrayOf(tokenIds)).use { inputIds ->
+                OnnxTensor.createTensor(environment, arrayOf(attention)).use { attentionMask ->
+                    val inputs = mutableMapOf<String, OnnxTensor>()
+                    inputs["input_ids"] = inputIds
+                    if (inputNames.contains("attention_mask")) {
+                        inputs["attention_mask"] = attentionMask
+                    }
+                    if (inputNames.contains("token_type_ids")) {
+                        OnnxTensor.createTensor(environment, arrayOf(tokenTypes)).use { typeIds ->
+                            inputs["token_type_ids"] = typeIds
+                            activeSession.run(inputs).use { output ->
+                                poolOutput(output[0].value, attention)
+                            }
+                        }
+                    } else {
+                        activeSession.run(inputs).use { output ->
+                            poolOutput(output[0].value, attention)
+                        }
                     }
                 }
             }
         }
-        }
     }
 
     override suspend fun isReady(): Boolean = withContext(Dispatchers.IO) {
-        findModel() != null && runCatching { verifyVocabularyHash() }.isSuccess
+        findModel() != null
     }
 
     override suspend fun embeddingContract(): EmbeddingContract = withContext(Dispatchers.IO) {
-        val model = modelRepository.getActiveEmbeddingModelInfo(
+        val model = modelRepository.resolveActiveEmbeddingModelInfo(
             preferencesManager?.selectedEmbeddingModel?.firstOrNull()
         ) ?: throw EmbeddingModelUnavailable("Embedding model belum tersedia")
         EmbeddingContract(
             modelId = model.id,
             modelRevision = revisionFromUrl(model.artifactUrl),
-            tokenizerSha256 = readTokenizerSha256(),
+            tokenizerSha256 = model.tokenizerSha256 ?: readTokenizerSha256(),
             dimension = model.embeddingDimension ?: 384,
             normalized = true,
             pooling = "mean",
@@ -108,10 +120,16 @@ class OnnxEmbeddingService(
         )
     }
 
-    override fun countContentTokens(text: String): Int =
-        splitOnWhitespaceAndPunctuation(text.lowercase())
-            .flatMap(::wordPiece)
-            .size
+    override fun countContentTokens(text: String): Int {
+        val tokenizer = activeTokenizer ?: runCatching {
+            val vocab = ConcurrentHashMap<String, Long>()
+            context.assets.open(VOCABULARY_ASSET).bufferedReader().useLines { lines ->
+                lines.forEachIndexed { index, token -> vocab[token.trim()] = index.toLong() }
+            }
+            WordPieceTokenizer(vocab)
+        }.getOrNull()
+        return tokenizer?.countContentTokens(text) ?: text.split(Regex("\\s+")).count(String::isNotBlank)
+    }
 
     private suspend fun getOrCreateSession(): OrtSession = sessionMutex.withLock {
         val model = findModel()
@@ -132,35 +150,62 @@ class OnnxEmbeddingService(
         currentSession!!
     }
 
+    private suspend fun getActiveTokenizer(): RagTokenizer = tokenizerMutex.withLock {
+        val preferredId = preferencesManager?.selectedEmbeddingModel?.firstOrNull()
+        val modelInfo = modelRepository.resolveActiveEmbeddingModelInfo(preferredId)
+            ?: throw EmbeddingModelUnavailable("Embedding model belum tersedia")
+        val key = "${modelInfo.id}_${modelInfo.tokenizerType}_${modelInfo.tokenizerAsset}"
+        if (activeTokenizer != null && activeTokenizerKey == key) {
+            return@withLock activeTokenizer!!
+        }
+
+        val assetPath = modelInfo.tokenizerAsset
+            ?: throw EmbeddingModelUnavailable("Tokenizer asset belum dikonfigurasi untuk model ${modelInfo.id}")
+        val expectedSha = modelInfo.tokenizerSha256
+            ?: throw EmbeddingModelUnavailable("Tokenizer SHA-256 belum dikonfigurasi untuk model ${modelInfo.id}")
+
+        verifyAssetHash(assetPath, expectedSha)
+
+        val tokenizer: RagTokenizer = when (modelInfo.tokenizerType?.lowercase()) {
+            "sentencepiece" -> {
+                context.assets.open(assetPath).use { stream ->
+                    SentencePieceTokenizer(stream)
+                }
+            }
+            "wordpiece" -> {
+                val vocab = ConcurrentHashMap<String, Long>()
+                context.assets.open(assetPath).bufferedReader().useLines { lines ->
+                    lines.forEachIndexed { index, token -> vocab[token.trim()] = index.toLong() }
+                }
+                WordPieceTokenizer(vocab)
+            }
+            else -> throw EmbeddingModelUnavailable("Jenis tokenizer '${modelInfo.tokenizerType}' belum didukung")
+        }
+
+        activeTokenizer = tokenizer
+        activeTokenizerKey = key
+        tokenizer
+    }
+
     private suspend fun findModel(): File? {
         val preferredId = preferencesManager?.selectedEmbeddingModel?.firstOrNull()
-        val modelInfo = modelRepository.getActiveEmbeddingModelInfo(preferredId)
+        val modelInfo = modelRepository.resolveActiveEmbeddingModelInfo(preferredId)
             ?: return null
-        if (modelInfo.tokenizerAsset != VOCABULARY_ASSET ||
-            modelInfo.tokenizerType != "wordpiece" ||
-            !modelInfo.tokenizerSha256.equals(readTokenizerSha256(), ignoreCase = true)
-        ) {
-            return null
-        }
-        return modelRepository.getModelFile(modelInfo.filename)
+        val assetPath = modelInfo.tokenizerAsset ?: return null
+        val expectedSha = modelInfo.tokenizerSha256 ?: return null
+        val type = modelInfo.tokenizerType?.lowercase()
+        if (type != "wordpiece" && type != "sentencepiece") return null
+        if (!runCatching { verifyAssetHash(assetPath, expectedSha) }.isSuccess) return null
+        val file = modelRepository.getModelFile(modelInfo.filename)
+        return file.takeIf { it.exists() && it.length() > 0L }
     }
 
-    private fun loadVocabulary(): Map<String, Long> {
-        verifyVocabularyHash()
-        val result = ConcurrentHashMap<String, Long>()
-        context.assets.open("embedding/vocab.txt").bufferedReader().useLines { lines ->
-            lines.forEachIndexed { index, token -> result[token.trim()] = index.toLong() }
-        }
-        return result
-    }
-
-    private fun verifyVocabularyHash() {
-        val expected = context.assets.open(VOCABULARY_HASH_ASSET).bufferedReader().use { it.readText().trim() }
-        if (!expected.matches(SHA256_PATTERN)) {
-            throw EmbeddingModelUnavailable("Embedding tokenizer manifest is invalid")
+    private fun verifyAssetHash(assetPath: String, expectedSha: String) {
+        if (!expectedSha.matches(SHA256_PATTERN)) {
+            throw EmbeddingModelUnavailable("Embedding tokenizer manifest is invalid for $assetPath")
         }
         val digest = MessageDigest.getInstance("SHA-256")
-        context.assets.open(VOCABULARY_ASSET).use { input ->
+        context.assets.open(assetPath).use { input ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
             while (true) {
                 val read = input.read(buffer)
@@ -169,8 +214,8 @@ class OnnxEmbeddingService(
             }
         }
         val actual = digest.digest().joinToString("") { "%02x".format(it) }
-        if (!actual.equals(expected, ignoreCase = true)) {
-            throw EmbeddingModelUnavailable("Embedding tokenizer SHA-256 mismatch")
+        if (!actual.equals(expectedSha, ignoreCase = true)) {
+            throw EmbeddingModelUnavailable("Embedding tokenizer SHA-256 mismatch for $assetPath")
         }
     }
 
@@ -179,68 +224,6 @@ class OnnxEmbeddingService(
 
     private fun revisionFromUrl(url: String): String =
         Regex("/resolve/([0-9a-fA-F]{40})/").find(url)?.groupValues?.get(1).orEmpty()
-
-    private fun tokenize(text: String): LongArray {
-        val tokens = ArrayList<Long>(MAX_SEQUENCE_LENGTH)
-        tokens += vocabulary[CLS_TOKEN] ?: CLS_ID
-        splitOnWhitespaceAndPunctuation(text.lowercase())
-            .flatMap(::wordPiece)
-            .take(MAX_SEQUENCE_LENGTH - 2)
-            .forEach { token ->
-                tokens += vocabulary[token] ?: (vocabulary[UNKNOWN_TOKEN] ?: UNKNOWN_ID)
-            }
-        tokens += vocabulary[SEP_TOKEN] ?: SEP_ID
-        while (tokens.size < MAX_SEQUENCE_LENGTH) tokens += PAD_ID
-        return tokens.take(MAX_SEQUENCE_LENGTH).toLongArray()
-    }
-
-    private fun splitOnWhitespaceAndPunctuation(text: String): List<String> {
-        val result = mutableListOf<String>()
-        val current = StringBuilder()
-        fun flush() {
-            if (current.isNotEmpty()) {
-                result += current.toString()
-                current.clear()
-            }
-        }
-        text.forEach { character ->
-            if (character.isWhitespace() || isAsciiPunctuation(character)) {
-                flush()
-                if (!character.isWhitespace()) result += character.toString()
-            } else {
-                current.append(character)
-            }
-        }
-        flush()
-        return result
-    }
-
-    private fun wordPiece(word: String): List<String> {
-        if (word.isBlank()) return emptyList()
-        val pieces = mutableListOf<String>()
-        var start = 0
-        while (start < word.length) {
-            var end = word.length
-            var match: String? = null
-            while (start < end) {
-                val candidate = if (start == 0) word.substring(0, end) else "##${word.substring(start, end)}"
-                if (candidate in vocabulary) {
-                    match = candidate
-                    break
-                }
-                end--
-            }
-            if (match == null) return listOf(UNKNOWN_TOKEN)
-            pieces += match
-            start = end
-        }
-        return pieces
-    }
-
-    private fun isAsciiPunctuation(character: Char): Boolean {
-        val code = character.code
-        return code in 33..47 || code in 58..64 || code in 91..96 || code in 123..126
-    }
 
     private fun poolOutput(value: Any, attentionMask: LongArray): FloatArray {
         val tokenRows: Array<FloatArray> = when (value) {

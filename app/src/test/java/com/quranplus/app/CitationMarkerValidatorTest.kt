@@ -19,6 +19,18 @@ class CitationMarkerValidatorTest {
     }
 
     @Test
+    fun GIVEN_singleBracketCitation_WHEN_modelUsesIt_THEN_answerIsValid() {
+        val result = CitationMarkerValidator.validate(
+            "Talak dibahas pada sumber. [cite:C1] dan ayat lain [C1].",
+            listOf(citation())
+        )
+
+        assertTrue(result.isValid)
+        assertTrue(result.referencedIds.contains("C1"))
+        assertTrue(result.invalidIds.isEmpty())
+    }
+
+    @Test
     fun GIVEN_unknownCitationId_WHEN_modelUsesIt_THEN_answerIsRejectedAndMarkerRemoved() {
         val result = CitationMarkerValidator.validate(
             "Klaim. [[cite:C99]]",

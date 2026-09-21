@@ -51,6 +51,12 @@ class HadithViewModel(
     private val _selectedCollection = MutableStateFlow<String?>(null)
     val selectedCollection: StateFlow<String?> = _selectedCollection.asStateFlow()
 
+    private val _scrollToIndex = MutableStateFlow<Int?>(null)
+    val scrollToIndex: StateFlow<Int?> = _scrollToIndex.asStateFlow()
+
+    private val _highlightedNumber = MutableStateFlow<Int?>(null)
+    val highlightedNumber: StateFlow<Int?> = _highlightedNumber.asStateFlow()
+
     private val _state = MutableStateFlow<HadithUiState>(HadithUiState.Loading)
     val state: StateFlow<HadithUiState> = _state.asStateFlow()
 
@@ -75,6 +81,14 @@ class HadithViewModel(
         }
     }
 
+    fun onScrolledToIndex() {
+        _scrollToIndex.value = null
+    }
+
+    fun clearHighlight() {
+        _highlightedNumber.value = null
+    }
+
     fun setQuery(value: String) {
         _query.value = value
         if (isCatalog()) updateCatalogState() else search()
@@ -82,19 +96,36 @@ class HadithViewModel(
 
     fun setCollection(value: String?) {
         _selectedCollection.value = value
+        _highlightedNumber.value = null
+        _scrollToIndex.value = null
         if (isCatalog()) updateCatalogState() else search()
     }
 
     fun openReference(collectionId: String, hadithNumber: Int) {
         if (collectionId.isBlank() || hadithNumber <= 0) return
         _selectedCollection.value = collectionId
-        _query.value = hadithNumber.toString()
-        search()
+        _query.value = ""
+        viewModelScope.launch {
+            _state.value = HadithUiState.Loading
+            runCatching {
+                val records = searchHadithUseCase(collectionId, "")
+                _state.value = if (records.isEmpty()) HadithUiState.Empty else HadithUiState.Ready(records)
+                val targetIndex = records.indexOfFirst { it.hadithNumber == hadithNumber }
+                if (targetIndex >= 0) {
+                    _highlightedNumber.value = hadithNumber
+                    _scrollToIndex.value = targetIndex
+                }
+            }.onFailure { error ->
+                _state.value = HadithUiState.Error(error.localizedMessage ?: "Hadist tidak dapat dimuat")
+            }
+        }
     }
 
     fun resetToCatalog() {
         _query.value = ""
         _selectedCollection.value = null
+        _highlightedNumber.value = null
+        _scrollToIndex.value = null
         updateCatalogState()
     }
 
@@ -148,7 +179,40 @@ class HadithViewModel(
             updateCatalogState()
             return
         }
+        val collectionId = _selectedCollection.value
+        val rawQuery = _query.value.trim()
+        val numberQuery = extractHadithNumber(rawQuery)
+
         viewModelScope.launch {
+            // When reading within a collection and searching for a number,
+            // maintain the entire collection's records, scroll to that number, and highlight it.
+            if (collectionId != null && numberQuery != null) {
+                val currentRecords = (_state.value as? HadithUiState.Ready)?.records
+                val records = if (currentRecords != null && currentRecords.firstOrNull()?.collectionId == collectionId && currentRecords.size > 1) {
+                    currentRecords
+                } else {
+                    _state.value = HadithUiState.Loading
+                    runCatching { searchHadithUseCase(collectionId, "") }.getOrElse { emptyList() }
+                }
+
+                if (records.isNotEmpty()) {
+                    _state.value = HadithUiState.Ready(records)
+                    val targetIndex = records.indexOfFirst { it.hadithNumber == numberQuery }
+                    if (targetIndex >= 0) {
+                        _highlightedNumber.value = numberQuery
+                        _scrollToIndex.value = targetIndex
+                    } else {
+                        val fallback = runCatching { searchHadithUseCase(collectionId, rawQuery) }.getOrElse { emptyList() }
+                        _state.value = if (fallback.isEmpty()) HadithUiState.Empty else HadithUiState.Ready(fallback)
+                    }
+                } else {
+                    val fallback = runCatching { searchHadithUseCase(collectionId, rawQuery) }.getOrElse { emptyList() }
+                    _state.value = if (fallback.isEmpty()) HadithUiState.Empty else HadithUiState.Ready(fallback)
+                }
+                return@launch
+            }
+
+            _highlightedNumber.value = null
             _state.value = HadithUiState.Loading
             runCatching {
                 searchHadithUseCase(_selectedCollection.value, _query.value)
@@ -158,6 +222,13 @@ class HadithViewModel(
                 _state.value = HadithUiState.Error(error.localizedMessage ?: "Hadist tidak dapat dimuat")
             }
         }
+    }
+
+    private fun extractHadithNumber(input: String): Int? {
+        val trimmed = input.trim()
+        val cleanNumberStr = trimmed.replace(Regex("(?i)^(hadits?|no\\.?|nomor)\\s*"), "").trim()
+        return cleanNumberStr.toIntOrNull()
+            ?: Regex("""\b\d+\b""").find(trimmed)?.value?.toIntOrNull()
     }
 
     private fun isCatalog(): Boolean = _query.value.isBlank() && _selectedCollection.value == null

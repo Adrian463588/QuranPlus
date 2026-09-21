@@ -108,7 +108,7 @@ object TajwidParser {
         ),
         MAD_TABII(
             label = "Mad Tabi'i / Asli",
-            color = null,
+            color = QuranColors.TajwidMad,
             harakatDuration = "2 Harakat",
             description = "Panjang 2 harakat",
             ruleExplanation = "Mad asli dengan memanjangkan suara sepanjang 2 harakat (1 alif) secara stabil.",

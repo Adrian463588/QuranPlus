@@ -51,6 +51,8 @@ import com.quranplus.app.features.rag.presentation.RagDocumentViewModel
 import com.quranplus.app.features.rag.presentation.RagImportState
 import com.quranplus.app.features.rag.domain.CitationTargetValidator
 import com.quranplus.app.features.settings.data.PreferencesManager
+import com.quranplus.app.features.dzikir.presentation.DzikirScreen
+import com.quranplus.app.features.dzikir.presentation.DzikirViewModel
 import com.quranplus.app.features.settings.presentation.MoreScreen
 import com.quranplus.app.features.settings.presentation.SettingsScreen
 import com.quranplus.app.features.settings.presentation.SettingsViewModel
@@ -155,6 +157,7 @@ fun AppMain(
     val quizViewModel: QuizViewModel = koinViewModel()
     val settingsViewModel: SettingsViewModel = koinViewModel()
     val audioDownloadViewModel: AudioDownloadViewModel = koinViewModel()
+    val dzikirViewModel: DzikirViewModel = koinViewModel()
 
     AdaptiveNavigationScaffold(
         currentRoute = currentRoute,
@@ -188,14 +191,15 @@ fun AppMain(
             quizViewModel = quizViewModel,
             settingsViewModel = settingsViewModel,
             audioDownloadViewModel = audioDownloadViewModel,
+            dzikirViewModel = dzikirViewModel,
             preferencesManager = preferencesManager,
             modelRepository = modelRepository,
             audioPlayerManager = audioPlayerManager,
-             ragDocumentViewModel = ragDocumentViewModel,
-             onRequestRagDocument = onRequestRagDocument,
-             onRequestRagDocumentFile = onRequestRagDocumentFile,
-             onOpenExternalUrl = onOpenExternalUrl
-         )
+            ragDocumentViewModel = ragDocumentViewModel,
+            onRequestRagDocument = onRequestRagDocument,
+            onRequestRagDocumentFile = onRequestRagDocumentFile,
+            onOpenExternalUrl = onOpenExternalUrl
+        )
     }
 }
 
@@ -210,14 +214,15 @@ fun AppNavHost(
     quizViewModel: QuizViewModel,
     settingsViewModel: SettingsViewModel,
     audioDownloadViewModel: AudioDownloadViewModel,
+    dzikirViewModel: DzikirViewModel,
     preferencesManager: PreferencesManager,
     modelRepository: ModelRepository,
     audioPlayerManager: AudioPlayerManager,
-     ragDocumentViewModel: RagDocumentViewModel,
-     onRequestRagDocument: () -> Unit,
-     onRequestRagDocumentFile: () -> Unit,
-     onOpenExternalUrl: (String) -> Unit
- ) {
+    ragDocumentViewModel: RagDocumentViewModel,
+    onRequestRagDocument: () -> Unit,
+    onRequestRagDocumentFile: () -> Unit,
+    onOpenExternalUrl: (String) -> Unit
+) {
     val isModelReady by chatViewModel.isModelReady.collectAsStateWithLifecycle()
     val hadithBundleState by chatViewModel.hadithBundleState.collectAsStateWithLifecycle()
     val selectedEmbeddingModelId by chatViewModel.selectedEmbeddingModelId.collectAsStateWithLifecycle()
@@ -365,6 +370,9 @@ fun AppNavHost(
                 },
                 onNavigateToQuiz = {
                     navController.navigate("tahsin_quiz")
+                },
+                onNavigateToDzikir = {
+                    navController.navigateToSecondary(AppDestination.DZIKIR)
                 }
             )
         }
@@ -491,6 +499,14 @@ fun AppNavHost(
                 ragDocumentViewModel = ragDocumentViewModel,
                 onRequestRagDocument = onRequestRagDocument,
                 onRequestRagDocumentFile = onRequestRagDocumentFile
+            )
+        }
+
+        // --- 7. Dzikir, Wirid & Hizib Navigation ---
+        composable(AppDestination.DZIKIR.route) {
+            DzikirScreen(
+                viewModel = dzikirViewModel,
+                onBackClick = { navController.popBackStack() }
             )
         }
     }

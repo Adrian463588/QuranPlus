@@ -69,7 +69,8 @@ enum class AppDestination(
     SETTINGS("settings_home", "Pengaturan", Icons.Rounded.Settings, isPrimary = false),
     WAQAF("waqaf_guide", "Waqaf", Icons.AutoMirrored.Rounded.MenuBook, isPrimary = false),
     GHARIB("gharib_directory", "Gharib", Icons.AutoMirrored.Rounded.MenuBook, isPrimary = false),
-    AUDIO("audio_manager", "Audio", Icons.AutoMirrored.Rounded.MenuBook, isPrimary = false)
+    AUDIO("audio_manager", "Audio", Icons.AutoMirrored.Rounded.MenuBook, isPrimary = false),
+    DZIKIR("dzikir_home", "Dzikir & Hizib", Icons.AutoMirrored.Rounded.MenuBook, isPrimary = false)
 }
 
 private fun isDestinationSelected(currentRoute: String, dest: AppDestination): Boolean {
@@ -88,11 +89,13 @@ private fun isDestinationSelected(currentRoute: String, dest: AppDestination): B
                 currentRoute.startsWith(AppDestination.SETTINGS.route) ||
                 currentRoute.startsWith(AppDestination.WAQAF.route) ||
                 currentRoute.startsWith(AppDestination.GHARIB.route) ||
-                currentRoute.startsWith(AppDestination.AUDIO.route)
+                currentRoute.startsWith(AppDestination.AUDIO.route) ||
+                currentRoute.startsWith(AppDestination.DZIKIR.route)
         AppDestination.SETTINGS -> currentRoute.startsWith(AppDestination.SETTINGS.route)
         AppDestination.WAQAF -> currentRoute.startsWith(AppDestination.WAQAF.route)
         AppDestination.GHARIB -> currentRoute.startsWith(AppDestination.GHARIB.route)
         AppDestination.AUDIO -> currentRoute.startsWith(AppDestination.AUDIO.route)
+        AppDestination.DZIKIR -> currentRoute.startsWith(AppDestination.DZIKIR.route)
     }
 }
 
@@ -132,7 +135,9 @@ fun AdaptiveNavigationScaffold(
             PermanentNavigationDrawer(
                 drawerContent = {
                     PermanentDrawerSheet(
-                        modifier = Modifier.width(260.dp),
+                        modifier = Modifier
+                            .width(260.dp)
+                            .verticalScroll(rememberScrollState()),
                         drawerContainerColor = MaterialTheme.colorScheme.surface
                     ) {
                         Spacer(modifier = Modifier.height(Spacing.xl))

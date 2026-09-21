@@ -118,6 +118,7 @@ fun SettingsScreen(
     val selectedEmbeddingModel by viewModel.selectedEmbeddingModel.collectAsStateWithLifecycle()
     val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
     val downloadingModel by viewModel.downloadingModel.collectAsStateWithLifecycle()
+    val installedModelIds by viewModel.installedModelIds.collectAsStateWithLifecycle()
     val ragImportState by ragDocumentViewModel.state.collectAsStateWithLifecycle()
 
     var customPromptInput by remember(customPrompt) { mutableStateOf(customPrompt) }
@@ -480,6 +481,7 @@ fun SettingsScreen(
             selectedEmbeddingModelId = selectedEmbeddingModel,
             downloadState = downloadState,
             downloadingModel = downloadingModel,
+            installedModelIds = installedModelIds,
             isModelInstalled = viewModel::isModelInstalled,
             onSelectEmbeddingModel = { modelId ->
                 viewModel.setSelectedEmbeddingModel(modelId)
@@ -501,6 +503,7 @@ fun EmbeddingModelSelectionModal(
     selectedEmbeddingModelId: String,
     downloadState: DownloadState,
     downloadingModel: ModelInfo?,
+    installedModelIds: Set<String> = emptySet(),
     isModelInstalled: (ModelInfo) -> Boolean,
     onSelectEmbeddingModel: (String) -> Unit,
     onDownloadModel: (ModelInfo) -> Unit,
@@ -553,7 +556,7 @@ fun EmbeddingModelSelectionModal(
             Spacer(modifier = Modifier.height(Spacing.md))
 
             availableModels.forEach { model ->
-                val isInstalled = isModelInstalled(model)
+                val isInstalled = installedModelIds.contains(model.id) || isModelInstalled(model)
                 val isSelected = model.id == selectedEmbeddingModelId || (selectedEmbeddingModelId.isEmpty() && isInstalled)
                 val isDownloading = downloadingModel?.id == model.id
 
@@ -786,11 +789,44 @@ fun EmbeddingModelSelectionModal(
                                         )
                                     }
                                     is DownloadState.Failed -> {
-                                        Text(
-                                            text = "Gagal: ${state.message}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.error
-                                        )
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                 text = "Gagal: ${state.message}",
+                                                 style = MaterialTheme.typography.labelSmall,
+                                                 color = MaterialTheme.colorScheme.error,
+                                                 modifier = Modifier.weight(1f)
+                                            )
+                                            TextButton(
+                                                 onClick = { onCancelDownload(model) },
+                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                 Text("Tutup", style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
+                                    is DownloadState.ChecksumError -> {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                 text = "Gagal checksum: ${state.message}",
+                                                 style = MaterialTheme.typography.labelSmall,
+                                                 color = MaterialTheme.colorScheme.error,
+                                                 modifier = Modifier.weight(1f)
+                                            )
+                                            TextButton(
+                                                 onClick = { onCancelDownload(model) },
+                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                 Text("Tutup", style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
                                     }
                                     else -> {
                                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())

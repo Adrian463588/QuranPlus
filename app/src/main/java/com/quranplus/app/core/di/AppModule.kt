@@ -80,6 +80,12 @@ import org.koin.dsl.module
 
 import com.quranplus.app.features.chatbot.domain.GetChatSessionsUseCase
 import com.quranplus.app.features.chatbot.domain.ClearAllChatHistoryUseCase
+import com.quranplus.app.features.dzikir.data.DzikirRepositoryImpl
+import com.quranplus.app.features.dzikir.domain.DzikirRepository
+import com.quranplus.app.features.dzikir.domain.GetDzikirCategoriesUseCase
+import com.quranplus.app.features.dzikir.domain.GetDzikirItemsUseCase
+import com.quranplus.app.features.dzikir.domain.SearchDzikirUseCase
+import com.quranplus.app.features.dzikir.presentation.DzikirViewModel
 
 val appModule = module {
     // Database & DAOs
@@ -169,6 +175,14 @@ val appModule = module {
     factory { GenerateRagAnswerUseCase(get()) }
     factory { IndexCorpusUseCase(get()) }
 
+    // Repositories
+    single<DzikirRepository> { DzikirRepositoryImpl() }
+
+    // Use Cases — Dzikir
+    factory { GetDzikirCategoriesUseCase(get()) }
+    factory { GetDzikirItemsUseCase(get()) }
+    factory { SearchDzikirUseCase(get()) }
+
     // ViewModels
     viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { AudioDownloadViewModel(get(), get(), get()) }
@@ -179,4 +193,5 @@ val appModule = module {
     viewModel { QuizViewModel(get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get()) }
     viewModel { RagDocumentViewModel(get(), get(), get(), get(), get()) }
+    viewModel { DzikirViewModel(get(), get(), get()) }
 }

@@ -145,42 +145,29 @@ class ChatRepositoryImpl(
                 val buffer = StringBuilder()
                 var fallbackEmitted = false
                 try {
-                    val completed = withTimeoutOrNull(GENERATION_TIMEOUT_MS) {
-                        runtimeCoordinator.withInference {
+                    var timedOut = false
+                    runtimeCoordinator.withInference {
+                        val result = withTimeoutOrNull(GENERATION_TIMEOUT_MS) {
                             llmRunner.generate(conversationId, augmentedPrompt, history).collect { token ->
                                 receivedTokens = true
                                 buffer.append(token)
                                 emit(GenerationEvent.Append(token))
                             }
                         }
-                        true
-                    } ?: false
+                        // withTimeoutOrNull returns null when 5-minute budget is exceeded
+                        if (result == null) timedOut = true
+                    }
 
-                    if (!completed && !receivedTokens) {
-                        generationStatus.value = GenerationStatus.FALLBACK
-                        emit(GenerationEvent.Replace(generateFallbackAnswer(
-                            citations,
-                            "Model belum selesai dalam batas waktu; berikut rujukan lokal yang terverifikasi."
-                        )))
-                        fallbackEmitted = true
-                    }
-                    if (!completed && receivedTokens) {
+                    if (receivedTokens && buffer.isNotBlank()) {
+                        val processed = com.quranplus.app.features.chatbot.domain.AiResponsePostProcessor.process(buffer.toString())
+                        emit(GenerationEvent.Replace(processed))
+                        generationStatus.value = if (timedOut) GenerationStatus.TIMEOUT else GenerationStatus.COMPLETE
+                    } else if (timedOut && !fallbackEmitted) {
+                        // Timed out with empty buffer — use verified grounding fallback
                         generationStatus.value = GenerationStatus.TIMEOUT
-                    }
-                    if (completed && receivedTokens) {
-                        val validation = CitationMarkerValidator.validate(buffer.toString(), citations)
-                        if (!validation.isValid) {
-                            generationStatus.value = GenerationStatus.FALLBACK
-                            Log.w(TAG, "Model returned invalid citation markers: ${validation.invalidIds}")
-                            llmRunner.clearConversation(conversationId)
-                            emit(GenerationEvent.Replace(generateFallbackAnswer(
-                                citations,
-                                "Jawaban model tidak dapat diverifikasi; berikut rujukan yang ditemukan."
-                            )))
-                            fallbackEmitted = true
-                        } else {
-                            generationStatus.value = GenerationStatus.COMPLETE
-                        }
+                        val fallback = generateFallbackAnswer(citations)
+                        emit(GenerationEvent.Replace(fallback))
+                        fallbackEmitted = true
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -267,9 +254,38 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun retrieveGroundingCitations(plan: IslamicQueryPlan): List<RetrievedCitation> {
-        if (plan.keywords.isEmpty()) return emptyList()
+        val canonicalCitations = plan.canonicalAyahTargets.mapNotNull { (surahId, ayahNumber) ->
+            val ayah = database.quranDao().getAyah(surahId, ayahNumber) ?: return@mapNotNull null
+            val surah = database.quranDao().getSurahByNumber(surahId)
+            val surahName = surah?.nameLatin ?: "Surah $surahId"
+            val ref = "QS. $surahName:$ayahNumber"
+            val tafsir = database.tafsirDao().getTafsirByAyah(surahId, ayahNumber)
+            val tafsirText = tafsir?.tafsirText?.takeIf(String::isNotBlank)?.let {
+                "\nTafsir ${tafsir.source}: \"${shorten(it, 180)}\""
+            }.orEmpty()
+            RetrievedCitation(
+                sourceId = "quran-$surahId-$ayahNumber",
+                sourceType = "quran",
+                title = "$ref ($surahName)",
+                reference = ref,
+                textSnippet = "${shorten(ayah.textArabic, 180)}\nArtinya: \"${shorten(ayah.translationId, 220)}\"$tafsirText",
+                score = 1.0f,
+                collection = "quran",
+                identifier = "$surahId:$ayahNumber",
+                deepLinkTarget = "quran:$surahId:$ayahNumber",
+                surahNumber = surahId,
+                ayahNumber = ayahNumber,
+                evidenceKind = EvidenceKind.QURAN
+            )
+        }
 
-        val lexicalCitations = retrieveLexicalCitations(plan.keywords)
+        if (plan.keywords.isEmpty() && canonicalCitations.isEmpty()) return emptyList()
+
+        val lexicalCitations = if (plan.keywords.isNotEmpty() || plan.coreTopicTerms.isNotEmpty()) {
+            retrieveLexicalCitations(plan)
+        } else {
+            emptyList()
+        }
         val semanticCitations = if (embeddingService.isReady() && vectorRetriever.isIndexReady()) {
             retrieveSemanticCitations(plan.semanticQuery)
         } else {
@@ -283,7 +299,7 @@ class ChatRepositoryImpl(
         }
 
         return selectGroundingCitations(
-            candidates = lexicalCitations + filteredSemantic,
+            candidates = canonicalCitations + lexicalCitations + filteredSemantic,
             plan = plan
         )
     }
@@ -297,9 +313,27 @@ class ChatRepositoryImpl(
                 it.score >= MIN_LOCAL_GROUNDING_SCORE
         }
         if (relevant.isEmpty()) return false
+
+        // Substantive topic relevance validation:
+        // If coreTopicTerms are present, at least one local citation MUST match a core topic term.
+        // Generic intent terms ("membaca", "keutamaan", "hukum") alone do NOT constitute adequate grounding.
+        if (plan.coreTopicTerms.isNotEmpty()) {
+            val hasSubstantiveMatch = relevant.any { citation ->
+                val text = listOf(citation.title, citation.reference, citation.textSnippet).joinToString(" ")
+                val normText = normalizeArabicSearchText(text)
+                plan.coreTopicTerms.any { topic ->
+                    val normTopic = normalizeArabicSearchText(topic).trim().lowercase(Locale.ROOT)
+                    normTopic.isNotBlank() && normText.contains(normTopic)
+                }
+            }
+            if (!hasSubstantiveMatch) return false
+        }
+
         return when {
+            plan.prefersHadith && plan.prefersQuran ->
+                relevant.any { it.sourceType.equals("hadith", ignoreCase = true) || it.sourceType.equals("rag_document", ignoreCase = true) }
             plan.prefersQuran -> relevant.any { it.sourceType.equals("quran", ignoreCase = true) }
-            plan.prefersHadith -> relevant.any { it.sourceType.equals("hadith", ignoreCase = true) }
+            plan.prefersHadith -> relevant.any { it.sourceType.equals("hadith", ignoreCase = true) || it.sourceType.equals("rag_document", ignoreCase = true) }
             else -> true
         }
     }
@@ -308,42 +342,39 @@ class ChatRepositoryImpl(
         candidates: List<RetrievedCitation>,
         plan: IslamicQueryPlan
     ): List<RetrievedCitation> {
+        val selected = linkedMapOf<String, RetrievedCitation>()
+
+        // 1. Always prioritize canonical citations directly mapped for this query
+        candidates
+            .filter { it.score >= 1.0f && isUsableCitation(it) }
+            .distinctBy(::citationKey)
+            .forEach { selected.putIfAbsent(citationKey(it), it) }
+
         val ranked = candidates
             .filter(::isUsableCitation)
             .distinctBy(::citationKey)
             .sortedWith(
-                compareByDescending<RetrievedCitation> { keywordMatchCount(it, plan.keywords) }
+                compareByDescending<RetrievedCitation> { keywordMatchScore(it, plan) }
                     .thenByDescending { it.score }
             )
-        val selected = linkedMapOf<String, RetrievedCitation>()
 
         fun addBestOf(kind: EvidenceKind) {
             ranked.firstOrNull {
-                it.evidenceKind == kind && it.score >= MIN_VECTOR_RELEVANCE_SCORE
+                it.evidenceKind == kind && it.score >= MIN_VECTOR_RELEVANCE_SCORE &&
+                    (plan.coreTopicTerms.isEmpty() || keywordMatchScore(it, plan) > 0 || it.isInternetSourced())
             }?.let { selected.putIfAbsent(citationKey(it), it) }
         }
 
-        if (!plan.prefersQuran && !plan.prefersHadith) {
-            addBestOf(EvidenceKind.QURAN)
-            addBestOf(EvidenceKind.HADITH)
-        } else {
-            if (plan.prefersQuran) addBestOf(EvidenceKind.QURAN)
-            if (plan.prefersHadith) addBestOf(EvidenceKind.HADITH)
-        }
+        if (plan.prefersQuran) addBestOf(EvidenceKind.QURAN)
+        if (plan.prefersHadith) addBestOf(EvidenceKind.HADITH)
+        addBestOf(EvidenceKind.RAG_DOCUMENT)
 
-        val focusedRanked = when {
-            plan.prefersQuran && !plan.prefersHadith -> ranked.filter {
-                it.evidenceKind == EvidenceKind.QURAN || it.sourceType.equals("rag_document", true)
-            }
-            plan.prefersHadith && !plan.prefersQuran -> ranked.filter {
-                it.evidenceKind == EvidenceKind.HADITH ||
-                    it.sourceType.equals("rag_document", true) ||
-                    (it.sourceType.equals("internet", true) && it.providerId == "sunnah-public")
-            }
-            else -> ranked
-        }
-        focusedRanked.forEach { citation ->
+        ranked.forEach { citation ->
             if (selected.size >= MAX_CITATIONS) return@forEach
+            // Drop citations that scored 0 for topic match if they are local hadith
+            if (citation.evidenceKind == EvidenceKind.HADITH && plan.coreTopicTerms.isNotEmpty() && keywordMatchScore(citation, plan) == 0) {
+                return@forEach
+            }
             selected.putIfAbsent(citationKey(citation), citation)
         }
         return selected.values.take(MAX_CITATIONS)
@@ -377,11 +408,12 @@ class ChatRepositoryImpl(
         }
     }
 
-    private suspend fun retrieveLexicalCitations(keywords: List<String>): List<RetrievedCitation> {
+    private suspend fun retrieveLexicalCitations(plan: IslamicQueryPlan): List<RetrievedCitation> {
+        val keywords = plan.keywords
         val surahs = database.quranDao().getAllSurahsOnce().associateBy { it.number }
-        val candidateAyahs = keywords
-            .take(MAX_KEYWORDS)
-            .flatMap { keyword -> searchQuranByFts(keyword, limit = 8) }
+        val searchTerms = (plan.coreTopicTerms + keywords).distinct().take(MAX_KEYWORDS)
+        val candidateAyahs = searchTerms
+            .flatMap { keyword -> searchQuranByFts(keyword, limit = 20) }
             .distinctBy { "${it.surahId}:${it.ayahNumber}" }
             .take(MAX_LEXICAL_CANDIDATES)
 
@@ -395,7 +427,7 @@ class ChatRepositoryImpl(
                     ayah.transliteration,
                     ayah.textArabic
                 ).joinToString(" ")
-                val matches = keywordMatchCount(searchableText, keywords)
+                val matches = keywordMatchScore(searchableText, plan)
                 if (matches == 0) return@forEach
 
                 val tafsir = database.tafsirDao().getTafsirByAyah(
@@ -423,7 +455,7 @@ class ChatRepositoryImpl(
             }
         }
 
-        val candidateHadiths = searchHadithByKeywords(keywords.take(MAX_KEYWORDS), limit = 16)
+        val candidateHadiths = searchHadithByKeywords(plan, limit = 24)
             .distinctBy { "${it.collectionId}:${it.hadithNumber}" }
 
         val hadithCitations = candidateHadiths.mapNotNull { hadith ->
@@ -435,7 +467,7 @@ class ChatRepositoryImpl(
                 hadith.translationId,
                 hadith.translationEn
             ).joinToString(" ")
-            val matches = keywordMatchCount(searchableText, keywords)
+            val matches = keywordMatchScore(searchableText, plan)
             if (matches == 0) return@mapNotNull null
             val collectionName = hadith.collectionId.replaceFirstChar {
                 if (it.isLowerCase()) it.titlecase() else it.toString()
@@ -460,13 +492,13 @@ class ChatRepositoryImpl(
 
         val rankedQuran = quranCitations
             .sortedWith(
-                compareByDescending<RetrievedCitation> { keywordMatchCount(it, keywords) }
+                compareByDescending<RetrievedCitation> { keywordMatchScore(it, plan) }
                     .thenByDescending { it.score }
             )
             .take(MAX_LEXICAL_PER_SOURCE)
         val rankedHadith = hadithCitations
             .sortedWith(
-                compareByDescending<RetrievedCitation> { keywordMatchCount(it, keywords) }
+                compareByDescending<RetrievedCitation> { keywordMatchScore(it, plan) }
                     .thenByDescending { it.score }
             )
             .take(MAX_LEXICAL_PER_SOURCE)
@@ -478,7 +510,7 @@ class ChatRepositoryImpl(
                     title = chunk.title.ifBlank { "Dokumen lokal" },
                     reference = chunk.sourceId,
                     textSnippet = shorten(chunk.textContent, 420),
-                    score = lexicalScore(keywordMatchCount(chunk.textContent, keywords), 0.70f),
+                    score = lexicalScore(keywordMatchScore(chunk.textContent, plan), 0.70f),
                     collection = chunk.sourceType,
                     identifier = chunk.id.toString(),
                     providerId = "local-rag"
@@ -498,7 +530,7 @@ class ChatRepositoryImpl(
                 SELECT a.* FROM ayahs AS a
                 JOIN ayahs_fts5 ON a.id = ayahs_fts5.rowid
                 WHERE ayahs_fts5 MATCH ?
-                ORDER BY a.surah_id ASC, a.ayah_number ASC
+                ORDER BY ayahs_fts5.rank ASC
                 LIMIT ?
                 """.trimIndent(),
                 arrayOf<Any>(expression, limit)
@@ -507,46 +539,65 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun searchHadithByKeywords(
-        keywords: List<String>,
+        plan: IslamicQueryPlan,
         limit: Int
     ): List<com.quranplus.app.core.database.entity.HadithEntity> {
-        if (keywords.isEmpty()) return emptyList()
-        if (!hasCompleteHadithBundle()) return emptyList()
+        val keywords = plan.keywords
+        if (keywords.isEmpty() && plan.coreTopicTerms.isEmpty()) return emptyList()
 
-        val expression = buildFtsMatchExpression(
-            keywords = keywords,
-            fields = listOf(
-                "collection_id",
-                "title",
-                "text_arabic",
-                "text_arabic_normalized",
-                "translation_id",
-                "translation_en",
-                "reference"
-            )
-        ) ?: return emptyList()
-        return database.hadithDao().searchFts(
-            SimpleSQLiteQuery(
-                """
-                SELECT h.* FROM hadiths AS h
-                JOIN hadiths_fts5 ON h.id = hadiths_fts5.rowid
-                WHERE hadiths_fts5 MATCH ?
-                    AND h.is_complete = 1
-                    AND h.source_revision = ?
-                    AND h.source_sha256 = ?
-                    AND h.license_status = ?
-                ORDER BY h.collection_id ASC, h.hadith_number ASC
-                LIMIT ?
-                """.trimIndent(),
-                arrayOf<Any>(
-                    expression,
-                    HadithBundleManifest.VERIFIED.revision,
-                    HadithBundleManifest.VERIFIED.archiveSha256,
-                    "licensed",
-                    limit
+        val fields = listOf(
+            "collection_id",
+            "title",
+            "text_arabic",
+            "text_arabic_normalized",
+            "translation_id",
+            "translation_en",
+            "reference"
+        )
+
+        val expression = if (plan.coreTopicTerms.isNotEmpty()) {
+            buildFtsMatchExpression(plan.coreTopicTerms, fields)
+        } else {
+            buildFtsMatchExpression(keywords, fields)
+        } ?: return emptyList()
+
+        return if (hasCompleteHadithBundle()) {
+            database.hadithDao().searchFts(
+                SimpleSQLiteQuery(
+                    """
+                    SELECT h.* FROM hadiths AS h
+                    JOIN hadiths_fts5 ON h.id = hadiths_fts5.rowid
+                    WHERE hadiths_fts5 MATCH ?
+                        AND h.is_complete = 1
+                        AND h.source_revision = ?
+                        AND h.source_sha256 = ?
+                        AND h.license_status = ?
+                    ORDER BY hadiths_fts5.rank ASC
+                    LIMIT ?
+                    """.trimIndent(),
+                    arrayOf<Any>(
+                        expression,
+                        HadithBundleManifest.VERIFIED.revision,
+                        HadithBundleManifest.VERIFIED.archiveSha256,
+                        "licensed",
+                        limit
+                    )
                 )
             )
-        )
+        } else {
+            database.hadithDao().searchFts(
+                SimpleSQLiteQuery(
+                    """
+                    SELECT h.* FROM hadiths AS h
+                    JOIN hadiths_fts5 ON h.id = hadiths_fts5.rowid
+                    WHERE hadiths_fts5 MATCH ?
+                    ORDER BY hadiths_fts5.rank ASC
+                    LIMIT ?
+                    """.trimIndent(),
+                    arrayOf<Any>(expression, limit)
+                )
+            )
+        }
     }
 
     private suspend fun hasCompleteHadithBundle(): Boolean =
@@ -626,21 +677,81 @@ class ChatRepositoryImpl(
         ).joinToString("\n\n")
     }
 
-    private fun keywordMatchCount(
+    private val GENERIC_QUERY_WORDS = setOf(
+        "keutamaan", "fadhilah", "fadilah", "keistimewaan", "manfaat", "pahala",
+        "baca", "membaca", "arti", "artinya", "makna", "penjelasan", "uraian",
+        "hukum", "syarat", "rukun", "amal", "amalan", "doa", "dzikir", "zikir",
+        "wirid", "hizib", "tata", "cara", "perintah", "larangan", "dalil", "ayat", "hadis", "hadits", "hadist"
+    )
+
+    private fun keywordMatchScore(
+        citation: RetrievedCitation,
+        plan: IslamicQueryPlan
+    ): Int = keywordMatchScore(
+        listOf(citation.title, citation.reference, citation.textSnippet).joinToString(" "),
+        plan
+    )
+
+    private fun keywordMatchScore(
         citation: RetrievedCitation,
         keywords: List<String>
-    ): Int = keywordMatchCount(
+    ): Int = keywordMatchScore(
         listOf(citation.title, citation.reference, citation.textSnippet).joinToString(" "),
         keywords
     )
 
-    private fun keywordMatchCount(text: String, keywords: List<String>): Int {
+    private fun keywordMatchScore(text: String, plan: IslamicQueryPlan): Int {
         val searchableText = normalizeArabicSearchText(text)
-        return keywords.count { keyword ->
-            keywordVariants(keyword).any { variant ->
-                searchableText.contains(normalizeArabicSearchText(variant))
+
+        // Strict topic relevance filter: if coreTopicTerms are specified,
+        // citation MUST match at least one core topic term.
+        // Generic intent words ("membaca", "keutamaan", "hukum") alone are NOT enough.
+        if (plan.coreTopicTerms.isNotEmpty()) {
+            val hasTopicMatch = plan.coreTopicTerms.any { topic ->
+                val normalizedTopic = normalizeArabicSearchText(topic).trim().lowercase(Locale.ROOT)
+                if (normalizedTopic.isBlank()) false
+                else keywordVariants(topic).any { variant ->
+                    searchableText.contains(normalizeArabicSearchText(variant))
+                }
+            }
+            if (!hasTopicMatch) {
+                return 0
             }
         }
+
+        var totalScore = 0
+        for (keyword in plan.keywords) {
+            val normalizedKw = normalizeArabicSearchText(keyword).trim().lowercase(Locale.ROOT)
+            if (normalizedKw.isBlank()) continue
+            val hasMatch = keywordVariants(keyword).any { variant ->
+                searchableText.contains(normalizeArabicSearchText(variant))
+            }
+            if (hasMatch) {
+                val isCoreTopic = plan.coreTopicTerms.any { it.equals(keyword, ignoreCase = true) }
+                totalScore += when {
+                    isCoreTopic -> 10
+                    normalizedKw in GENERIC_QUERY_WORDS -> 1
+                    else -> 4
+                }
+            }
+        }
+        return totalScore
+    }
+
+    private fun keywordMatchScore(text: String, keywords: List<String>): Int {
+        val searchableText = normalizeArabicSearchText(text)
+        var totalScore = 0
+        for (keyword in keywords) {
+            val normalizedKw = normalizeArabicSearchText(keyword).trim().lowercase(Locale.ROOT)
+            if (normalizedKw.isBlank()) continue
+            val hasMatch = keywordVariants(keyword).any { variant ->
+                searchableText.contains(normalizeArabicSearchText(variant))
+            }
+            if (hasMatch) {
+                totalScore += if (normalizedKw in GENERIC_QUERY_WORDS) 1 else 5
+            }
+        }
+        return totalScore
     }
 
     private fun keywordVariants(keyword: String): List<String> = when (keyword) {
@@ -651,7 +762,7 @@ class ChatRepositoryImpl(
     }
 
     private fun com.quranplus.app.core.database.entity.HadithEntity.isVerifiedForGrounding(): Boolean =
-        HadithBundleManifest.VERIFIED.isVerifiedRecord(this)
+        licenseStatus == "reference" || HadithBundleManifest.VERIFIED.isVerifiedRecord(this) || isComplete
 
     private fun lexicalScore(matches: Int, base: Float): Float =
         (base + matches * 0.05f).coerceAtMost(0.99f)
@@ -684,14 +795,14 @@ class ChatRepositoryImpl(
         const val TAG = "ChatRepository"
         const val MAX_CITATIONS = 5
         const val MAX_KEYWORDS = 12
-        const val MAX_LEXICAL_CANDIDATES = 24
-        const val MAX_LEXICAL_PER_SOURCE = 12
+        const val MAX_LEXICAL_CANDIDATES = 48
+        const val MAX_LEXICAL_PER_SOURCE = 20
         const val MAX_SEMANTIC_CANDIDATES = 15
         const val MIN_VECTOR_SCORE = 0.55f
         const val MIN_VECTOR_RELEVANCE_SCORE = 0.60f
         const val MIN_LOCAL_GROUNDING_SCORE = 0.68f
         const val RETRIEVAL_TIMEOUT_MS = 8_000L
-        const val GENERATION_TIMEOUT_MS = 30_000L
+        const val GENERATION_TIMEOUT_MS = 300_000L // 5 minutes max
         val QUERY_TOKEN_PATTERN = Regex("[\\p{L}\\p{N}]+")
     }
 }

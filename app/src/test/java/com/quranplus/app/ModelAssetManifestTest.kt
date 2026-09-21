@@ -110,7 +110,7 @@ class ModelAssetManifestTest {
     }
 
     @Test
-    fun GIVEN_sentencePieceEmbeddingWithoutRuntime_WHEN_checkingRuntimeGate_THEN_downloadRemainsBlocked() {
+    fun GIVEN_sentencePieceEmbeddingWithRuntime_WHEN_checkingRuntimeGate_THEN_downloadIsAllowed() {
         val manifest = ModelAssetManifest(
             id = "multilingual-minilm",
             name = "Multilingual MiniLM",
@@ -125,6 +125,31 @@ class ModelAssetManifestTest {
             embeddingDimension = 384,
             tokenizerAsset = "embedding/sentencepiece.bpe.model",
             tokenizerType = "sentencepiece",
+            tokenizerSha256 = "1".repeat(64),
+            licenseId = "Apache-2.0",
+            licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
+        )
+
+        assertTrue(manifest.isRuntimeCompatible)
+        assertTrue(manifest.isDownloadable)
+    }
+
+    @Test
+    fun GIVEN_unsupportedTokenizer_WHEN_checkingRuntimeGate_THEN_downloadRemainsBlocked() {
+        val manifest = ModelAssetManifest(
+            id = "unsupported-tok",
+            name = "Unsupported Tokenizer",
+            filename = "model.onnx",
+            artifactUrl = "https://example.com/resolve/0123456789abcdef0123456789abcdef01234567/model.onnx",
+            sourceUrl = "https://example.com/tree/0123456789abcdef0123456789abcdef01234567",
+            sha256 = "f".repeat(64),
+            sizeBytes = 10,
+            format = "onnx",
+            runtime = "ONNX Runtime",
+            role = ModelAssetRole.EMBEDDING,
+            embeddingDimension = 384,
+            tokenizerAsset = "embedding/unsupported.model",
+            tokenizerType = "unsupported",
             tokenizerSha256 = "1".repeat(64),
             licenseId = "Apache-2.0",
             licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"

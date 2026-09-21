@@ -93,6 +93,8 @@ fun HadithScreen(
     val query by viewModel.query.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     val selectedCollection by viewModel.selectedCollection.collectAsStateWithLifecycle()
+    val scrollToIndex by viewModel.scrollToIndex.collectAsStateWithLifecycle()
+    val highlightedNumber by viewModel.highlightedNumber.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
     val bundleState by viewModel.bundleState.collectAsStateWithLifecycle()
 
@@ -283,6 +285,9 @@ fun HadithScreen(
                     selectedCollection = selectedCollection,
                     collections = collections,
                     query = query,
+                    scrollToIndex = scrollToIndex,
+                    highlightedNumber = highlightedNumber,
+                    onScrolledToIndex = viewModel::onScrolledToIndex,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -881,16 +886,57 @@ private fun HadithResults(
     selectedCollection: String?,
     collections: List<HadithCollection>,
     modifier: Modifier = Modifier,
-    query: String = ""
+    query: String = "",
+    scrollToIndex: Int? = null,
+    highlightedNumber: Int? = null,
+    onScrolledToIndex: () -> Unit = {}
 ) {
     val collectionName = collections.firstOrNull { it.id == selectedCollection }?.title.orEmpty()
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    LaunchedEffect(scrollToIndex) {
+        val target = scrollToIndex ?: return@LaunchedEffect
+        if (target in records.indices) {
+            val listIndex = if (query.isNotBlank() || highlightedNumber != null) target + 1 else target
+            listState.animateScrollToItem(listIndex)
+            onScrolledToIndex()
+        }
+    }
 
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(top = Spacing.xs, bottom = Spacing.xxl),
         verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        if (query.isNotBlank()) {
+        if (highlightedNumber != null) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Menampilkan koleksi lengkap · Terfokus pada Hadits No. $highlightedNumber",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        } else if (query.isNotBlank()) {
             item {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
@@ -908,9 +954,11 @@ private fun HadithResults(
             }
         }
         items(records, key = { it.id }) { record ->
+            val isHighlighted = highlightedNumber != null && record.hadithNumber == highlightedNumber
             HadithCardItem(
                 record = record,
-                collectionName = collectionName.ifBlank { record.title }
+                collectionName = collectionName.ifBlank { record.title },
+                isHighlighted = isHighlighted
             )
         }
     }
@@ -919,7 +967,8 @@ private fun HadithResults(
 @Composable
 private fun HadithCardItem(
     record: HadithRecord,
-    collectionName: String
+    collectionName: String,
+    isHighlighted: Boolean = false
 ) {
     val context = LocalContext.current
 
@@ -927,10 +976,18 @@ private fun HadithCardItem(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (isHighlighted) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlighted) 4.dp else 2.dp),
+        border = if (isHighlighted) {
+            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        } else {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        }
     ) {
         Column(
             modifier = Modifier
@@ -945,17 +1002,36 @@ private fun HadithCardItem(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 // Number Badge
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
-                    Text(
-                        text = "HR. $collectionName · No. ${record.hadithNumber}",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isHighlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = if (isHighlighted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer
+                    ) {
+                        Text(
+                            text = "HR. $collectionName · No. ${record.hadithNumber}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp)
+                        )
+                    }
+                    if (isHighlighted) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ) {
+                            Text(
+                                text = "🎯 Ditemukan",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 3.dp)
+                            )
+                        }
+                    }
                 }
 
                 // Copy & Share Actions

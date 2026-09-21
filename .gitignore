@@ -107,4 +107,9 @@ art/*.xml
 *.xml_dump
 *_dump.xml
 dump.xml
+uidump*.xml
 screen_*.png
+*.png
+!art/*.png
+scripts/*.txt
+scripts/*.xml

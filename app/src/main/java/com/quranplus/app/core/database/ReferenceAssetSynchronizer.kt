@@ -2,11 +2,13 @@ package com.quranplus.app.core.database
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import androidx.room.withTransaction
+import androidx.room.Transactor
+import androidx.room.useWriterConnection
 import com.quranplus.app.core.database.entity.AyahEntity
 import com.quranplus.app.core.database.entity.HadithChapterEntity
 import com.quranplus.app.core.database.entity.HadithCollectionEntity
 import com.quranplus.app.core.database.entity.HadithEntity
+import com.quranplus.app.core.database.entity.KnowledgeChunkEntity
 import com.quranplus.app.core.database.entity.QuizQuestionEntity
 import com.quranplus.app.core.database.entity.TahsinLessonEntity
 import com.quranplus.app.core.database.entity.WordByWordEntity
@@ -24,7 +26,7 @@ class ReferenceAssetSynchronizer(
     private val database: QuranDatabase
 ) {
     private val wordByWordRevision =
-        "quran.com-api:wbw-id:025540d4ba76c5f0e29db120d8997051b6870b6d3f4d3f7264474a8d6ef2769a"
+        "quran.com-api:wbw-id:025540d4ba76c5f0e29db120d8997051b6870b6d3f4d3f7264474a8d6ef2769a-ikhfa"
     private val hadithSourceRevision = "hadith-json-1.3.0"
 
     suspend fun synchronize() = withContext(Dispatchers.IO) {
@@ -36,20 +38,59 @@ class ReferenceAssetSynchronizer(
                     null,
                     SQLiteDatabase.OPEN_READONLY
                 ).use { source ->
+                    synchronizeAyahTransliteration(source)
                     synchronizeWordByWord(source)
                     synchronizeHadithCollections(source)
                     synchronizeHadithContent(source)
                     synchronizeTahsin(source)
                     synchronizeQuiz(source)
                     synchronizeTafsir(source)
+                    synchronizeKnowledgeChunks(source)
                 }
             } finally {
                 temporaryAsset.delete()
             }
 
-        } catch (_: Exception) {
-            // Non-critical reference synchronization failure should never crash the app
+        } catch (e: Exception) {
+            android.util.Log.e("QuranPlus", "Reference synchronization failed", e)
         }
+    }
+
+    private suspend fun synchronizeAyahTransliteration(source: SQLiteDatabase) {
+        val sampleAyah = database.quranDao().getAyah(71, 27)
+        if (sampleAyah != null && sampleAyah.transliteration.contains("fājirang")) {
+            return
+        }
+
+        android.util.Log.i("QuranPlus", "Synchronizing ayah ikhfa transliterations via batch insert...")
+        val batch = ArrayList<AyahEntity>(BATCH_SIZE)
+        source.rawQuery(
+            "SELECT id, surah_id, ayah_number, text_arabic, transliteration, translation_id, translation_en, juz, page, tajwid_tags FROM ayahs ORDER BY id ASC",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                batch += AyahEntity(
+                    id = cursor.getLong(0),
+                    surahId = cursor.getInt(1),
+                    ayahNumber = cursor.getInt(2),
+                    textArabic = cursor.getString(3),
+                    transliteration = cursor.getString(4),
+                    translationId = cursor.getString(5),
+                    translationEn = cursor.getString(6),
+                    juz = cursor.getInt(7),
+                    page = cursor.getInt(8),
+                    tajwidTags = cursor.getStringOrNull(9)
+                )
+                if (batch.size == BATCH_SIZE) {
+                    database.quranDao().insertAyahs(batch)
+                    batch.clear()
+                }
+            }
+        }
+        if (batch.isNotEmpty()) {
+            database.quranDao().insertAyahs(batch)
+        }
+        android.util.Log.i("QuranPlus", "Ayah ikhfa transliterations synchronized successfully.")
     }
 
     private suspend fun synchronizeWordByWord(source: SQLiteDatabase) {
@@ -130,39 +171,37 @@ class ReferenceAssetSynchronizer(
     private suspend fun synchronizeHadithContent(source: SQLiteDatabase) {
         val sourceCount = source.queryCount("hadiths")
         if (sourceCount > 0 && database.hadithDao().countHadiths() < sourceCount) {
-            database.withTransaction {
-                synchronizeHadithChapters(source)
-                val batch = ArrayList<HadithEntity>(BATCH_SIZE)
-                source.rawQuery(
-                    "SELECT id, collection_id, hadith_number, title, text_arabic, " +
-                        "translation_id, translation_en, reference " +
-                        "FROM hadiths ORDER BY id ASC",
-                    null
-                ).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        val translation = cursor.getString(6)
-                        batch += HadithEntity(
-                            id = cursor.getLong(0),
-                            collectionId = cursor.getString(1),
-                            hadithNumber = cursor.getInt(2),
-                            title = cursor.getString(3),
-                            textArabic = cursor.getString(4),
-                            translationId = cursor.getString(5),
-                            translationEn = translation,
-                            reference = cursor.getString(7),
-                            sourceRevision = hadithSourceRevision,
-                            licenseStatus = "reference",
-                            language = "en",
-                            isComplete = translation.isNotBlank()
-                        )
-                        if (batch.size == BATCH_SIZE) {
-                            database.hadithDao().insertHadiths(batch)
-                            batch.clear()
-                        }
+            synchronizeHadithChapters(source)
+            val batch = ArrayList<HadithEntity>(BATCH_SIZE)
+            source.rawQuery(
+                "SELECT id, collection_id, hadith_number, title, text_arabic, " +
+                    "translation_id, translation_en, reference " +
+                    "FROM hadiths ORDER BY id ASC",
+                null
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val translation = cursor.getString(6)
+                    batch += HadithEntity(
+                        id = cursor.getLong(0),
+                        collectionId = cursor.getString(1),
+                        hadithNumber = cursor.getInt(2),
+                        title = cursor.getString(3),
+                        textArabic = cursor.getString(4),
+                        translationId = cursor.getString(5),
+                        translationEn = translation,
+                        reference = cursor.getString(7),
+                        sourceRevision = hadithSourceRevision,
+                        licenseStatus = "reference",
+                        language = "en",
+                        isComplete = translation.isNotBlank()
+                    )
+                    if (batch.size == BATCH_SIZE) {
+                        database.hadithDao().insertHadiths(batch)
+                        batch.clear()
                     }
                 }
-                if (batch.isNotEmpty()) database.hadithDao().insertHadiths(batch)
             }
+            if (batch.isNotEmpty()) database.hadithDao().insertHadiths(batch)
         }
         synchronizeHadithTranslations(source)
     }
@@ -309,6 +348,35 @@ class ReferenceAssetSynchronizer(
         if (batch.isNotEmpty()) {
             database.tafsirDao().insertAll(batch)
         }
+    }
+
+    private suspend fun synchronizeKnowledgeChunks(source: SQLiteDatabase) {
+        if (!source.hasTable("knowledge_chunks")) return
+        val sourceCount = source.queryCount("knowledge_chunks")
+        if (sourceCount == 0) return
+        val currentCount = database.knowledgeChunkDao().getChunksCount()
+        if (currentCount >= sourceCount) return
+
+        android.util.Log.i("QuranPlus", "Synchronizing $sourceCount knowledge chunks...")
+        val chunks = ArrayList<KnowledgeChunkEntity>(sourceCount)
+        source.rawQuery(
+            "SELECT id, source_type, source_id, title, text_content FROM knowledge_chunks ORDER BY id ASC",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                chunks += KnowledgeChunkEntity(
+                    id = cursor.getLong(0),
+                    sourceType = cursor.getString(1),
+                    sourceId = cursor.getString(2),
+                    title = cursor.getString(3),
+                    textContent = cursor.getString(4)
+                )
+            }
+        }
+        if (chunks.isNotEmpty()) {
+            database.knowledgeChunkDao().insertChunks(chunks)
+        }
+        android.util.Log.i("QuranPlus", "Knowledge chunks synchronized successfully.")
     }
 
     private fun copyAssetToCache(): File {

@@ -54,7 +54,7 @@ import com.quranplus.app.core.database.entity.WordByWordEntity
         QuizAttemptEntity::class,
         TafsirEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class QuranDatabase : RoomDatabase() {
@@ -109,6 +109,7 @@ abstract class QuranDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_10_11)
                 .addMigrations(MIGRATION_11_12)
                 .addMigrations(MIGRATION_12_13)
+                .addMigrations(MIGRATION_13_14)
                 .addCallback(FTS_CALLBACK)
                 .build()
         }
@@ -362,6 +363,81 @@ abstract class QuranDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(database: SQLiteConnection) {
+                database.executeSql("DROP TRIGGER IF EXISTS ayahs_fts5_after_delete")
+                database.executeSql("DROP TRIGGER IF EXISTS ayahs_fts5_after_update")
+                database.executeSql(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS ayahs_fts5_after_delete
+                    AFTER DELETE ON ayahs BEGIN
+                        DELETE FROM ayahs_fts5 WHERE rowid = old.id;
+                    END
+                    """.trimIndent()
+                )
+                val newArabicText = "new.text_arabic"
+                database.executeSql(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS ayahs_fts5_after_update
+                    AFTER UPDATE ON ayahs BEGIN
+                        DELETE FROM ayahs_fts5 WHERE rowid = old.id;
+                        INSERT INTO ayahs_fts5(rowid, translation_id, translation_en, transliteration, text_arabic, text_arabic_normalized)
+                        VALUES (new.id, new.translation_id, new.translation_en, new.transliteration, new.text_arabic, ${arabicSearchExpression(newArabicText)});
+                    END
+                    """.trimIndent()
+                )
+
+                database.executeSql("DROP TRIGGER IF EXISTS hadiths_fts5_after_delete")
+                database.executeSql("DROP TRIGGER IF EXISTS hadiths_fts5_after_update")
+                database.executeSql(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS hadiths_fts5_after_delete
+                    AFTER DELETE ON hadiths BEGIN
+                        DELETE FROM hadiths_fts5 WHERE rowid = old.id;
+                    END
+                    """.trimIndent()
+                )
+                database.executeSql(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS hadiths_fts5_after_update
+                    AFTER UPDATE ON hadiths BEGIN
+                        DELETE FROM hadiths_fts5 WHERE rowid = old.id;
+                        INSERT INTO hadiths_fts5(
+                            rowid, collection_id, title, text_arabic, text_arabic_normalized,
+                            translation_id, translation_en, reference
+                        ) VALUES (
+                            new.id, new.collection_id, new.title, new.text_arabic,
+                            ${arabicSearchExpression("new.text_arabic")},
+                            new.translation_id, new.translation_en, new.reference
+                        );
+                    END
+                    """.trimIndent()
+                )
+
+                database.executeSql("DROP TRIGGER IF EXISTS knowledge_chunks_fts5_after_delete")
+                database.executeSql("DROP TRIGGER IF EXISTS knowledge_chunks_fts5_after_update")
+                database.executeSql(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS knowledge_chunks_fts5_after_delete
+                    AFTER DELETE ON knowledge_chunks BEGIN
+                        DELETE FROM knowledge_chunks_fts5 WHERE rowid = old.id;
+                    END
+                    """.trimIndent()
+                )
+                database.executeSql(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS knowledge_chunks_fts5_after_update
+                    AFTER UPDATE ON knowledge_chunks BEGIN
+                        DELETE FROM knowledge_chunks_fts5 WHERE rowid = old.id;
+                        INSERT INTO knowledge_chunks_fts5(
+                            rowid, source_type, source_id, title, text_content
+                        ) VALUES (new.id, new.source_type, new.source_id, new.title, new.text_content);
+                    END
+                    """.trimIndent()
+                )
+            }
+        }
+
 
         private fun createFts5(database: SupportSQLiteDatabase) {
             fts5Statements().forEach(database::execSQL)
@@ -415,27 +491,13 @@ abstract class QuranDatabase : RoomDatabase() {
             """
             CREATE TRIGGER IF NOT EXISTS hadiths_fts5_after_delete
             AFTER DELETE ON hadiths BEGIN
-                INSERT INTO hadiths_fts5(
-                    hadiths_fts5, rowid, collection_id, title, text_arabic,
-                    text_arabic_normalized, translation_id, translation_en, reference
-                ) VALUES (
-                    'delete', old.id, old.collection_id, old.title, old.text_arabic,
-                    ${arabicSearchExpression("old.text_arabic")},
-                    old.translation_id, old.translation_en, old.reference
-                );
+                DELETE FROM hadiths_fts5 WHERE rowid = old.id;
             END
             """.trimIndent(),
             """
             CREATE TRIGGER IF NOT EXISTS hadiths_fts5_after_update
             AFTER UPDATE ON hadiths BEGIN
-                INSERT INTO hadiths_fts5(
-                    hadiths_fts5, rowid, collection_id, title, text_arabic,
-                    text_arabic_normalized, translation_id, translation_en, reference
-                ) VALUES (
-                    'delete', old.id, old.collection_id, old.title, old.text_arabic,
-                    ${arabicSearchExpression("old.text_arabic")},
-                    old.translation_id, old.translation_en, old.reference
-                );
+                DELETE FROM hadiths_fts5 WHERE rowid = old.id;
                 INSERT INTO hadiths_fts5(
                     rowid, collection_id, title, text_arabic, text_arabic_normalized,
                     translation_id, translation_en, reference
@@ -472,17 +534,13 @@ abstract class QuranDatabase : RoomDatabase() {
             """
             CREATE TRIGGER IF NOT EXISTS knowledge_chunks_fts5_after_delete
             AFTER DELETE ON knowledge_chunks BEGIN
-                INSERT INTO knowledge_chunks_fts5(
-                    knowledge_chunks_fts5, rowid, source_type, source_id, title, text_content
-                ) VALUES ('delete', old.id, old.source_type, old.source_id, old.title, old.text_content);
+                DELETE FROM knowledge_chunks_fts5 WHERE rowid = old.id;
             END
             """.trimIndent(),
             """
             CREATE TRIGGER IF NOT EXISTS knowledge_chunks_fts5_after_update
             AFTER UPDATE ON knowledge_chunks BEGIN
-                INSERT INTO knowledge_chunks_fts5(
-                    knowledge_chunks_fts5, rowid, source_type, source_id, title, text_content
-                ) VALUES ('delete', old.id, old.source_type, old.source_id, old.title, old.text_content);
+                DELETE FROM knowledge_chunks_fts5 WHERE rowid = old.id;
                 INSERT INTO knowledge_chunks_fts5(
                     rowid, source_type, source_id, title, text_content
                 ) VALUES (new.id, new.source_type, new.source_id, new.title, new.text_content);
@@ -536,15 +594,13 @@ abstract class QuranDatabase : RoomDatabase() {
                 """
                 CREATE TRIGGER IF NOT EXISTS ayahs_fts5_after_delete
                 AFTER DELETE ON ayahs BEGIN
-                    INSERT INTO ayahs_fts5(ayahs_fts5, rowid, translation_id, translation_en, transliteration, text_arabic, text_arabic_normalized)
-                    VALUES ('delete', old.id, old.translation_id, old.translation_en, old.transliteration, old.text_arabic, ${arabicSearchExpression(oldArabicText)});
+                    DELETE FROM ayahs_fts5 WHERE rowid = old.id;
                 END
                 """.trimIndent(),
                 """
                 CREATE TRIGGER IF NOT EXISTS ayahs_fts5_after_update
                 AFTER UPDATE ON ayahs BEGIN
-                    INSERT INTO ayahs_fts5(ayahs_fts5, rowid, translation_id, translation_en, transliteration, text_arabic, text_arabic_normalized)
-                    VALUES ('delete', old.id, old.translation_id, old.translation_en, old.transliteration, old.text_arabic, ${arabicSearchExpression(oldArabicText)});
+                    DELETE FROM ayahs_fts5 WHERE rowid = old.id;
                     INSERT INTO ayahs_fts5(rowid, translation_id, translation_en, transliteration, text_arabic, text_arabic_normalized)
                     VALUES (new.id, new.translation_id, new.translation_en, new.transliteration, new.text_arabic, ${arabicSearchExpression(newArabicText)});
                 END

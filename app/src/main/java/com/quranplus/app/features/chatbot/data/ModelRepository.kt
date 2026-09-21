@@ -53,9 +53,9 @@ data class ModelAssetManifest(
                 format.equals("onnx", true) &&
                     runtime.equals("ONNX Runtime", true) &&
                     embeddingDimension == EMBEDDING_DIMENSION &&
-                    tokenizerAsset == WORDPIECE_VOCABULARY_ASSET &&
-                    tokenizerType.equals("wordpiece", true) &&
-                    tokenizerSha256?.matches(SHA256_PATTERN) == true
+                    tokenizerSha256?.matches(SHA256_PATTERN) == true &&
+                    ((tokenizerType.equals("wordpiece", true) && tokenizerAsset == WORDPIECE_VOCABULARY_ASSET) ||
+                     (tokenizerType.equals("sentencepiece", true) && tokenizerAsset == SENTENCEPIECE_VOCABULARY_ASSET))
         }
 
     val hasVerifiedManifest: Boolean
@@ -78,7 +78,9 @@ data class ModelAssetManifest(
                 "Tokenizer yang cocok belum tersedia di aplikasi."
             role == ModelAssetRole.EMBEDDING && tokenizerType.isNullOrBlank() ->
                 "Jenis tokenizer artifact belum dikontrak."
-            role == ModelAssetRole.EMBEDDING && !tokenizerType.equals("wordpiece", true) ->
+            role == ModelAssetRole.EMBEDDING &&
+                !tokenizerType.equals("wordpiece", true) &&
+                !tokenizerType.equals("sentencepiece", true) ->
                 "Tokenizer artifact belum didukung oleh runtime aplikasi."
             role == ModelAssetRole.EMBEDDING && tokenizerSha256?.matches(SHA256_PATTERN) != true ->
                 "SHA-256 tokenizer belum tersedia."
@@ -101,6 +103,7 @@ data class ModelAssetManifest(
     private companion object {
         const val EMBEDDING_DIMENSION = 384
         const val WORDPIECE_VOCABULARY_ASSET = "embedding/vocab.txt"
+        const val SENTENCEPIECE_VOCABULARY_ASSET = "embedding/sentencepiece.bpe.model"
         const val MIB = 1024L * 1024L
         const val GIB = 1024L * MIB
         val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
@@ -181,18 +184,18 @@ class ModelRepository(
         ModelInfo(
             id = "bge-small-en-v1.5-onnx",
             name = "BAAI BGE Small EN v1.5 (ONNX)",
-            filename = "bge_small_en_v1.5_qint8.onnx",
-            // The requested arm64 ONNX path is not published upstream. Keep
-            // this catalog entry visible but fail closed instead of offering
-            // a download that can never complete.
-            artifactUrl = "",
+            filename = "bge_small_en_v1.5.onnx",
+            artifactUrl = "https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/5c38ec7c405ec4b44b94cc5a9bb96e735b38267a/onnx/model.onnx",
             sourceUrl = "https://huggingface.co/BAAI/bge-small-en-v1.5/tree/5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
-            sha256 = null,
-            sizeBytes = null,
+            sha256 = "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35",
+            sizeBytes = 133_093_490L,
             format = "onnx",
             runtime = "ONNX Runtime",
             role = ModelAssetRole.EMBEDDING,
             embeddingDimension = 384,
+            tokenizerAsset = "embedding/vocab.txt",
+            tokenizerType = "wordpiece",
+            tokenizerSha256 = "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
             licenseId = "MIT",
             licenseUrl = "https://opensource.org/licenses/MIT"
         ),
@@ -202,9 +205,6 @@ class ModelRepository(
             filename = "multilingual_minilm_l12_v2_qint8.onnx",
             artifactUrl = "https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/resolve/e8f8c211226b894fcb81acc59f3b34ba3efd5f42/onnx/model_qint8_arm64.onnx",
             sourceUrl = "https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/tree/e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
-            // The immutable Git LFS OID is the true artifact SHA-256. The model is
-            // still unavailable until a matching SentencePiece tokenizer and
-            // tokenizer runtime are shipped with this APK.
             sha256 = "783fea82d71a58179b830a4dbd2d58447e640609e98eedf9ffa12622d375a672",
             sizeBytes = 118_412_398L,
             format = "onnx",
@@ -213,6 +213,7 @@ class ModelRepository(
             embeddingDimension = 384,
             tokenizerAsset = "embedding/sentencepiece.bpe.model",
             tokenizerType = "sentencepiece",
+            tokenizerSha256 = "cfc8146abe2a0488e9e2a0c56de7952f7c11ab059eca145a0a727afce0db2865",
             licenseId = "Apache-2.0",
             licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0"
         )
@@ -268,6 +269,19 @@ class ModelRepository(
         return preferred ?: embeddingModels.firstOrNull(::isModelReady)
     }
 
+    suspend fun resolveActiveEmbeddingModelInfo(preferredModelId: String? = null): ModelInfo? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val embeddingModels = availableModelConfigs.filter { it.role == ModelAssetRole.EMBEDDING }
+            val preferred = embeddingModels.firstOrNull { it.id == preferredModelId }
+            if (preferred != null) {
+                if (isModelReady(preferred) || verifyModelSha256Async(preferred)) return@withContext preferred
+            }
+            for (model in embeddingModels) {
+                if (isModelReady(model) || verifyModelSha256Async(model)) return@withContext model
+            }
+            null
+        }
+
     fun isAnyModelReady(): Boolean = availableModelConfigs
         .filter { it.role == ModelAssetRole.CHATBOT }
         .any(::isModelReady)
@@ -276,7 +290,8 @@ class ModelRepository(
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             startupVerificationMutex.withLock {
                 if (startupVerificationComplete) return@withLock
-                availableModelConfigs
+                // Prioritize embedding models first so RAG services become ready immediately
+                (availableEmbeddingModels + availableChatbotModels)
                     .filter(ModelInfo::isDownloadable)
                     .forEach { model ->
                         // A process-local readiness bit is not durable trust.
@@ -331,9 +346,17 @@ class ModelRepository(
         )
     }
 
-    private val verifiedCache = java.util.concurrent.ConcurrentHashMap<String, Long>()
-    private val startupVerificationMutex = Mutex()
-    private var startupVerificationComplete = false
+    companion object {
+        internal val verifiedCache = java.util.concurrent.ConcurrentHashMap<String, Long>()
+        private val startupVerificationMutex = Mutex()
+        private var startupVerificationComplete = false
+
+        @androidx.annotation.VisibleForTesting
+        fun clearVerificationCache() {
+            verifiedCache.clear()
+            startupVerificationComplete = false
+        }
+    }
 
     fun isModelReady(modelInfo: ModelInfo): Boolean {
         if (!modelInfo.isDownloadable) return false

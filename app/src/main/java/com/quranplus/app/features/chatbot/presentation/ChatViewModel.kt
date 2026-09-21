@@ -256,8 +256,6 @@ class ChatViewModel(
                         _downloadState.value = DownloadState.Idle
                     }
                     checkModelStatus()
-                } else if (state is DownloadState.Failed || state is DownloadState.ChecksumError) {
-                    _downloadingModel.value = null
                 }
             }
         }
@@ -328,14 +326,15 @@ class ChatViewModel(
     }
 
     private fun detectRepetitionLoop(text: String): Pair<String, Boolean> {
-        if (text.length < 200) return Pair(text, false)
-        for (len in 80 downTo 40) {
-            if (text.length < len * 3) continue
+        if (text.length < 350) return Pair(text, false)
+        for (len in 120 downTo 60) {
+            if (text.length < len * 4) continue
             val tail = text.takeLast(len)
             val prev1 = text.substring(text.length - (len * 2), text.length - len)
             val prev2 = text.substring(text.length - (len * 3), text.length - (len * 2))
-            if (tail == prev1 && tail == prev2) {
-                val clean = text.substring(0, text.length - (len * 2)).trimEnd()
+            val prev3 = text.substring(text.length - (len * 4), text.length - (len * 3))
+            if (tail == prev1 && tail == prev2 && tail == prev3) {
+                val clean = text.substring(0, text.length - (len * 3)).trimEnd()
                 return Pair(clean, true)
             }
         }
@@ -407,7 +406,7 @@ class ChatViewModel(
                     if (event is GenerationEvent.Replace) {
                         fullResponse.clear()
                         fullResponse.append(event.text)
-                        visibleResponse = CitationMarkerValidator.stripMarkers(event.text).trim()
+                        visibleResponse = com.quranplus.app.features.chatbot.domain.AiResponsePostProcessor.process(event.text)
                         _streamingContent.value = visibleResponse
                         return@collect
                     }
@@ -432,7 +431,7 @@ class ChatViewModel(
 
                     if (stopIndex != null) {
                         val cleaned = rawStr.substring(0, stopIndex).trim()
-                        visibleResponse = CitationMarkerValidator.stripMarkers(cleaned)
+                        visibleResponse = com.quranplus.app.features.chatbot.domain.AiResponsePostProcessor.process(cleaned)
                         _streamingContent.value = visibleResponse
                         throw CancellationException("Stop token detected")
                     }
@@ -440,11 +439,11 @@ class ChatViewModel(
                     // Check repetition loop
                     val (loopCleaned, hasLoop) = detectRepetitionLoop(rawStr)
                     if (hasLoop) {
-                        visibleResponse = CitationMarkerValidator.stripMarkers(loopCleaned)
+                        visibleResponse = com.quranplus.app.features.chatbot.domain.AiResponsePostProcessor.process(loopCleaned)
                         _streamingContent.value = visibleResponse
                         throw CancellationException("Repetition loop detected and truncated")
                     } else {
-                        visibleResponse = CitationMarkerValidator.stripMarkers(rawStr)
+                        visibleResponse = com.quranplus.app.features.chatbot.domain.AiResponsePostProcessor.process(rawStr)
                         _streamingContent.value = visibleResponse
                     }
                 }
@@ -460,9 +459,8 @@ class ChatViewModel(
                         ?: "Inferensi lokal gagal tanpa menghasilkan jawaban."
                 }
             } finally {
-                val finalContent = CitationMarkerValidator
-                    .stripMarkers(visibleResponse.ifBlank { fullResponse.toString().trim() })
-                    .trim()
+                val rawContent = visibleResponse.ifBlank { fullResponse.toString().trim() }
+                val finalContent = com.quranplus.app.features.chatbot.domain.AiResponsePostProcessor.process(rawContent)
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                     try {
                         if (finalContent.isNotBlank()) {
