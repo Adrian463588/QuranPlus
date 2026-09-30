@@ -20,61 +20,65 @@ object DzikirTajwidFormatter {
         enableTajwid: Boolean = true,
         baseTextColor: Color = QuranColors.TextArabicDefault
     ): AnnotatedString {
-        if (!enableTajwid) {
-            val clean = stripTags(arabicText)
+        val cleanArabic = stripTags(arabicText).trim().removeSurrounding("\"")
+        if (!enableTajwid || cleanArabic.isBlank()) {
             return buildAnnotatedString {
                 withStyle(SpanStyle(color = baseTextColor)) {
-                    append(clean)
+                    append(cleanArabic)
                 }
             }
         }
 
         // If explicit bracket tags are supplied (e.g. "[g[إِنَّ] [f[مِن قَبْلِ]]")
-        val tagSource = if (!tajwidTags.isNullOrBlank()) tajwidTags else if (arabicText.contains("[")) arabicText else null
+        val rawTagSource = if (!tajwidTags.isNullOrBlank()) tajwidTags else if (arabicText.contains("[")) arabicText else null
+        val tagSource = rawTagSource?.trim()?.removeSurrounding("\"")
         if (tagSource != null) {
             val parsed = TajwidParser.parseBracketTags(tagSource)
-            if (parsed.spans.isNotEmpty()) {
-                val targetText = if (arabicText.isNotBlank() && !arabicText.contains("[") && arabicText.length == parsed.text.length) {
-                    arabicText
-                } else {
-                    parsed.text
-                }
-                val builder = AnnotatedString.Builder(targetText)
-                builder.addStyle(SpanStyle(color = baseTextColor), 0, targetText.length)
-                parsed.spans.forEach { span ->
-                    span.type.color?.let { color ->
-                        val safeStart = span.start.coerceIn(0, targetText.length)
-                        val safeEnd = span.end.coerceIn(safeStart, targetText.length)
-                        var segStart = -1
-                        for (i in safeStart until safeEnd) {
-                            val ch = targetText[i]
-                            if (ch.isWhitespace() || ch in WAQAF_MARKS) {
-                                if (segStart != -1) {
-                                    builder.addStyle(SpanStyle(color = color), segStart, i)
-                                    segStart = -1
-                                }
-                            } else {
-                                if (segStart == -1) {
-                                    segStart = i
+            if (parsed.spans.isNotEmpty() && !parsed.malformed) {
+                val alignedSpans = TajwidParser.alignSpansToDisplay(parsed, cleanArabic)
+                val spansToUse = if (alignedSpans != null && alignedSpans.isNotEmpty()) {
+                    alignedSpans
+                } else if (cleanArabic.length == parsed.text.length) {
+                    parsed.spans
+                } else null
+
+                if (spansToUse != null) {
+                    val builder = AnnotatedString.Builder(cleanArabic)
+                    builder.addStyle(SpanStyle(color = baseTextColor), 0, cleanArabic.length)
+                    spansToUse.forEach { span ->
+                        span.type.color?.let { color ->
+                            val safeStart = span.start.coerceIn(0, cleanArabic.length)
+                            val safeEnd = span.end.coerceIn(safeStart, cleanArabic.length)
+                            var segStart = -1
+                            for (i in safeStart until safeEnd) {
+                                val ch = cleanArabic[i]
+                                if (ch.isWhitespace() || ch in WAQAF_MARKS) {
+                                    if (segStart != -1) {
+                                        builder.addStyle(SpanStyle(color = color), segStart, i)
+                                        segStart = -1
+                                    }
+                                } else {
+                                    if (segStart == -1) {
+                                        segStart = i
+                                    }
                                 }
                             }
-                        }
-                        if (segStart != -1) {
-                            builder.addStyle(SpanStyle(color = color), segStart, safeEnd)
+                            if (segStart != -1) {
+                                builder.addStyle(SpanStyle(color = color), segStart, safeEnd)
+                            }
                         }
                     }
+                    return builder.toAnnotatedString()
                 }
-                return builder.toAnnotatedString()
             }
         }
 
-        // Fallback to TajwidParser native pipeline
-        return TajwidParser.buildColoredAyahText(
-            arabicText = arabicText,
-            tajwidTags = tajwidTags,
-            enableTajwid = enableTajwid,
-            baseTextColor = baseTextColor
-        )
+        // Fallback: render cleanArabic safely with base color, preserving 100% harakat
+        return buildAnnotatedString {
+            withStyle(SpanStyle(color = baseTextColor)) {
+                append(cleanArabic)
+            }
+        }
     }
 
     private fun stripTags(text: String): String =

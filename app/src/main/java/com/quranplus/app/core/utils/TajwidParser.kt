@@ -487,7 +487,7 @@ object TajwidParser {
         }
     }
 
-    private fun alignSpansToDisplay(
+    internal fun alignSpansToDisplay(
         parsed: TaggedTextResult,
         displayText: String
     ): List<TajwidSpan>? {
