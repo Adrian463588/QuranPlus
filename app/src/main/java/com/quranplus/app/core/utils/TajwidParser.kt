@@ -424,6 +424,10 @@ object TajwidParser {
                         }
                     }
                     cursor++
+                    // Consume matching second ']' if double bracket ']]' was used
+                    if (cursor < text.length && text[cursor] == ']' && openTags.isEmpty()) {
+                        cursor++
+                    }
                 }
                 else -> {
                     plainText.append(normalizeSourceContent(text[cursor].toString()))
