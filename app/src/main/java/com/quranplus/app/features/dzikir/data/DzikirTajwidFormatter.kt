@@ -38,21 +38,8 @@ object DzikirTajwidFormatter {
         val tagSource = rawTagSource?.trim()?.removeSurrounding("\"")
         if (tagSource != null) {
             val parsed = TajwidParser.parseBracketTags(tagSource)
-            if (parsed.spans.isNotEmpty()) {
-                val alignedSpans = TajwidParser.alignSpansToDisplay(parsed, cleanArabic)
-                val spansToUse = if (alignedSpans != null && alignedSpans.isNotEmpty()) {
-                    alignedSpans
-                } else if (cleanArabic.length == parsed.text.length) {
-                    parsed.spans
-                } else {
-                    // Substring offset alignment if cleanArabic contains parsed.text
-                    val subIdx = cleanArabic.indexOf(parsed.text)
-                    if (subIdx >= 0) {
-                        parsed.spans.map { s -> s.copy(start = s.start + subIdx, end = s.end + subIdx) }
-                    } else null
-                }
-
-                spansToUse?.forEach { span ->
+            if (!parsed.malformed && parsed.unknownTags.isEmpty()) {
+                TajwidParser.alignSpansToDisplay(parsed, cleanArabic)?.forEach { span ->
                     span.type.color?.let { color ->
                         collectedSpans += ColorSpan(span.start, span.end, color)
                     }
@@ -64,12 +51,13 @@ object DzikirTajwidFormatter {
         // Detects Ghunnah, Qalqalah, Mad Wajib/Jaiz, Ikhfa, Idgham, Iqlab directly on cleanArabic
         val detectedRuleSpans = detectInterCharacterRules(cleanArabic)
         detectedRuleSpans.forEach { ruleSpan ->
-            // Only add if not already covered by explicit tag spans
-            val overlaps = collectedSpans.any { existing ->
+            val overlaps = collectedSpans.filter { existing ->
                 maxOf(existing.start, ruleSpan.start) < minOf(existing.end, ruleSpan.end)
             }
-            if (!overlaps) {
-                collectedSpans += ruleSpan
+            if (overlaps.none { it.color != ruleSpan.color }) {
+                uncoveredRanges(ruleSpan.start, ruleSpan.end, overlaps).forEach { (start, end) ->
+                    collectedSpans += ruleSpan.copy(start = start, end = end)
+                }
             }
         }
 
@@ -100,6 +88,23 @@ object DzikirTajwidFormatter {
         }
 
         return builder.toAnnotatedString()
+    }
+
+    private fun uncoveredRanges(
+        start: Int,
+        end: Int,
+        coveredSpans: List<ColorSpan>
+    ): List<Pair<Int, Int>> {
+        var cursor = start
+        return buildList {
+            coveredSpans.sortedBy { it.start }.forEach { covered ->
+                val coveredStart = covered.start.coerceAtLeast(start)
+                val coveredEnd = covered.end.coerceAtMost(end)
+                if (coveredStart > cursor) add(cursor to coveredStart)
+                cursor = maxOf(cursor, coveredEnd)
+            }
+            if (cursor < end) add(cursor to end)
+        }
     }
 
     private fun detectInterCharacterRules(text: String): List<ColorSpan> {
