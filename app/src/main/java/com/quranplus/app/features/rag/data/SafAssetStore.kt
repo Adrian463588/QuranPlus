@@ -134,9 +134,12 @@ class SafAssetStore(
         val root = linkedRootOrThrow()
         val parts = relativePath.split('/').filter(String::isNotBlank)
         require(parts.isNotEmpty()) { "Path asset kosong" }
-        val file = parts.dropLast(1).fold(root) { parent, segment ->
-            parent.findFile(segment) ?: throw IllegalStateException("Folder SAF tidak ditemukan: $segment")
-        }.findFile(parts.last()) ?: throw IllegalStateException("Asset SAF tidak ditemukan: $relativePath")
+        val file = runCatching {
+            parts.dropLast(1).fold(root) { parent, segment ->
+                parent.findFile(segment) ?: throw IllegalStateException("Folder SAF tidak ditemukan: $segment")
+            }.findFile(parts.last())
+        }.getOrNull() ?: root.findFile(parts.last())
+            ?: throw IllegalStateException("Asset SAF tidak ditemukan: $relativePath")
         // Keep SAF materialization separate from the downloader's resumable
         // `${destination.name}.tmp` candidate. A startup restore must never
         // overwrite an active WorkManager transfer.
@@ -180,7 +183,7 @@ class SafAssetStore(
         createDirectoryPath(root, relativeDirectory).listFiles().count { it.isFile }
 
     private fun createRequiredDirectories(root: DocumentFile) {
-        listOf("models", "rag", "rag/source", "rag/index", "manifests", "audio", "audio/manifests")
+        listOf("models", "rag", "rag/source", "rag/index", "manifests", "audio", "audio/manifests", "userdata")
             .forEach { createDirectoryPath(root, it) }
     }
 

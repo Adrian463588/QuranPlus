@@ -8,6 +8,9 @@ import com.quranplus.app.features.hadith.domain.GetHadithCollectionsUseCase
 import com.quranplus.app.features.hadith.domain.HadithCollection
 import com.quranplus.app.features.hadith.domain.HadithRecord
 import com.quranplus.app.features.hadith.domain.SearchHadithUseCase
+import com.quranplus.app.features.settings.data.PreferencesManager
+import com.quranplus.app.core.database.SafUserDataManager
+import com.quranplus.shared.features.quran.domain.HadithMarker
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,11 +42,24 @@ data class HadithBundleUiState(
 class HadithViewModel(
     getHadithCollectionsUseCase: GetHadithCollectionsUseCase,
     private val searchHadithUseCase: SearchHadithUseCase,
-    private val bundleManager: HadithBundleManager
+    private val bundleManager: HadithBundleManager,
+    private val preferencesManager: PreferencesManager? = null,
+    private val safUserDataManager: SafUserDataManager? = null
 ) : ViewModel() {
     val collections: StateFlow<List<HadithCollection>> = getHadithCollectionsUseCase()
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val hadithMarker: StateFlow<HadithMarker?> = preferencesManager?.hadithMarker
+        ?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        ?: MutableStateFlow(null)
+
+    fun setHadithMarker(marker: HadithMarker?) {
+        viewModelScope.launch {
+            preferencesManager?.setHadithMarker(marker)
+            safUserDataManager?.exportMarkersToSaf()
+        }
+    }
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
@@ -72,7 +88,10 @@ class HadithViewModel(
         }
         viewModelScope.launch {
             bundleManager.observeStorageRoot().collect { rootUri ->
-                if (rootUri != null) bundleManager.restoreFromSaf()
+                if (rootUri != null) {
+                    bundleManager.restoreFromSaf()
+                    safUserDataManager?.restoreFromSaf()
+                }
                 refreshBundleStatus()
             }
         }

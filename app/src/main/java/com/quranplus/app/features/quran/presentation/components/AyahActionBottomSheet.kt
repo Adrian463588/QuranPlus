@@ -90,6 +90,8 @@ fun AyahActionBottomSheet(
     audioPlayerManager: AudioPlayerManager,
     onDismissRequest: () -> Unit,
     onBookmarkToggle: (note: String?) -> Unit,
+    onMarkerToggle: () -> Unit = {},
+    isMarked: Boolean = false,
     onLoadTafsir: suspend (surahNumber: Int, ayahNumber: Int) -> Tafsir? = { _, _ -> null }
 ) {
     val context = LocalContext.current
@@ -171,12 +173,29 @@ fun AyahActionBottomSheet(
                     }
                 }
 
-                IconButton(onClick = { showNoteDialog = true }) {
-                    Icon(
-                        imageVector = if (ayah.isBookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
-                        contentDescription = "Bookmark & Catatan",
-                        tint = if (ayah.isBookmarked) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = {
+                        onMarkerToggle()
+                        Toast.makeText(
+                            context,
+                            if (isMarked) "Penanda baca dihapus" else "Penanda baca disimpan di QS. $surahName : ${ayah.ayahNumber}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }) {
+                        Icon(
+                            imageVector = if (isMarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                            contentDescription = "Penanda Berhenti Baca",
+                            tint = if (isMarked) QuranColors.OceanMarker else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    IconButton(onClick = { showNoteDialog = true }) {
+                        Icon(
+                            imageVector = if (ayah.isBookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                            contentDescription = "Bookmark & Catatan",
+                            tint = if (ayah.isBookmarked) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -237,6 +256,22 @@ fun AyahActionBottomSheet(
                         totalAyahsInSurah = totalAyahsInSurah
                     )
                     Toast.makeText(context, "Mode Pengulangan 3x Aktif", Toast.LENGTH_SHORT).show()
+                    onDismissRequest()
+                }
+            )
+
+            // 2b. Reading Marker (Penanda Berhenti Baca - Biru Muda Ocean)
+            ActionItemRow(
+                icon = if (isMarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                title = if (isMarked) "Hapus Penanda Baca (Berhenti di Sini)" else "Tandai Berhenti di Sini (Penanda Baca)",
+                subtitle = if (isMarked) "Penanda baca aktif terpasang di ayat ini (tersimpan di SAF)" else "Tandai ayat ini sebagai tempat berhenti membaca (tersimpan di SAF)",
+                onClick = {
+                    onMarkerToggle()
+                    Toast.makeText(
+                        context,
+                        if (isMarked) "Penanda baca dihapus" else "Penanda baca disimpan di QS. $surahName : ${ayah.ayahNumber}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     onDismissRequest()
                 }
             )

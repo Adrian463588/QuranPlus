@@ -29,6 +29,7 @@ class QuranPlusApp : Application() {
             koinApplication.koin.get<HadithBundleManager>().restoreFromSaf()
             koinApplication.koin.get<com.quranplus.app.core.audio.AudioAssetStore>().restoreFromSaf()
             koinApplication.koin.get<com.quranplus.app.features.chatbot.data.ModelRepository>().restoreVerifiedModelsFromSaf()
+            koinApplication.koin.get<com.quranplus.app.core.database.SafUserDataManager>().restoreFromSaf()
         }
     }
 }

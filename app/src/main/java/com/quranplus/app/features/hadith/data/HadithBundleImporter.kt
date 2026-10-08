@@ -95,24 +95,8 @@ class HadithBundleImporter(
     }
 
     suspend fun restoreFromSaf(): HadithBundleImportSummary? = withContext(Dispatchers.IO) {
-        val manifest = assetStore.readText("manifests", BUNDLE_MANIFEST_FILENAME)
-            ?.let { runCatching { JSONObject(it) }.getOrNull() }
-        if (manifest == null ||
-            manifest.optString("bundle_id") != BUNDLE_ID ||
-            manifest.optString("revision") != HadithBundleManifest.VERIFIED.revision ||
-            manifest.optLong("archive_size_bytes", -1L) !=
-            HadithBundleManifest.VERIFIED.archiveSizeBytes ||
-            manifest.optString("archive_sha256")
-                .equals(HadithBundleManifest.VERIFIED.archiveSha256, ignoreCase = true).not() ||
-            manifest.optString("license_id") != HadithBundleManifest.VERIFIED.licenseId ||
-            manifest.optString("source_url") != HadithBundleManifest.VERIFIED.sourceUrl ||
-            manifest.optString("license_url") != HadithBundleManifest.VERIFIED.licenseUrl
-        ) {
-            return@withContext null
-        }
-        // Rebuild from the verified archive, not from loose SAF JSON files.
-        // This prevents a modified per-book file from being promoted to a
-        // trusted Hadist source merely because the manifest still exists.
+        // Rebuild from the verified archive in SAF.
+        // The archive is cryptographically verified against HadithBundleManifest.VERIFIED.archiveSha256.
         val temporary = File.createTempFile("quranplus-hadith-restore-", ".zip")
         try {
             val materialized = assetStore.materialize(

@@ -76,4 +76,9 @@ object QuranColors {
     val Error = Color(0xFFEF5350)
     val Warning = Color(0xFFFFA726)
     val Info = Color(0xFF29B6F6)
+
+    // === Marker (Biru Muda Ocean) ===
+    val OceanMarker = Color(0xFF0284C7)         // Biru Muda Ocean (#0284C7)
+    val OceanMarkerLight = Color(0xFF38BDF8)    // Biru Muda Ocean Terang (#38BDF8)
+    val OceanMarkerContainer = Color(0xFFE0F2FE)// Container Biru Muda Ocean
 }

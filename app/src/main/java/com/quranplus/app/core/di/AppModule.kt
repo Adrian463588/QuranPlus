@@ -129,9 +129,10 @@ val appModule = module {
     single { HadithReferenceImporter(androidContext(), get()) }
     single { HadithBundleImporter(get(), get()) }
     single { HadithBundleManager(get(), get(), get(), get()) }
+    single { com.quranplus.app.core.database.SafUserDataManager(get(), get(), get()) }
 
     // Repositories
-    single<QuranRepository> { QuranRepositoryImpl(get(), get(), get(), get(), get()) }
+    single<QuranRepository> { QuranRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<WordByWordRepository> { WordByWordRepositoryImpl(get()) }
     single<HadithRepository> { HadithRepositoryImpl(get()) }
     single<TahsinRepository> { TahsinRepositoryImpl(get()) }
@@ -192,14 +193,14 @@ val appModule = module {
     factory { SearchDzikirUseCase(get()) }
 
     // ViewModels
-    viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { AudioDownloadViewModel(get(), get(), get()) }
 
     viewModel { ChatViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    viewModel { HadithViewModel(get(), get(), get()) }
+    viewModel { HadithViewModel(get(), get(), get(), get(), get()) }
     viewModel { TahsinViewModel(get(), get(), get()) }
     viewModel { QuizViewModel(get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get()) }
-    viewModel { RagDocumentViewModel(get(), get(), get(), get(), get()) }
+    viewModel { RagDocumentViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { DzikirViewModel(get(), get(), get()) }
 }

@@ -10,6 +10,9 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.quranplus.shared.features.quran.domain.QuranMarker
+import com.quranplus.shared.features.quran.domain.HadithMarker
+import org.json.JSONObject
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "quranplus_settings")
 
@@ -85,6 +88,8 @@ class PreferencesManager(private val context: Context) {
         val SAF_ROOT_URI = stringPreferencesKey("saf_root_uri")
         val ONLINE_RESEARCH_ENABLED = booleanPreferencesKey("online_research_enabled")
         val SEARCH_HISTORY = stringPreferencesKey("quran_search_history")
+        val QURAN_MARKER = stringPreferencesKey("quran_marker_data")
+        val HADITH_MARKER = stringPreferencesKey("hadith_marker_data")
     }
 
     val isDarkMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -248,6 +253,64 @@ class PreferencesManager(private val context: Context) {
     suspend fun clearSearchHistory() {
         context.dataStore.edit { preferences ->
             preferences.remove(PreferencesKeys.SEARCH_HISTORY)
+        }
+    }
+
+    val quranMarker: Flow<QuranMarker?> = context.dataStore.data.map { preferences ->
+        val raw = preferences[PreferencesKeys.QURAN_MARKER] ?: return@map null
+        runCatching {
+            val json = JSONObject(raw)
+            QuranMarker(
+                surahNumber = json.getInt("surahNumber"),
+                surahName = json.getString("surahName"),
+                ayahNumber = json.getInt("ayahNumber"),
+                timestamp = json.optLong("timestamp", System.currentTimeMillis())
+            )
+        }.getOrNull()
+    }
+
+    val hadithMarker: Flow<HadithMarker?> = context.dataStore.data.map { preferences ->
+        val raw = preferences[PreferencesKeys.HADITH_MARKER] ?: return@map null
+        runCatching {
+            val json = JSONObject(raw)
+            HadithMarker(
+                collectionId = json.getString("collectionId"),
+                collectionName = json.getString("collectionName"),
+                hadithNumber = json.getInt("hadithNumber"),
+                timestamp = json.optLong("timestamp", System.currentTimeMillis())
+            )
+        }.getOrNull()
+    }
+
+    suspend fun setQuranMarker(marker: QuranMarker?) {
+        context.dataStore.edit { preferences ->
+            if (marker == null) {
+                preferences.remove(PreferencesKeys.QURAN_MARKER)
+            } else {
+                val json = JSONObject().apply {
+                    put("surahNumber", marker.surahNumber)
+                    put("surahName", marker.surahName)
+                    put("ayahNumber", marker.ayahNumber)
+                    put("timestamp", marker.timestamp)
+                }
+                preferences[PreferencesKeys.QURAN_MARKER] = json.toString()
+            }
+        }
+    }
+
+    suspend fun setHadithMarker(marker: HadithMarker?) {
+        context.dataStore.edit { preferences ->
+            if (marker == null) {
+                preferences.remove(PreferencesKeys.HADITH_MARKER)
+            } else {
+                val json = JSONObject().apply {
+                    put("collectionId", marker.collectionId)
+                    put("collectionName", marker.collectionName)
+                    put("hadithNumber", marker.hadithNumber)
+                    put("timestamp", marker.timestamp)
+                }
+                preferences[PreferencesKeys.HADITH_MARKER] = json.toString()
+            }
         }
     }
 }

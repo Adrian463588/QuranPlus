@@ -50,3 +50,17 @@ data class Tafsir(
     val tafsirText: String,
     val source: String = "Kemenag RI"
 )
+
+data class QuranMarker(
+    val surahNumber: Int,
+    val surahName: String,
+    val ayahNumber: Int,
+    val timestamp: Long = 0L
+)
+
+data class HadithMarker(
+    val collectionId: String,
+    val collectionName: String,
+    val hadithNumber: Int,
+    val timestamp: Long = 0L
+)

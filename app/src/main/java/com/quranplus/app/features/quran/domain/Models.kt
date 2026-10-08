@@ -8,6 +8,8 @@ typealias QuranSearchField = com.quranplus.shared.features.quran.domain.QuranSea
 typealias QuranSearchMode = com.quranplus.shared.features.quran.domain.QuranSearchMode
 typealias QuranSearchFilter = com.quranplus.shared.features.quran.domain.QuranSearchFilter
 typealias Tafsir = com.quranplus.shared.features.quran.domain.Tafsir
+typealias QuranMarker = com.quranplus.shared.features.quran.domain.QuranMarker
+typealias HadithMarker = com.quranplus.shared.features.quran.domain.HadithMarker
 
 
 data class JuzInfo(

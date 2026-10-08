@@ -286,10 +286,10 @@ class ModelRepository(
         .filter { it.role == ModelAssetRole.CHATBOT }
         .any(::isModelReady)
 
-    suspend fun restoreVerifiedModelsFromSaf() =
+    suspend fun restoreVerifiedModelsFromSaf(force: Boolean = false) =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             startupVerificationMutex.withLock {
-                if (startupVerificationComplete) return@withLock
+                if (startupVerificationComplete && !force) return@withLock
                 // Prioritize embedding models first so RAG services become ready immediately
                 (availableEmbeddingModels + availableChatbotModels)
                     .filter(ModelInfo::isDownloadable)

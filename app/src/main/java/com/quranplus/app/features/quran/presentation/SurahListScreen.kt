@@ -23,12 +23,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Surface
+import com.quranplus.app.core.ui.theme.QuranColors
+import com.quranplus.shared.features.quran.domain.QuranMarker
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -58,7 +64,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -96,6 +101,7 @@ fun SurahListScreen(
 ) {
     val surahState by viewModel.surahListState.collectAsStateWithLifecycle()
     val lastRead by viewModel.lastReadState.collectAsStateWithLifecycle()
+    val quranMarker by viewModel.quranMarker.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableStateOf(QuranListTab.SURAH) }
     var showTajwidSheet by remember { mutableStateOf(false) }
     var showQuranMenu by remember { mutableStateOf(false) }
@@ -179,15 +185,26 @@ fun SurahListScreen(
                 }
             }
 
-            // Quick Continue / Last Read Card (visible on SURAH and JUZ tabs)
-            if (lastRead != null && selectedTab != QuranListTab.BOOKMARK) {
-                Box(modifier = Modifier.widthIn(max = 840.dp)) {
-                    LastReadBanner(
-                        lastRead = lastRead!!,
-                        onClick = {
-                            onSurahClick(lastRead!!.surahNumber, lastRead!!.ayahNumber)
-                        }
-                    )
+            // Marker Banner (Ocean Light Blue) & Quick Continue / Last Read Card
+            if (selectedTab != QuranListTab.BOOKMARK) {
+                if (quranMarker != null) {
+                    Box(modifier = Modifier.widthIn(max = 840.dp)) {
+                        ReadingMarkerBanner(
+                            marker = quranMarker!!,
+                            onClick = {
+                                onSurahClick(quranMarker!!.surahNumber, quranMarker!!.ayahNumber)
+                            }
+                        )
+                    }
+                } else if (lastRead != null) {
+                    Box(modifier = Modifier.widthIn(max = 840.dp)) {
+                        LastReadBanner(
+                            lastRead = lastRead!!,
+                            onClick = {
+                                onSurahClick(lastRead!!.surahNumber, lastRead!!.ayahNumber)
+                            }
+                        )
+                    }
                 }
             }
 
@@ -666,6 +683,82 @@ private fun SurahDetailPane(
             Icon(imageVector = Icons.Rounded.AutoStories, contentDescription = null)
             Spacer(modifier = Modifier.width(Spacing.sm))
             Text(text = "Buka reader")
+        }
+    }
+}
+
+@Composable
+fun ReadingMarkerBanner(
+    marker: QuranMarker,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        colors = CardDefaults.cardColors(
+            containerColor = QuranColors.OceanMarker.copy(alpha = 0.12f)
+        ),
+        border = BorderStroke(1.5.dp, QuranColors.OceanMarker),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = QuranColors.OceanMarker,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.Bookmark,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(Spacing.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Penanda Berhenti Baca",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = QuranColors.OceanMarker
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = QuranColors.OceanMarker
+                    ) {
+                        Text(
+                            text = "MARKER",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = "QS. ${marker.surahName} (Ayat ${marker.ayahNumber})",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Ketuk untuk melanjutkan membaca dari ayat ini",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

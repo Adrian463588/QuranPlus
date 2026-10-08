@@ -26,7 +26,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.CloudDownload
@@ -69,12 +72,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.quranplus.app.R
 import com.quranplus.app.core.ui.components.AppEmptyState
 import com.quranplus.app.core.ui.components.AppOutlinedButton
 import com.quranplus.app.core.ui.components.AppPrimaryButton
 import com.quranplus.app.core.ui.components.AppTopBar
+import com.quranplus.app.core.ui.theme.QuranColors
 import com.quranplus.app.core.ui.theme.QuranFontFamily
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
@@ -83,6 +88,7 @@ import com.quranplus.app.features.hadith.domain.HadithCollection
 import com.quranplus.app.features.hadith.domain.HadithCollectionSection
 import com.quranplus.app.features.hadith.domain.HadithRecord
 import com.quranplus.app.features.hadith.domain.sectionedHadithCollections
+import com.quranplus.shared.features.quran.domain.HadithMarker
 
 @Composable
 fun HadithScreen(
@@ -97,6 +103,7 @@ fun HadithScreen(
     val highlightedNumber by viewModel.highlightedNumber.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
     val bundleState by viewModel.bundleState.collectAsStateWithLifecycle()
+    val hadithMarker by viewModel.hadithMarker.collectAsStateWithLifecycle()
 
     var showBundleDialog by remember { mutableStateOf(false) }
     var showJumpDialog by remember { mutableStateOf(false) }
@@ -248,6 +255,12 @@ fun HadithScreen(
             when (val current = state) {
                 HadithUiState.Catalog -> HadithCollectionCatalog(
                     collections = collections,
+                    hadithMarker = hadithMarker,
+                    onMarkerClick = {
+                        hadithMarker?.let { marker ->
+                            viewModel.openReference(marker.collectionId, marker.hadithNumber)
+                        }
+                    },
                     onCollectionClick = viewModel::setCollection,
                     modifier = Modifier.weight(1f)
                 )
@@ -285,6 +298,22 @@ fun HadithScreen(
                     selectedCollection = selectedCollection,
                     collections = collections,
                     query = query,
+                    hadithMarker = hadithMarker,
+                    onMarkerToggle = { record ->
+                        if (hadithMarker?.collectionId == record.collectionId && hadithMarker?.hadithNumber == record.hadithNumber) {
+                            viewModel.setHadithMarker(null)
+                        } else {
+                            val collName = collections.firstOrNull { it.id == record.collectionId }?.title.orEmpty().ifBlank { record.title }
+                            viewModel.setHadithMarker(
+                                HadithMarker(
+                                    collectionId = record.collectionId,
+                                    collectionName = collName,
+                                    hadithNumber = record.hadithNumber,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                    },
                     scrollToIndex = scrollToIndex,
                     highlightedNumber = highlightedNumber,
                     onScrolledToIndex = viewModel::onScrolledToIndex,
@@ -668,7 +697,9 @@ private fun LoadingState(modifier: Modifier = Modifier) {
 private fun HadithCollectionCatalog(
     collections: List<HadithCollection>,
     onCollectionClick: (String?) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    hadithMarker: HadithMarker? = null,
+    onMarkerClick: () -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier
@@ -677,6 +708,14 @@ private fun HadithCollectionCatalog(
         contentPadding = PaddingValues(top = Spacing.xs, bottom = Spacing.xxl),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
+        if (hadithMarker != null) {
+            item(key = "reading_marker_banner") {
+                HadithReadingMarkerBanner(
+                    marker = hadithMarker,
+                    onClick = onMarkerClick
+                )
+            }
+        }
         sectionedHadithCollections(collections).forEach { (section, items) ->
             item(key = "section:${section.name}") {
                 HadithSectionHeader(section)
@@ -687,6 +726,82 @@ private fun HadithCollectionCatalog(
                     onClick = { onCollectionClick(collection.id) }
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun HadithReadingMarkerBanner(
+    marker: HadithMarker,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = Spacing.xs),
+        colors = CardDefaults.cardColors(
+            containerColor = QuranColors.OceanMarker.copy(alpha = 0.12f)
+        ),
+        border = BorderStroke(1.5.dp, QuranColors.OceanMarker),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = QuranColors.OceanMarker,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.Bookmark,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(Spacing.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Penanda Berhenti Baca",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = QuranColors.OceanMarker
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = QuranColors.OceanMarker
+                    ) {
+                        Text(
+                            text = "MARKER",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = "${marker.collectionName} · No. ${marker.hadithNumber}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                contentDescription = null,
+                tint = QuranColors.OceanMarker
+            )
         }
     }
 }
@@ -887,6 +1002,8 @@ private fun HadithResults(
     collections: List<HadithCollection>,
     modifier: Modifier = Modifier,
     query: String = "",
+    hadithMarker: HadithMarker? = null,
+    onMarkerToggle: (HadithRecord) -> Unit = {},
     scrollToIndex: Int? = null,
     highlightedNumber: Int? = null,
     onScrolledToIndex: () -> Unit = {}
@@ -955,10 +1072,13 @@ private fun HadithResults(
         }
         items(records, key = { it.id }) { record ->
             val isHighlighted = highlightedNumber != null && record.hadithNumber == highlightedNumber
+            val isMarked = hadithMarker != null && hadithMarker.collectionId == record.collectionId && hadithMarker.hadithNumber == record.hadithNumber
             HadithCardItem(
                 record = record,
                 collectionName = collectionName.ifBlank { record.title },
-                isHighlighted = isHighlighted
+                isHighlighted = isHighlighted,
+                isMarked = isMarked,
+                onMarkerToggle = { onMarkerToggle(record) }
             )
         }
     }
@@ -968,7 +1088,9 @@ private fun HadithResults(
 private fun HadithCardItem(
     record: HadithRecord,
     collectionName: String,
-    isHighlighted: Boolean = false
+    isHighlighted: Boolean = false,
+    isMarked: Boolean = false,
+    onMarkerToggle: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -976,17 +1098,17 @@ private fun HadithCardItem(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isHighlighted) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)
-            } else {
-                MaterialTheme.colorScheme.surface
+            containerColor = when {
+                isMarked -> QuranColors.OceanMarker.copy(alpha = 0.08f)
+                isHighlighted -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)
+                else -> MaterialTheme.colorScheme.surface
             }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlighted) 4.dp else 2.dp),
-        border = if (isHighlighted) {
-            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-        } else {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlighted || isMarked) 4.dp else 2.dp),
+        border = when {
+            isMarked -> BorderStroke(2.dp, QuranColors.OceanMarker)
+            isHighlighted -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+            else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         }
     ) {
         Column(
@@ -995,7 +1117,7 @@ private fun HadithCardItem(
                 .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
-            // 1. Card Header: Hadith Identifier Badge & Quick Actions (Copy / Share)
+            // 1. Card Header: Hadith Identifier Badge & Quick Actions (Copy / Share / Marker)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1008,8 +1130,16 @@ private fun HadithCardItem(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (isHighlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = if (isHighlighted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer
+                        color = when {
+                            isMarked -> QuranColors.OceanMarker
+                            isHighlighted -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.primaryContainer
+                        },
+                        contentColor = when {
+                            isMarked -> Color.White
+                            isHighlighted -> MaterialTheme.colorScheme.onPrimary
+                            else -> MaterialTheme.colorScheme.onPrimaryContainer
+                        }
                     ) {
                         Text(
                             text = "HR. $collectionName · No. ${record.hadithNumber}",
@@ -1017,6 +1147,20 @@ private fun HadithCardItem(
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp)
                         )
+                    }
+                    if (isMarked) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = QuranColors.OceanMarker,
+                            contentColor = Color.White
+                        ) {
+                            Text(
+                                text = "📍 Penanda Baca (Berhenti)",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 3.dp)
+                            )
+                        }
                     }
                     if (isHighlighted) {
                         Surface(
@@ -1107,6 +1251,18 @@ private fun HadithCardItem(
                             imageVector = Icons.Rounded.Share,
                             contentDescription = "Bagikan Hadist",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onMarkerToggle,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isMarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                            contentDescription = if (isMarked) "Hapus Penanda Berhenti" else "Tandai Berhenti Baca",
+                            tint = if (isMarked) QuranColors.OceanMarker else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                     }

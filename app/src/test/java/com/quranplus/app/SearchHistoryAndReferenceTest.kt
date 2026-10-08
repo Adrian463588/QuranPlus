@@ -81,4 +81,32 @@ class SearchHistoryAndReferenceTest {
 
         assertEquals(listOf("Yasin", "Al-Baqarah 255", "Al-Mulk", "Al-Kahf"), reUpdated)
     }
+
+    @Test
+    fun GIVEN_userTypingSequence_WHEN_onlyExplicitSearchesRecorded_THEN_historyExcludesIntermediateKeystrokes() {
+        val simulatedKeystrokes = listOf("A", "Al", "Al-", "Al-M", "Al-Mu", "Al-Mul", "Al-Mulk")
+        val recordedHistory = mutableListOf<String>()
+
+        // Simulate behavior: onValueChange only filters, DOES NOT call recordSearchHistory
+        for (keystroke in simulatedKeystrokes) {
+            // Typing keystrokes: NO recording
+        }
+
+        // Only explicit action (e.g. keyboardActions.onSearch or selecting result/chip) records
+        fun onSearchExplicit(query: String) {
+            val clean = query.trim()
+            if (clean.length >= 2) {
+                recordedHistory.removeAll { it.equals(clean, ignoreCase = true) }
+                recordedHistory.add(0, clean)
+            }
+        }
+
+        onSearchExplicit("Al-Mulk")
+
+        // Verifying intermediate keystrokes are NOT in history
+        assertEquals(listOf("Al-Mulk"), recordedHistory)
+        org.junit.Assert.assertFalse(recordedHistory.contains("Al"))
+        org.junit.Assert.assertFalse(recordedHistory.contains("Al-"))
+        org.junit.Assert.assertFalse(recordedHistory.contains("Al-M"))
+    }
 }

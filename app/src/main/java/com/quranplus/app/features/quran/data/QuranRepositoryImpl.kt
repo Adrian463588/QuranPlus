@@ -28,7 +28,8 @@ class QuranRepositoryImpl(
     private val bookmarkDao: BookmarkDao,
     private val lastReadDao: LastReadDao,
     private val tafsirDao: TafsirDao,
-    private val preferencesManager: PreferencesManager? = null
+    private val preferencesManager: PreferencesManager? = null,
+    private val safUserDataManager: com.quranplus.app.core.database.SafUserDataManager? = null
 ) : QuranRepository {
 
 
@@ -244,10 +245,12 @@ class QuranRepositoryImpl(
                 )
             )
         }
+        safUserDataManager?.exportBookmarksToSaf()
     }
 
     override suspend fun deleteBookmark(id: Long) {
         bookmarkDao.deleteBookmarkById(id)
+        safUserDataManager?.exportBookmarksToSaf()
     }
 
     override suspend fun restoreBookmark(bookmark: Bookmark) {
@@ -263,10 +266,12 @@ class QuranRepositoryImpl(
                 timestamp = bookmark.timestamp
             )
         )
+        safUserDataManager?.exportBookmarksToSaf()
     }
 
     override suspend fun updateBookmarkNote(id: Long, note: String?) {
         bookmarkDao.updateNote(id, note?.takeIf(String::isNotBlank))
+        safUserDataManager?.exportBookmarksToSaf()
     }
 
     override fun getLastRead(): Flow<LastRead?> {

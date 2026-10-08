@@ -29,6 +29,8 @@ import com.quranplus.app.features.quran.domain.GetSearchHistoryUseCase
 import com.quranplus.app.features.quran.domain.SaveSearchQueryUseCase
 import com.quranplus.app.features.quran.domain.DeleteSearchQueryUseCase
 import com.quranplus.app.features.quran.domain.ClearSearchHistoryUseCase
+import com.quranplus.app.features.settings.data.PreferencesManager
+import com.quranplus.shared.features.quran.domain.QuranMarker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -62,7 +64,9 @@ class QuranViewModel(
     private val getSearchHistoryUseCase: GetSearchHistoryUseCase? = null,
     private val saveSearchQueryUseCase: SaveSearchQueryUseCase? = null,
     private val deleteSearchQueryUseCase: DeleteSearchQueryUseCase? = null,
-    private val clearSearchHistoryUseCase: ClearSearchHistoryUseCase? = null
+    private val clearSearchHistoryUseCase: ClearSearchHistoryUseCase? = null,
+    private val preferencesManager: PreferencesManager? = null,
+    private val safUserDataManager: com.quranplus.app.core.database.SafUserDataManager? = null
 ) : ViewModel() {
 
 
@@ -75,6 +79,17 @@ class QuranViewModel(
 
     val lastReadState: StateFlow<LastRead?> = getLastReadUseCase()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val quranMarker: StateFlow<QuranMarker?> = preferencesManager?.quranMarker
+        ?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        ?: MutableStateFlow(null)
+
+    fun setQuranMarker(marker: QuranMarker?) {
+        viewModelScope.launch {
+            preferencesManager?.setQuranMarker(marker)
+            safUserDataManager?.exportMarkersToSaf()
+        }
+    }
 
     private val _bookmarkSort = MutableStateFlow(BookmarkSort.NEWEST)
     val bookmarkSort: StateFlow<BookmarkSort> = _bookmarkSort.asStateFlow()
@@ -222,9 +237,6 @@ class QuranViewModel(
             try {
                 val results = searchQuranUseCase(query, _searchFilter.value)
                 _searchState.value = if (results.isEmpty()) UiState.Empty else UiState.Success(results)
-                if (query.trim().length >= 2) {
-                    recordSearchHistory(query)
-                }
             } catch (e: Exception) {
                 _searchState.value = UiState.Error(e.localizedMessage ?: "Pencarian gagal")
             }

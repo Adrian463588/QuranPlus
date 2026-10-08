@@ -12,6 +12,9 @@ import com.quranplus.app.features.rag.data.RagCorpusIndexer
 import com.quranplus.app.features.rag.domain.IndexCorpusResult
 import com.quranplus.app.features.hadith.data.HadithReferenceImporter
 import com.quranplus.app.features.hadith.data.HadithBundleManager
+import com.quranplus.app.features.chatbot.data.ModelRepository
+import com.quranplus.app.core.audio.AudioAssetStore
+import com.quranplus.app.core.database.SafUserDataManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +40,10 @@ class RagDocumentViewModel(
     private val assetStore: SafAssetStore,
     private val corpusIndexer: RagCorpusIndexer,
     private val hadithReferenceImporter: HadithReferenceImporter,
-    private val hadithBundleManager: HadithBundleManager
+    private val hadithBundleManager: HadithBundleManager,
+    private val modelRepository: ModelRepository? = null,
+    private val audioAssetStore: AudioAssetStore? = null,
+    private val safUserDataManager: SafUserDataManager? = null
 ) : ViewModel() {
     private val _state = MutableStateFlow<RagImportState>(RagImportState.Idle)
     val state: StateFlow<RagImportState> = _state.asStateFlow()
@@ -58,7 +64,10 @@ class RagDocumentViewModel(
             val status = runCatching { assetStore.getStatus() }.getOrNull()
             _storageStatus.value = status
             if (status?.isAccessible == true) {
+                modelRepository?.restoreVerifiedModelsFromSaf(force = true)
                 hadithBundleManager.restoreFromSaf()
+                audioAssetStore?.restoreFromSaf()
+                safUserDataManager?.restoreFromSaf()
                 _state.value = RagImportState.StorageLinked(status)
             }
         }
@@ -78,7 +87,10 @@ class RagDocumentViewModel(
                 )
             }
             if (result.isSuccess) {
+                modelRepository?.restoreVerifiedModelsFromSaf(force = true)
                 hadithBundleManager.restoreFromSaf()
+                audioAssetStore?.restoreFromSaf()
+                safUserDataManager?.restoreFromSaf()
                 buildIndex()
             }
         }
