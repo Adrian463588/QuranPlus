@@ -37,4 +37,8 @@ interface QuranRepository {
     )
     suspend fun getTafsir(surahNumber: Int, ayahNumber: Int): Tafsir?
     fun getTafsirsForSurah(surahNumber: Int): Flow<List<Tafsir>>
+    fun getSearchHistory(): Flow<List<String>> = kotlinx.coroutines.flow.emptyFlow()
+    suspend fun saveSearchQuery(query: String) {}
+    suspend fun deleteSearchQuery(query: String) {}
+    suspend fun clearSearchHistory() {}
 }

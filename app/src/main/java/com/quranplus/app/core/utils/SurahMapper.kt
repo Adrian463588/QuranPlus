@@ -254,4 +254,35 @@ object SurahMapper {
         val surah = findSurah(surahQuery) ?: return null
         return Pair(surah, ayahNumber)
     }
+
+    /**
+     * Parses flexible search query into Surah + Ayah number
+     * Supports: "Al-Baqarah 255", "Al-Baqarah:255", "Al-Baqarah ayat 255", "2:255", "2 255", "QS. Al-Baqarah: 255"
+     */
+    fun parseSearchReference(query: String): Pair<SurahRef, Int>? {
+        val clean = query.trim()
+        if (clean.isBlank()) return null
+
+        parseAyahReference(clean)?.let { return it }
+
+        // Format: "2:255" or "2 255"
+        val numericMatch = Regex("""^(\d{1,3})[\s:]+(\d{1,3})$""").find(clean)
+        if (numericMatch != null) {
+            val surahNum = numericMatch.groupValues[1].toIntOrNull() ?: return null
+            val ayahNum = numericMatch.groupValues[2].toIntOrNull() ?: return null
+            val surah = getSurah(surahNum) ?: return null
+            if (ayahNum in 1..surah.ayahCount) return Pair(surah, ayahNum)
+        }
+
+        // Format: "Al-Baqarah 255", "Al-Baqarah:255", "Al-Baqarah ayat 255", "Baqarah 255"
+        val namedMatch = Regex("""^([a-zA-Z\s'-]+?)[\s:]+(?:ayat\s+)?(\d{1,3})$""", RegexOption.IGNORE_CASE).find(clean)
+        if (namedMatch != null) {
+            val surahQuery = namedMatch.groupValues[1].trim()
+            val ayahNum = namedMatch.groupValues[2].toIntOrNull() ?: return null
+            val surah = findSurah(surahQuery) ?: return null
+            if (ayahNum in 1..surah.ayahCount) return Pair(surah, ayahNum)
+        }
+
+        return null
+    }
 }

@@ -84,6 +84,7 @@ class PreferencesManager(private val context: Context) {
         val TRANSLATION_MODE = stringPreferencesKey("translation_mode")
         val SAF_ROOT_URI = stringPreferencesKey("saf_root_uri")
         val ONLINE_RESEARCH_ENABLED = booleanPreferencesKey("online_research_enabled")
+        val SEARCH_HISTORY = stringPreferencesKey("quran_search_history")
     }
 
     val isDarkMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -211,6 +212,42 @@ class PreferencesManager(private val context: Context) {
     suspend fun setOnlineResearchEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.ONLINE_RESEARCH_ENABLED] = enabled
+        }
+    }
+
+    val searchHistory: Flow<List<String>> = context.dataStore.data.map { preferences ->
+        val raw = preferences[PreferencesKeys.SEARCH_HISTORY].orEmpty()
+        if (raw.isBlank()) emptyList()
+        else raw.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+    }
+
+    suspend fun addSearchHistory(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.length < 2) return
+        context.dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.SEARCH_HISTORY].orEmpty()
+                .split("\n")
+                .map { it.trim() }
+                .filter { it.isNotBlank() && !it.equals(trimmed, ignoreCase = true) }
+            val updated = (listOf(trimmed) + current).take(15)
+            preferences[PreferencesKeys.SEARCH_HISTORY] = updated.joinToString("\n")
+        }
+    }
+
+    suspend fun removeSearchHistory(query: String) {
+        val trimmed = query.trim()
+        context.dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.SEARCH_HISTORY].orEmpty()
+                .split("\n")
+                .map { it.trim() }
+                .filter { it.isNotBlank() && !it.equals(trimmed, ignoreCase = true) }
+            preferences[PreferencesKeys.SEARCH_HISTORY] = current.joinToString("\n")
+        }
+    }
+
+    suspend fun clearSearchHistory() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(PreferencesKeys.SEARCH_HISTORY)
         }
     }
 }

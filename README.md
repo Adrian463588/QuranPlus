@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Download APK](https://img.shields.io/badge/Download-APK%20v1.0.3-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk)
+[![Download APK](https://img.shields.io/badge/Download-APK%20v1.0.4-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk)
 [![Latest Release](https://img.shields.io/github/v/release/Adrian463588/QuranPlus?style=for-the-badge&color=0284c7)](https://github.com/Adrian463588/QuranPlus/releases/latest)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7f52ff?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack-Compose-4285f4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
@@ -20,7 +20,7 @@
 
 Untuk langsung menginstal aplikasi **Quran Plus** di smartphone atau tablet Android Anda:
 
-1. **[📥 Klik di sini untuk Mengunduh APK v1.0.3](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk)** *(Ukuran: ~237 MB, siap pakai)*.
+1. **[📥 Klik di sini untuk Mengunduh APK v1.0.4](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk)** *(Ukuran: ~237 MB, siap pakai)*.
 2. Setelah unduhan selesai, buka file `app-debug.apk` melalui notifikasi browser atau aplikasi **File Manager / Pengelola File**.
 3. Jika Android menampilkan peringatan keamanan sumber tidak dikenal, pilih **Setelan / Settings** lalu aktifkan **Izinkan dari sumber ini (Allow from this source)**.
 4. Tekan tombol **Pasang / Install**, tunggu hingga proses selesai, dan buka **Quran Plus**.

@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Card
@@ -53,6 +54,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
@@ -118,6 +120,7 @@ fun SearchScreen(
     var filterMenuExpanded by remember { mutableStateOf(false) }
     var filterSheetVisible by rememberSaveable { mutableStateOf(false) }
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
+    val searchHistory by viewModel.searchHistory.collectAsStateWithLifecycle()
     val surahListState by viewModel.surahListState.collectAsStateWithLifecycle()
     val searchFilter by viewModel.searchFilter.collectAsStateWithLifecycle()
     val selectedSurahNumber = searchFilter.surahNumber
@@ -218,7 +221,12 @@ fun SearchScreen(
                                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                     keyboardActions = KeyboardActions(
-                                        onSearch = { focusManager.clearFocus() }
+                                        onSearch = {
+                                            if (searchQuery.isNotBlank()) {
+                                                viewModel.recordSearchHistory(searchQuery)
+                                            }
+                                            focusManager.clearFocus()
+                                        }
                                     ),
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -237,6 +245,65 @@ fun SearchScreen(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                            }
+                        }
+                    }
+
+                    if (searchHistory.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(Spacing.xs))
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            item(key = "history_icon_indicator") {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(end = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.History,
+                                        contentDescription = "Riwayat Pencarian",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Riwayat:",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            items(
+                                items = searchHistory,
+                                key = { "top_history_$it" }
+                            ) { historyItem ->
+                                InputChip(
+                                    selected = searchQuery.equals(historyItem, ignoreCase = true),
+                                    onClick = {
+                                        searchQuery = historyItem
+                                        viewModel.searchQuran(historyItem)
+                                        viewModel.recordSearchHistory(historyItem)
+                                    },
+                                    label = {
+                                        Text(
+                                            text = historyItem,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Close,
+                                            contentDescription = "Hapus $historyItem",
+                                            modifier = Modifier
+                                                .size(14.dp)
+                                                .clickable { viewModel.deleteSearchQuery(historyItem) }
+                                        )
+                                    }
+                                )
                             }
                         }
                     }
@@ -431,6 +498,76 @@ fun SearchScreen(
                                 }
                             }
 
+                            if (searchHistory.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.History,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(Spacing.xs))
+                                        Text(
+                                            text = "Riwayat Pencarian",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    TextButton(
+                                        onClick = { viewModel.clearSearchHistory() },
+                                        contentPadding = PaddingValues(horizontal = Spacing.xs, vertical = 0.dp)
+                                    ) {
+                                        Text(
+                                            text = "Hapus Semua",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    searchHistory.forEach { historyQuery ->
+                                        InputChip(
+                                            selected = false,
+                                            onClick = {
+                                                searchQuery = historyQuery
+                                                viewModel.searchQuran(historyQuery)
+                                                viewModel.recordSearchHistory(historyQuery)
+                                            },
+                                            label = {
+                                                Text(text = historyQuery)
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.History,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            },
+                                            trailingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Close,
+                                                    contentDescription = "Hapus $historyQuery",
+                                                    modifier = Modifier
+                                                        .size(14.dp)
+                                                        .clickable { viewModel.deleteSearchQuery(historyQuery) }
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
                             Text(
                                 text = "Pencarian Populer",
                                 style = MaterialTheme.typography.titleSmall,
@@ -449,6 +586,7 @@ fun SearchScreen(
                                         onClick = {
                                             searchQuery = keyword
                                             viewModel.searchQuran(keyword)
+                                            viewModel.recordSearchHistory(keyword)
                                         },
                                         label = {
                                             Text(text = keyword)
@@ -483,7 +621,10 @@ fun SearchScreen(
                         ) { surah ->
                             SearchSurahMatchCard(
                                 surah = surah,
-                                onClick = { onAyahClick(surah.number, 1) }
+                                onClick = {
+                                    if (searchQuery.isNotBlank()) viewModel.recordSearchHistory(searchQuery)
+                                    onAyahClick(surah.number, 1)
+                                }
                             )
                         }
                         item(key = "surah_matches_divider") {
@@ -526,7 +667,10 @@ fun SearchScreen(
                                         ayah = ayah,
                                         query = searchQuery,
                                         filter = searchFilter,
-                                        onClick = { onAyahClick(ayah.surahNumber, ayah.ayahNumber) }
+                                        onClick = {
+                                            if (searchQuery.isNotBlank()) viewModel.recordSearchHistory(searchQuery)
+                                            onAyahClick(ayah.surahNumber, ayah.ayahNumber)
+                                        }
                                     )
                                 }
                             } else if (matchingSurahs.isEmpty()) {

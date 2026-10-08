@@ -19,12 +19,16 @@ import com.quranplus.app.features.quran.domain.GetTafsirUseCase
 import com.quranplus.app.features.quran.domain.LastRead
 import com.quranplus.app.features.quran.domain.BookmarkSort
 import com.quranplus.app.features.quran.domain.SaveLastReadUseCase
+import com.quranplus.app.features.quran.domain.QuranSearchFilter
 import com.quranplus.app.features.quran.domain.SearchQuranUseCase
 import com.quranplus.app.features.quran.domain.Surah
 import com.quranplus.app.features.quran.domain.Tafsir
 import com.quranplus.app.features.quran.domain.WordByWord
 import com.quranplus.app.features.quran.domain.ToggleBookmarkUseCase
-import com.quranplus.app.features.quran.domain.QuranSearchFilter
+import com.quranplus.app.features.quran.domain.GetSearchHistoryUseCase
+import com.quranplus.app.features.quran.domain.SaveSearchQueryUseCase
+import com.quranplus.app.features.quran.domain.DeleteSearchQueryUseCase
+import com.quranplus.app.features.quran.domain.ClearSearchHistoryUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -54,7 +58,11 @@ class QuranViewModel(
     private val saveLastReadUseCase: SaveLastReadUseCase,
     private val getLastReadUseCase: GetLastReadUseCase,
     private val getWordsBySurahUseCase: GetWordsBySurahUseCase,
-    private val getTafsirUseCase: GetTafsirUseCase
+    private val getTafsirUseCase: GetTafsirUseCase,
+    private val getSearchHistoryUseCase: GetSearchHistoryUseCase? = null,
+    private val saveSearchQueryUseCase: SaveSearchQueryUseCase? = null,
+    private val deleteSearchQueryUseCase: DeleteSearchQueryUseCase? = null,
+    private val clearSearchHistoryUseCase: ClearSearchHistoryUseCase? = null
 ) : ViewModel() {
 
 
@@ -91,6 +99,10 @@ class QuranViewModel(
 
     private val _searchFilter = MutableStateFlow(QuranSearchFilter())
     val searchFilter: StateFlow<QuranSearchFilter> = _searchFilter.asStateFlow()
+
+    val searchHistory: StateFlow<List<String>> = getSearchHistoryUseCase?.invoke()
+        ?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        ?: MutableStateFlow(emptyList())
 
     private var detailJob: Job? = null
     private var wordJob: Job? = null
@@ -210,9 +222,32 @@ class QuranViewModel(
             try {
                 val results = searchQuranUseCase(query, _searchFilter.value)
                 _searchState.value = if (results.isEmpty()) UiState.Empty else UiState.Success(results)
+                if (query.trim().length >= 2) {
+                    recordSearchHistory(query)
+                }
             } catch (e: Exception) {
                 _searchState.value = UiState.Error(e.localizedMessage ?: "Pencarian gagal")
             }
+        }
+    }
+
+    fun recordSearchHistory(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.length < 2) return
+        viewModelScope.launch {
+            saveSearchQueryUseCase?.invoke(trimmed)
+        }
+    }
+
+    fun deleteSearchQuery(query: String) {
+        viewModelScope.launch {
+            deleteSearchQueryUseCase?.invoke(query)
+        }
+    }
+
+    fun clearSearchHistory() {
+        viewModelScope.launch {
+            clearSearchHistoryUseCase?.invoke()
         }
     }
 

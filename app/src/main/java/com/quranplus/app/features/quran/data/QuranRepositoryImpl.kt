@@ -19,12 +19,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
-class QuranRepositoryImpl(
+import com.quranplus.app.core.utils.SurahMapper
+import com.quranplus.app.features.settings.data.PreferencesManager
+import kotlinx.coroutines.flow.emptyFlow
 
+class QuranRepositoryImpl(
     private val quranDao: QuranDao,
     private val bookmarkDao: BookmarkDao,
     private val lastReadDao: LastReadDao,
-    private val tafsirDao: TafsirDao
+    private val tafsirDao: TafsirDao,
+    private val preferencesManager: PreferencesManager? = null
 ) : QuranRepository {
 
 
@@ -116,50 +120,80 @@ class QuranRepositoryImpl(
         }
 
         val selectedSurahNumber = filter.surahNumber
-        val ftsExpression = buildFtsMatchExpression(cleanQuery, filter)
-        if (ftsExpression.isBlank()) return emptyList()
-        val filterClause = if (selectedSurahNumber == null) "" else "AND a.surah_id = ?"
-        val queryArgs = if (selectedSurahNumber == null) {
-            arrayOf<Any>(ftsExpression, 50)
-        } else {
-            arrayOf<Any>(ftsExpression, selectedSurahNumber, 50)
+        val directRef = SurahMapper.parseSearchReference(cleanQuery)
+        val directAyah = directRef?.let { (surah, ayahNum) ->
+            if (filter.surahNumber == null || filter.surahNumber == surah.number) {
+                quranDao.getAyah(surah.number, ayahNum)?.let { entity ->
+                    Ayah(
+                        id = entity.id,
+                        surahNumber = entity.surahId,
+                        surahName = surah.latinName,
+                        ayahNumber = entity.ayahNumber,
+                        textArabic = entity.textArabic,
+                        transliteration = entity.transliteration,
+                        translationId = entity.translationId,
+                        translationEn = entity.translationEn,
+                        juz = entity.juz,
+                        page = entity.page,
+                        tajwidTags = entity.tajwidTags
+                    )
+                }
+            } else null
         }
-        val results = quranDao.searchAyahsFts(
-            SimpleSQLiteQuery(
-                """
-                SELECT a.* FROM ayahs AS a
-                JOIN ayahs_fts5 ON a.id = ayahs_fts5.rowid
-                JOIN surahs AS s ON s.number = a.surah_id
-                WHERE ayahs_fts5 MATCH ? $filterClause
-                ORDER BY a.surah_id ASC, a.ayah_number ASC
-                LIMIT ?
-                """.trimIndent(),
-                queryArgs
-            )
-        )
-        val surahNames = results
-            .map { it.surahId }
-            .distinct()
-            .associateWith { id ->
-                quranDao.getSurahByNumber(id)?.nameLatin
-                    ?: throw IllegalStateException("Nama surah $id tidak tersedia")
-            }
 
-        return results.map { entity ->
-            Ayah(
-                id = entity.id,
-                surahNumber = entity.surahId,
-                surahName = surahNames.getValue(entity.surahId),
-                ayahNumber = entity.ayahNumber,
-                textArabic = entity.textArabic,
-                transliteration = entity.transliteration,
-                translationId = entity.translationId,
-                translationEn = entity.translationEn,
-                juz = entity.juz,
-                page = entity.page,
-                tajwidTags = entity.tajwidTags
+        val ftsExpression = buildFtsMatchExpression(cleanQuery, filter)
+        val ftsResults = if (ftsExpression.isNotBlank()) {
+            val filterClause = if (selectedSurahNumber == null) "" else "AND a.surah_id = ?"
+            val queryArgs = if (selectedSurahNumber == null) {
+                arrayOf<Any>(ftsExpression, 50)
+            } else {
+                arrayOf<Any>(ftsExpression, selectedSurahNumber, 50)
+            }
+            val results = quranDao.searchAyahsFts(
+                SimpleSQLiteQuery(
+                    """
+                    SELECT a.* FROM ayahs AS a
+                    JOIN ayahs_fts5 ON a.id = ayahs_fts5.rowid
+                    JOIN surahs AS s ON s.number = a.surah_id
+                    WHERE ayahs_fts5 MATCH ? $filterClause
+                    ORDER BY a.surah_id ASC, a.ayah_number ASC
+                    LIMIT ?
+                    """.trimIndent(),
+                    queryArgs
+                )
             )
+            val surahNames = results
+                .map { it.surahId }
+                .distinct()
+                .associateWith { id ->
+                    quranDao.getSurahByNumber(id)?.nameLatin
+                        ?: throw IllegalStateException("Nama surah $id tidak tersedia")
+                }
+
+            results.map { entity ->
+                Ayah(
+                    id = entity.id,
+                    surahNumber = entity.surahId,
+                    surahName = surahNames.getValue(entity.surahId),
+                    ayahNumber = entity.ayahNumber,
+                    textArabic = entity.textArabic,
+                    transliteration = entity.transliteration,
+                    translationId = entity.translationId,
+                    translationEn = entity.translationEn,
+                    juz = entity.juz,
+                    page = entity.page,
+                    tajwidTags = entity.tajwidTags
+                )
+            }
+        } else emptyList()
+
+        if (directAyah != null) {
+            val withoutDuplicate = ftsResults.filterNot {
+                it.surahNumber == directAyah.surahNumber && it.ayahNumber == directAyah.ayahNumber
+            }
+            return listOf(directAyah) + withoutDuplicate
         }
+        return ftsResults
     }
 
     override fun getAllBookmarks(sort: BookmarkSort): Flow<List<Bookmark>> {
@@ -297,5 +331,21 @@ class QuranRepositoryImpl(
                 )
             }
         }
+    }
+
+    override fun getSearchHistory(): Flow<List<String>> {
+        return preferencesManager?.searchHistory ?: emptyFlow()
+    }
+
+    override suspend fun saveSearchQuery(query: String) {
+        preferencesManager?.addSearchHistory(query)
+    }
+
+    override suspend fun deleteSearchQuery(query: String) {
+        preferencesManager?.removeSearchHistory(query)
+    }
+
+    override suspend fun clearSearchHistory() {
+        preferencesManager?.clearSearchHistory()
     }
 }

@@ -43,6 +43,10 @@ import com.quranplus.app.features.quran.domain.GetTafsirUseCase
 import com.quranplus.app.features.quran.domain.GetTafsirsForSurahUseCase
 import com.quranplus.app.features.quran.domain.QuranRepository
 import com.quranplus.app.features.quran.domain.WordByWordRepository
+import com.quranplus.app.features.quran.domain.GetSearchHistoryUseCase
+import com.quranplus.app.features.quran.domain.SaveSearchQueryUseCase
+import com.quranplus.app.features.quran.domain.DeleteSearchQueryUseCase
+import com.quranplus.app.features.quran.domain.ClearSearchHistoryUseCase
 import com.quranplus.app.features.quran.domain.SaveLastReadUseCase
 import com.quranplus.app.features.quran.domain.SearchQuranUseCase
 import com.quranplus.app.features.quran.domain.ToggleBookmarkUseCase
@@ -127,7 +131,7 @@ val appModule = module {
     single { HadithBundleManager(get(), get(), get(), get()) }
 
     // Repositories
-    single<QuranRepository> { QuranRepositoryImpl(get(), get(), get(), get()) }
+    single<QuranRepository> { QuranRepositoryImpl(get(), get(), get(), get(), get()) }
     single<WordByWordRepository> { WordByWordRepositoryImpl(get()) }
     single<HadithRepository> { HadithRepositoryImpl(get()) }
     single<TahsinRepository> { TahsinRepositoryImpl(get()) }
@@ -153,6 +157,10 @@ val appModule = module {
     factory { GetWordsBySurahUseCase(get()) }
     factory { GetTafsirUseCase(get()) }
     factory { GetTafsirsForSurahUseCase(get()) }
+    factory { GetSearchHistoryUseCase(get()) }
+    factory { SaveSearchQueryUseCase(get()) }
+    factory { DeleteSearchQueryUseCase(get()) }
+    factory { ClearSearchHistoryUseCase(get()) }
 
 
     // Use Cases — Hadist
@@ -184,7 +192,7 @@ val appModule = module {
     factory { SearchDzikirUseCase(get()) }
 
     // ViewModels
-    viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { QuranViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { AudioDownloadViewModel(get(), get(), get()) }
 
     viewModel { ChatViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
