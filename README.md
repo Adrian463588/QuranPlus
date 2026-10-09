@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Download APK](https://img.shields.io/badge/Download-APK%20v1.0.5-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk)
+[![Download APK](https://img.shields.io/badge/Download-APK%20v1.0.6-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk)
 [![Latest Release](https://img.shields.io/github/v/release/Adrian463588/QuranPlus?style=for-the-badge&color=0284c7)](https://github.com/Adrian463588/QuranPlus/releases/latest)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7f52ff?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack-Compose-4285f4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
@@ -20,7 +20,7 @@
 
 Untuk langsung menginstal aplikasi **Quran Plus** di smartphone atau tablet Android Anda:
 
-1. **[📥 Unduh APK Versi Terbaru (v1.0.5)](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.5/app-debug.apk)** *(Direct Mirror: [releases/latest/download/app-debug.apk](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk))*.
+1. **[📥 Unduh APK Versi Terbaru (v1.0.6)](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.6/app-debug.apk)** *(Direct Mirror: [releases/latest/download/app-debug.apk](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk))*.
 2. Setelah unduhan selesai, buka file `app-debug.apk` melalui notifikasi browser atau aplikasi **File Manager / Pengelola File**.
 3. Jika Android menampilkan peringatan keamanan sumber tidak dikenal, pilih **Setelan / Settings** lalu aktifkan **Izinkan dari sumber ini (Allow from this source)**.
 4. Tekan tombol **Pasang / Install**, tunggu hingga proses selesai, dan buka **Quran Plus**.
@@ -178,7 +178,8 @@ Tabel berikut menyediakan tautan unduh langsung (direct download) untuk setiap r
 
 | Versi | Status | Sorotan Perubahan Utama | Tautan Unduh Langsung |
 |:---:|:---:|---|:---:|
-| **v1.0.5** | **Terbaru (Latest)** | • **Sinkronisasi SAF saat Reinstall:** Auto-reload Model AI, Bundle Hadist, Bookmarks & Markers dari folder SAF.<br>• **Penanda Berhenti Baca (Marker):** Fitur penanda khusus tilawah Al-Qur'an & Hadist warna Ocean Light Blue (`#0284C7`), auto-sync ke `userdata/markers.json`.<br>• **Perbaikan History Chips:** Riwayat pencarian hanya tersimpan saat submit / klik hasil (bukan per karakter ketikan). | [📥 Download APK v1.0.5](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.5/app-debug.apk) |
+| **v1.0.6** | **Terbaru (Latest)** | • **Multi-Penanda Berhenti Baca (Hingga 15 Marker):** Penanda membaca Al-Qur'an & Hadist fleksibel hingga 15 slot dengan palet warna unik berurutan (#1 Biru Ocean `#0284C7`, #2 Merah Muda `#EC4899`, #3 Orange `#F97316`, dst).<br>• **Pembedaan Ikon Marker & Bookmark:** Ikon penanda baca dibedakan menggunakan PushPin (📌) dan bookmark menggunakan pita bookmark (🔖).<br>• **Persistensi Penuh SAF Folder saat Reinstall:** Auto-sync & restore bookmark dan markers dari `userdata/` di folder SAF tanpa takut hilang saat reinstall.<br>• **Perbaikan History Pencarian:** Kata/frasa pencarian hanya tersimpan saat user submit pencarian secara penuh. | [📥 Download APK v1.0.6](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.6/app-debug.apk) |
+| **v1.0.5** | Arsip | • **Sinkronisasi SAF saat Reinstall:** Auto-reload Model AI, Bundle Hadist, Bookmarks & Markers dari folder SAF.<br>• **Penanda Berhenti Baca (Marker):** Fitur penanda khusus tilawah Al-Qur'an & Hadist warna Ocean Light Blue (`#0284C7`), auto-sync ke `userdata/markers.json`.<br>• **Perbaikan History Chips:** Riwayat pencarian hanya tersimpan saat submit / klik hasil (bukan per karakter ketikan). | [📥 Download APK v1.0.5](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.5/app-debug.apk) |
 | **v1.0.4** | Arsip | • **Tajwid Berwarna Dzikir & Hizib:** Pewarnaan tajwid interaktif pada Al-Ma'tsurat, Ratib Al-Haddad, Ratib Al-Attas, Hizib Bahr, Hizib Nashr, & Hizib Nawawi.<br>• **Pencarian Riwayat dengan Chips:** Filter history interaktif dan multi-reference jump. | [📥 Download APK v1.0.4](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.4/app-debug.apk) |
 | **v1.0.3** | Arsip | • **Murottal Offline Resumable:** Download per-ayat HTTP Range dengan checksum EveryAyah.<br>• **Audio Player Background Service:** Pemutaran audio di latar belakang dengan kontrol notifikasi. | [📥 Download APK v1.0.3](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.3/app-debug.apk) |
 | **v1.0.2** | Arsip | • **Ensiklopedia 9 Kitab Hadist Offline:** Impor corpus 38.102 hadist dari arsip zip lokal SAF.<br>• **Integrasi RAG Hadist:** Pengindeksan hadits ke dalam sqlite-vec untuk rujukan AI. | [📥 Download APK v1.0.2](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.2/app-debug.apk) |

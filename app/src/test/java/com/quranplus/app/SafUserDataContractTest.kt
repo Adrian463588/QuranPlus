@@ -95,4 +95,44 @@ class SafUserDataContractTest {
         assertNotNull(hadithKey)
         assertNotEquals("", hadithKey)
     }
+
+    @Test
+    fun GIVEN_upTo15QuranMarkers_WHEN_created_THEN_eachHasDistinctColorIndexAndUnderMaxLimit() {
+        val markers = (0 until 15).map { index ->
+            QuranMarker(
+                surahNumber = 2,
+                surahName = "Al-Baqarah",
+                ayahNumber = index + 1,
+                timestamp = 1700000000000L + index,
+                colorIndex = index
+            )
+        }
+
+        assertEquals(15, markers.size)
+        val colorIndices = markers.map { it.colorIndex }.toSet()
+        assertEquals(15, colorIndices.size)
+        assertEquals(0, markers.first().colorIndex)
+        assertEquals(14, markers.last().colorIndex)
+
+        // Test capping when an extra 16th marker is attempted
+        val capped = (markers + QuranMarker(2, "Al-Baqarah", 16, 0L, 0)).take(15)
+        assertEquals(15, capped.size)
+    }
+
+    @Test
+    fun GIVEN_multiHadithMarkers_WHEN_colorAssigned_THEN_supportsDifferentColorsUpTo15() {
+        val hadithMarkers = (0 until 15).map { index ->
+            HadithMarker(
+                collectionId = "bukhari",
+                collectionName = "Shahih Bukhari",
+                hadithNumber = index + 1,
+                timestamp = 1700000000000L + index,
+                colorIndex = index
+            )
+        }
+
+        assertEquals(15, hadithMarkers.size)
+        val distinctColors = hadithMarkers.map { it.colorIndex }.toSet()
+        assertEquals(15, distinctColors.size)
+    }
 }

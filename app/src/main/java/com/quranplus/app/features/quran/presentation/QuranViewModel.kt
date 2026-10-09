@@ -80,14 +80,55 @@ class QuranViewModel(
     val lastReadState: StateFlow<LastRead?> = getLastReadUseCase()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val quranMarkers: StateFlow<List<QuranMarker>> = preferencesManager?.quranMarkers
+        ?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        ?: MutableStateFlow(emptyList())
+
     val quranMarker: StateFlow<QuranMarker?> = preferencesManager?.quranMarker
         ?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
         ?: MutableStateFlow(null)
 
     fun setQuranMarker(marker: QuranMarker?) {
         viewModelScope.launch {
-            preferencesManager?.setQuranMarker(marker)
+            if (marker == null) {
+                preferencesManager?.setQuranMarkers(emptyList())
+            } else {
+                preferencesManager?.setQuranMarkers(listOf(marker))
+            }
             safUserDataManager?.exportMarkersToSaf()
+        }
+    }
+
+    fun toggleQuranMarker(
+        surahNumber: Int,
+        surahName: String,
+        ayahNumber: Int,
+        onLimitReached: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val current = quranMarkers.value
+            val existing = current.find { it.surahNumber == surahNumber && it.ayahNumber == ayahNumber }
+            if (existing != null) {
+                val updated = current.filterNot { it.surahNumber == surahNumber && it.ayahNumber == ayahNumber }
+                preferencesManager?.setQuranMarkers(updated)
+                safUserDataManager?.exportMarkersToSaf()
+            } else {
+                if (current.size >= com.quranplus.app.core.ui.theme.QuranColors.MAX_READING_MARKERS) {
+                    onLimitReached()
+                    return@launch
+                }
+                val usedColors = current.map { it.colorIndex }.toSet()
+                val nextColor = (0 until com.quranplus.app.core.ui.theme.QuranColors.MAX_READING_MARKERS).firstOrNull { it !in usedColors } ?: 0
+                val newMarker = QuranMarker(
+                    surahNumber = surahNumber,
+                    surahName = surahName,
+                    ayahNumber = ayahNumber,
+                    timestamp = System.currentTimeMillis(),
+                    colorIndex = nextColor
+                )
+                preferencesManager?.setQuranMarkers(current + newMarker)
+                safUserDataManager?.exportMarkersToSaf()
+            }
         }
     }
 

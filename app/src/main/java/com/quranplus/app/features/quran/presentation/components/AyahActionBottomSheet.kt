@@ -94,6 +94,8 @@ fun AyahActionBottomSheet(
     onBookmarkToggle: (note: String?) -> Unit,
     onMarkerToggle: () -> Unit = {},
     isMarked: Boolean = false,
+    markerColor: androidx.compose.ui.graphics.Color = com.quranplus.app.core.ui.theme.QuranColors.OceanMarker,
+    markerOrder: Int = 1,
     onLoadTafsir: suspend (surahNumber: Int, ayahNumber: Int) -> Tafsir? = { _, _ -> null }
 ) {
     val context = LocalContext.current
@@ -262,18 +264,13 @@ fun AyahActionBottomSheet(
                 }
             )
 
-            // 2b. Reading Marker (Penanda Berhenti Baca - Biru Muda Ocean)
+            // 2b. Reading Marker (Penanda Berhenti Baca - Maksimal 15 Warna)
             ActionItemRow(
                 icon = if (isMarked) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
-                title = if (isMarked) "Hapus Penanda Baca (Berhenti di Sini)" else "Tandai Berhenti di Sini (Penanda Baca)",
-                subtitle = if (isMarked) "Penanda baca aktif terpasang di ayat ini (tersimpan di SAF)" else "Tandai ayat ini sebagai tempat berhenti membaca (tersimpan di SAF)",
+                title = if (isMarked) "Hapus Penanda Baca #$markerOrder" else "Tandai Berhenti di Sini (Penanda Baca)",
+                subtitle = if (isMarked) "Penanda baca #$markerOrder aktif terpasang di ayat ini (tersimpan di SAF)" else "Tandai ayat ini sebagai tempat berhenti membaca (tersimpan di SAF)",
                 onClick = {
                     onMarkerToggle()
-                    Toast.makeText(
-                        context,
-                        if (isMarked) "Penanda baca dihapus" else "Penanda baca disimpan di QS. $surahName : ${ayah.ayahNumber}",
-                        Toast.LENGTH_SHORT
-                    ).show()
                     onDismissRequest()
                 }
             )

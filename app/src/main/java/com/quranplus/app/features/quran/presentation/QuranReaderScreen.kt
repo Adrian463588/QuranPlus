@@ -157,7 +157,7 @@ fun QuranReaderScreen(
     val surah by viewModel.currentSurah.collectAsStateWithLifecycle()
     val ayahsState by viewModel.currentAyahsState.collectAsStateWithLifecycle()
     val wordByWordState by viewModel.wordByWordState.collectAsStateWithLifecycle()
-    val quranMarker by viewModel.quranMarker.collectAsStateWithLifecycle()
+    val quranMarkers by viewModel.quranMarkers.collectAsStateWithLifecycle()
 
     val arabicFontSize by preferencesManager.arabicFontSize.collectAsStateWithLifecycle(initialValue = 28f)
     val showTransliteration by preferencesManager.showTransliteration.collectAsStateWithLifecycle(initialValue = true)
@@ -486,7 +486,10 @@ fun QuranReaderScreen(
                                             items = state.data,
                                             key = { "${it.surahNumber}_${it.ayahNumber}" }
                                         ) { ayah ->
-                                            val isMarked = quranMarker?.surahNumber == ayah.surahNumber && quranMarker?.ayahNumber == ayah.ayahNumber
+                                            val marker = quranMarkers.find { it.surahNumber == ayah.surahNumber && it.ayahNumber == ayah.ayahNumber }
+                                            val isMarked = marker != null
+                                            val markerColor = marker?.let { QuranColors.getMarkerColor(it.colorIndex) } ?: QuranColors.OceanMarker
+                                            val markerOrder = marker?.let { quranMarkers.indexOf(it) + 1 } ?: 1
                                             AyahReaderItem(
                                                 ayah = ayah,
                                                 fontSizeSp = arabicFontSize,
@@ -496,6 +499,8 @@ fun QuranReaderScreen(
                                                 translationMode = translationMode,
                                                 isWordByWordMode = isWordByWordMode,
                                                 isMarked = isMarked,
+                                                markerColor = markerColor,
+                                                markerOrder = markerOrder,
                                                 wordByWord = (wordByWordState as? UiState.Success<Map<Int, List<WordByWord>>>)
                                                     ?.data?.get(ayah.ayahNumber).orEmpty(),
                                                 onAyahClick = {
@@ -509,20 +514,16 @@ fun QuranReaderScreen(
                                                 },
                                                 onMarkerClick = {
                                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    val currentName = surah?.nameLatin.orEmpty()
                                                     if (isMarked) {
-                                                        viewModel.setQuranMarker(null)
+                                                        viewModel.toggleQuranMarker(ayah.surahNumber, currentName, ayah.ayahNumber)
                                                         Toast.makeText(activity ?: view.context, "Penanda baca dihapus", Toast.LENGTH_SHORT).show()
                                                     } else {
-                                                        surah?.nameLatin?.let { name ->
-                                                            viewModel.setQuranMarker(
-                                                                QuranMarker(
-                                                                    surahNumber = ayah.surahNumber,
-                                                                    surahName = name,
-                                                                    ayahNumber = ayah.ayahNumber,
-                                                                    timestamp = System.currentTimeMillis()
-                                                                )
-                                                            )
-                                                            Toast.makeText(activity ?: view.context, "Penanda baca disimpan di QS. $name : ${ayah.ayahNumber}", Toast.LENGTH_SHORT).show()
+                                                        if (quranMarkers.size >= QuranColors.MAX_READING_MARKERS) {
+                                                            Toast.makeText(activity ?: view.context, "Maksimal 15 penanda baca telah tercapai", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            viewModel.toggleQuranMarker(ayah.surahNumber, currentName, ayah.ayahNumber)
+                                                            Toast.makeText(activity ?: view.context, "Penanda baca #${quranMarkers.size + 1} disimpan di QS. $currentName : ${ayah.ayahNumber}", Toast.LENGTH_SHORT).show()
                                                         }
                                                     }
                                                 },
@@ -653,32 +654,36 @@ fun QuranReaderScreen(
         selectedAyahForAction?.let { ayah ->
             val currentSurah = surah
             if (currentSurah != null) {
-            val isCurrentAyahMarked = quranMarker?.surahNumber == currentSurah.number && quranMarker?.ayahNumber == ayah.ayahNumber
-            AyahActionBottomSheet(
-                ayah = ayah,
-                surahName = currentSurah.nameLatin,
-                totalAyahsInSurah = currentSurah.ayahCount,
-                sheetState = sheetState,
-                audioPlayerManager = audioPlayerManager,
-                onDismissRequest = { selectedAyahForAction = null },
-                onBookmarkToggle = { note ->
-                    viewModel.toggleBookmark(ayah, currentSurah.nameLatin, note)
-                },
-                isMarked = isCurrentAyahMarked,
-                onMarkerToggle = {
-                    if (isCurrentAyahMarked) {
-                        viewModel.setQuranMarker(null)
-                    } else {
-                        viewModel.setQuranMarker(
-                            QuranMarker(
-                                surahNumber = currentSurah.number,
-                                surahName = currentSurah.nameLatin,
-                                ayahNumber = ayah.ayahNumber,
-                                timestamp = System.currentTimeMillis()
-                            )
-                        )
-                    }
-                },
+                val marker = quranMarkers.find { it.surahNumber == currentSurah.number && it.ayahNumber == ayah.ayahNumber }
+                val isCurrentAyahMarked = marker != null
+                val markerColor = marker?.let { QuranColors.getMarkerColor(it.colorIndex) } ?: QuranColors.OceanMarker
+                val markerOrder = marker?.let { quranMarkers.indexOf(it) + 1 } ?: 1
+                AyahActionBottomSheet(
+                    ayah = ayah,
+                    surahName = currentSurah.nameLatin,
+                    totalAyahsInSurah = currentSurah.ayahCount,
+                    sheetState = sheetState,
+                    audioPlayerManager = audioPlayerManager,
+                    onDismissRequest = { selectedAyahForAction = null },
+                    onBookmarkToggle = { note ->
+                        viewModel.toggleBookmark(ayah, currentSurah.nameLatin, note)
+                    },
+                    isMarked = isCurrentAyahMarked,
+                    markerColor = markerColor,
+                    markerOrder = markerOrder,
+                    onMarkerToggle = {
+                        if (isCurrentAyahMarked) {
+                            viewModel.toggleQuranMarker(currentSurah.number, currentSurah.nameLatin, ayah.ayahNumber)
+                            Toast.makeText(activity ?: view.context, "Penanda baca dihapus", Toast.LENGTH_SHORT).show()
+                        } else {
+                            if (quranMarkers.size >= QuranColors.MAX_READING_MARKERS) {
+                                Toast.makeText(activity ?: view.context, "Maksimal 15 penanda baca telah tercapai", Toast.LENGTH_SHORT).show()
+                            } else {
+                                viewModel.toggleQuranMarker(currentSurah.number, currentSurah.nameLatin, ayah.ayahNumber)
+                                Toast.makeText(activity ?: view.context, "Penanda baca #${quranMarkers.size + 1} disimpan di QS. ${currentSurah.nameLatin} : ${ayah.ayahNumber}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
                 onLoadTafsir = { surahNumber, ayahNumber ->
                     viewModel.getTafsir(surahNumber, ayahNumber)
                 }
@@ -1229,6 +1234,8 @@ fun AyahReaderItem(
     onTajwidClick: (TajwidParser.TajwidType) -> Unit,
     modifier: Modifier = Modifier,
     isMarked: Boolean = false,
+    markerColor: Color = QuranColors.OceanMarker,
+    markerOrder: Int = 1,
     onMarkerClick: () -> Unit = {},
     translationMode: TranslationMode = TranslationMode.ENGLISH,
     isWordByWordMode: Boolean = false,
@@ -1238,8 +1245,8 @@ fun AyahReaderItem(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(QuranColors.OceanMarker.copy(alpha = 0.08f))
-            .border(BorderStroke(1.5.dp, QuranColors.OceanMarker), RoundedCornerShape(12.dp))
+            .background(markerColor.copy(alpha = 0.08f))
+            .border(BorderStroke(1.5.dp, markerColor), RoundedCornerShape(12.dp))
             .clickable(onClick = onAyahClick)
             .padding(horizontal = Spacing.md, vertical = Spacing.md)
     } else {
@@ -1263,7 +1270,7 @@ fun AyahReaderItem(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(if (isMarked) QuranColors.OceanMarker else MaterialTheme.colorScheme.surfaceVariant),
+                        .background(if (isMarked) markerColor else MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -1277,7 +1284,7 @@ fun AyahReaderItem(
                 if (isMarked) {
                     Spacer(modifier = Modifier.width(Spacing.sm))
                     Surface(
-                        color = QuranColors.OceanMarker,
+                        color = markerColor,
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Row(
@@ -1285,7 +1292,7 @@ fun AyahReaderItem(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "📍 Penanda Baca (Berhenti)",
+                                text = "📍 Penanda Baca #$markerOrder",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -1349,7 +1356,7 @@ fun AyahReaderItem(
                     Icon(
                         imageVector = if (isMarked) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
                         contentDescription = "Penanda Berhenti Baca",
-                        tint = if (isMarked) QuranColors.OceanMarker else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (isMarked) markerColor else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 

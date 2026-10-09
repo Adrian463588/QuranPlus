@@ -95,25 +95,54 @@ class SafUserDataManager(
     suspend fun exportMarkersToSaf(): Boolean = withContext(Dispatchers.IO) {
         syncMutex.withLock {
             runCatching {
-                val qMarker = preferencesManager.quranMarker.firstOrNull()
-                val hMarker = preferencesManager.hadithMarker.firstOrNull()
+                val qMarkers = preferencesManager.quranMarkers.firstOrNull() ?: emptyList()
+                val hMarkers = preferencesManager.hadithMarkers.firstOrNull() ?: emptyList()
                 val root = JSONObject()
-                if (qMarker != null) {
+
+                val qArray = JSONArray()
+                qMarkers.forEach { m ->
+                    qArray.put(JSONObject().apply {
+                        put("surahNumber", m.surahNumber)
+                        put("surahName", m.surahName)
+                        put("ayahNumber", m.ayahNumber)
+                        put("timestamp", m.timestamp)
+                        put("colorIndex", m.colorIndex)
+                    })
+                }
+                root.put("quranMarkers", qArray)
+
+                val hArray = JSONArray()
+                hMarkers.forEach { m ->
+                    hArray.put(JSONObject().apply {
+                        put("collectionId", m.collectionId)
+                        put("collectionName", m.collectionName)
+                        put("hadithNumber", m.hadithNumber)
+                        put("timestamp", m.timestamp)
+                        put("colorIndex", m.colorIndex)
+                    })
+                }
+                root.put("hadithMarkers", hArray)
+
+                // Legacy fallback objects
+                qMarkers.firstOrNull()?.let { q ->
                     root.put("quran", JSONObject().apply {
-                        put("surahNumber", qMarker.surahNumber)
-                        put("surahName", qMarker.surahName)
-                        put("ayahNumber", qMarker.ayahNumber)
-                        put("timestamp", qMarker.timestamp)
+                        put("surahNumber", q.surahNumber)
+                        put("surahName", q.surahName)
+                        put("ayahNumber", q.ayahNumber)
+                        put("timestamp", q.timestamp)
+                        put("colorIndex", q.colorIndex)
                     })
                 }
-                if (hMarker != null) {
+                hMarkers.firstOrNull()?.let { h ->
                     root.put("hadith", JSONObject().apply {
-                        put("collectionId", hMarker.collectionId)
-                        put("collectionName", hMarker.collectionName)
-                        put("hadithNumber", hMarker.hadithNumber)
-                        put("timestamp", hMarker.timestamp)
+                        put("collectionId", h.collectionId)
+                        put("collectionName", h.collectionName)
+                        put("hadithNumber", h.hadithNumber)
+                        put("timestamp", h.timestamp)
+                        put("colorIndex", h.colorIndex)
                     })
                 }
+
                 safAssetStore.publishText(
                     text = root.toString(2),
                     relativeDirectory = "userdata",
@@ -129,27 +158,70 @@ class SafUserDataManager(
             runCatching {
                 val jsonText = safAssetStore.readText("userdata", "markers.json") ?: return@withLock false
                 val root = JSONObject(jsonText)
-                if (root.has("quran") && !root.isNull("quran")) {
+
+                val restoredQMarkers = mutableListOf<QuranMarker>()
+                if (root.has("quranMarkers") && !root.isNull("quranMarkers")) {
+                    val array = root.getJSONArray("quranMarkers")
+                    for (i in 0 until array.length()) {
+                        val obj = array.optJSONObject(i) ?: continue
+                        restoredQMarkers.add(
+                            QuranMarker(
+                                surahNumber = obj.getInt("surahNumber"),
+                                surahName = obj.getString("surahName"),
+                                ayahNumber = obj.getInt("ayahNumber"),
+                                timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                                colorIndex = obj.optInt("colorIndex", i)
+                            )
+                        )
+                    }
+                } else if (root.has("quran") && !root.isNull("quran")) {
                     val qObj = root.getJSONObject("quran")
-                    val qMarker = QuranMarker(
-                        surahNumber = qObj.getInt("surahNumber"),
-                        surahName = qObj.getString("surahName"),
-                        ayahNumber = qObj.getInt("ayahNumber"),
-                        timestamp = qObj.optLong("timestamp", System.currentTimeMillis())
+                    restoredQMarkers.add(
+                        QuranMarker(
+                            surahNumber = qObj.getInt("surahNumber"),
+                            surahName = qObj.getString("surahName"),
+                            ayahNumber = qObj.getInt("ayahNumber"),
+                            timestamp = qObj.optLong("timestamp", System.currentTimeMillis()),
+                            colorIndex = qObj.optInt("colorIndex", 0)
+                        )
                     )
-                    preferencesManager.setQuranMarker(qMarker)
                 }
-                if (root.has("hadith") && !root.isNull("hadith")) {
+                if (restoredQMarkers.isNotEmpty()) {
+                    preferencesManager.setQuranMarkers(restoredQMarkers)
+                }
+
+                val restoredHMarkers = mutableListOf<HadithMarker>()
+                if (root.has("hadithMarkers") && !root.isNull("hadithMarkers")) {
+                    val array = root.getJSONArray("hadithMarkers")
+                    for (i in 0 until array.length()) {
+                        val obj = array.optJSONObject(i) ?: continue
+                        restoredHMarkers.add(
+                            HadithMarker(
+                                collectionId = obj.getString("collectionId"),
+                                collectionName = obj.getString("collectionName"),
+                                hadithNumber = obj.getInt("hadithNumber"),
+                                timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                                colorIndex = obj.optInt("colorIndex", i)
+                            )
+                        )
+                    }
+                } else if (root.has("hadith") && !root.isNull("hadith")) {
                     val hObj = root.getJSONObject("hadith")
-                    val hMarker = HadithMarker(
-                        collectionId = hObj.getString("collectionId"),
-                        collectionName = hObj.getString("collectionName"),
-                        hadithNumber = hObj.getInt("hadithNumber"),
-                        timestamp = hObj.optLong("timestamp", System.currentTimeMillis())
+                    restoredHMarkers.add(
+                        HadithMarker(
+                            collectionId = hObj.getString("collectionId"),
+                            collectionName = hObj.getString("collectionName"),
+                            hadithNumber = hObj.getInt("hadithNumber"),
+                            timestamp = hObj.optLong("timestamp", System.currentTimeMillis()),
+                            colorIndex = hObj.optInt("colorIndex", 0)
+                        )
                     )
-                    preferencesManager.setHadithMarker(hMarker)
                 }
-                true
+                if (restoredHMarkers.isNotEmpty()) {
+                    preferencesManager.setHadithMarkers(restoredHMarkers)
+                }
+
+                restoredQMarkers.isNotEmpty() || restoredHMarkers.isNotEmpty()
             }.getOrDefault(false)
         }
     }
@@ -164,9 +236,9 @@ class SafUserDataManager(
             }
         }
         if (!markersRestored) {
-            val qMarker = preferencesManager.quranMarker.firstOrNull()
-            val hMarker = preferencesManager.hadithMarker.firstOrNull()
-            if (qMarker != null || hMarker != null) {
+            val qMarkers = preferencesManager.quranMarkers.firstOrNull() ?: emptyList()
+            val hMarkers = preferencesManager.hadithMarkers.firstOrNull() ?: emptyList()
+            if (qMarkers.isNotEmpty() || hMarkers.isNotEmpty()) {
                 exportMarkersToSaf()
             }
         }

@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import com.quranplus.shared.features.quran.domain.QuranMarker
 import com.quranplus.shared.features.quran.domain.HadithMarker
+import com.quranplus.app.core.ui.theme.QuranColors
+import org.json.JSONArray
 import org.json.JSONObject
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "quranplus_settings")
@@ -90,6 +92,8 @@ class PreferencesManager(private val context: Context) {
         val SEARCH_HISTORY = stringPreferencesKey("quran_search_history")
         val QURAN_MARKER = stringPreferencesKey("quran_marker_data")
         val HADITH_MARKER = stringPreferencesKey("hadith_marker_data")
+        val QURAN_MARKERS = stringPreferencesKey("quran_markers_list_data")
+        val HADITH_MARKERS = stringPreferencesKey("hadith_markers_list_data")
     }
 
     val isDarkMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -256,61 +260,149 @@ class PreferencesManager(private val context: Context) {
         }
     }
 
-    val quranMarker: Flow<QuranMarker?> = context.dataStore.data.map { preferences ->
-        val raw = preferences[PreferencesKeys.QURAN_MARKER] ?: return@map null
-        runCatching {
-            val json = JSONObject(raw)
-            QuranMarker(
-                surahNumber = json.getInt("surahNumber"),
-                surahName = json.getString("surahName"),
-                ayahNumber = json.getInt("ayahNumber"),
-                timestamp = json.optLong("timestamp", System.currentTimeMillis())
-            )
-        }.getOrNull()
+    val quranMarkers: Flow<List<QuranMarker>> = context.dataStore.data.map { preferences ->
+        val rawList = preferences[PreferencesKeys.QURAN_MARKERS]
+        if (!rawList.isNullOrBlank()) {
+            runCatching {
+                val array = JSONArray(rawList)
+                (0 until array.length()).mapNotNull { i ->
+                    val json = array.optJSONObject(i) ?: return@mapNotNull null
+                    QuranMarker(
+                        surahNumber = json.getInt("surahNumber"),
+                        surahName = json.getString("surahName"),
+                        ayahNumber = json.getInt("ayahNumber"),
+                        timestamp = json.optLong("timestamp", System.currentTimeMillis()),
+                        colorIndex = json.optInt("colorIndex", i.coerceAtMost(QuranColors.MAX_READING_MARKERS - 1))
+                    )
+                }
+            }.getOrDefault(emptyList())
+        } else {
+            val rawSingle = preferences[PreferencesKeys.QURAN_MARKER] ?: return@map emptyList()
+            runCatching {
+                val json = JSONObject(rawSingle)
+                listOf(
+                    QuranMarker(
+                        surahNumber = json.getInt("surahNumber"),
+                        surahName = json.getString("surahName"),
+                        ayahNumber = json.getInt("ayahNumber"),
+                        timestamp = json.optLong("timestamp", System.currentTimeMillis()),
+                        colorIndex = json.optInt("colorIndex", 0)
+                    )
+                )
+            }.getOrDefault(emptyList())
+        }
     }
 
-    val hadithMarker: Flow<HadithMarker?> = context.dataStore.data.map { preferences ->
-        val raw = preferences[PreferencesKeys.HADITH_MARKER] ?: return@map null
-        runCatching {
-            val json = JSONObject(raw)
-            HadithMarker(
-                collectionId = json.getString("collectionId"),
-                collectionName = json.getString("collectionName"),
-                hadithNumber = json.getInt("hadithNumber"),
-                timestamp = json.optLong("timestamp", System.currentTimeMillis())
-            )
-        }.getOrNull()
+    val quranMarker: Flow<QuranMarker?> = quranMarkers.map { it.firstOrNull() }
+
+    val hadithMarkers: Flow<List<HadithMarker>> = context.dataStore.data.map { preferences ->
+        val rawList = preferences[PreferencesKeys.HADITH_MARKERS]
+        if (!rawList.isNullOrBlank()) {
+            runCatching {
+                val array = JSONArray(rawList)
+                (0 until array.length()).mapNotNull { i ->
+                    val json = array.optJSONObject(i) ?: return@mapNotNull null
+                    HadithMarker(
+                        collectionId = json.getString("collectionId"),
+                        collectionName = json.getString("collectionName"),
+                        hadithNumber = json.getInt("hadithNumber"),
+                        timestamp = json.optLong("timestamp", System.currentTimeMillis()),
+                        colorIndex = json.optInt("colorIndex", i.coerceAtMost(QuranColors.MAX_READING_MARKERS - 1))
+                    )
+                }
+            }.getOrDefault(emptyList())
+        } else {
+            val rawSingle = preferences[PreferencesKeys.HADITH_MARKER] ?: return@map emptyList()
+            runCatching {
+                val json = JSONObject(rawSingle)
+                listOf(
+                    HadithMarker(
+                        collectionId = json.getString("collectionId"),
+                        collectionName = json.getString("collectionName"),
+                        hadithNumber = json.getInt("hadithNumber"),
+                        timestamp = json.optLong("timestamp", System.currentTimeMillis()),
+                        colorIndex = json.optInt("colorIndex", 0)
+                    )
+                )
+            }.getOrDefault(emptyList())
+        }
+    }
+
+    val hadithMarker: Flow<HadithMarker?> = hadithMarkers.map { it.firstOrNull() }
+
+    suspend fun setQuranMarkers(markers: List<QuranMarker>) {
+        val limited = markers.take(QuranColors.MAX_READING_MARKERS)
+        context.dataStore.edit { preferences ->
+            if (limited.isEmpty()) {
+                preferences.remove(PreferencesKeys.QURAN_MARKERS)
+                preferences.remove(PreferencesKeys.QURAN_MARKER)
+            } else {
+                val array = JSONArray()
+                limited.forEach { m ->
+                    array.put(JSONObject().apply {
+                        put("surahNumber", m.surahNumber)
+                        put("surahName", m.surahName)
+                        put("ayahNumber", m.ayahNumber)
+                        put("timestamp", m.timestamp)
+                        put("colorIndex", m.colorIndex)
+                    })
+                }
+                preferences[PreferencesKeys.QURAN_MARKERS] = array.toString()
+                val first = limited.first()
+                preferences[PreferencesKeys.QURAN_MARKER] = JSONObject().apply {
+                    put("surahNumber", first.surahNumber)
+                    put("surahName", first.surahName)
+                    put("ayahNumber", first.ayahNumber)
+                    put("timestamp", first.timestamp)
+                    put("colorIndex", first.colorIndex)
+                }.toString()
+            }
+        }
     }
 
     suspend fun setQuranMarker(marker: QuranMarker?) {
+        if (marker == null) {
+            setQuranMarkers(emptyList())
+        } else {
+            setQuranMarkers(listOf(marker))
+        }
+    }
+
+    suspend fun setHadithMarkers(markers: List<HadithMarker>) {
+        val limited = markers.take(QuranColors.MAX_READING_MARKERS)
         context.dataStore.edit { preferences ->
-            if (marker == null) {
-                preferences.remove(PreferencesKeys.QURAN_MARKER)
+            if (limited.isEmpty()) {
+                preferences.remove(PreferencesKeys.HADITH_MARKERS)
+                preferences.remove(PreferencesKeys.HADITH_MARKER)
             } else {
-                val json = JSONObject().apply {
-                    put("surahNumber", marker.surahNumber)
-                    put("surahName", marker.surahName)
-                    put("ayahNumber", marker.ayahNumber)
-                    put("timestamp", marker.timestamp)
+                val array = JSONArray()
+                limited.forEach { m ->
+                    array.put(JSONObject().apply {
+                        put("collectionId", m.collectionId)
+                        put("collectionName", m.collectionName)
+                        put("hadithNumber", m.hadithNumber)
+                        put("timestamp", m.timestamp)
+                        put("colorIndex", m.colorIndex)
+                    })
                 }
-                preferences[PreferencesKeys.QURAN_MARKER] = json.toString()
+                preferences[PreferencesKeys.HADITH_MARKERS] = array.toString()
+                val first = limited.first()
+                preferences[PreferencesKeys.HADITH_MARKER] = JSONObject().apply {
+                    put("collectionId", first.collectionId)
+                    put("collectionName", first.collectionName)
+                    put("hadithNumber", first.hadithNumber)
+                    put("timestamp", first.timestamp)
+                    put("colorIndex", first.colorIndex)
+                }.toString()
             }
         }
     }
 
     suspend fun setHadithMarker(marker: HadithMarker?) {
-        context.dataStore.edit { preferences ->
-            if (marker == null) {
-                preferences.remove(PreferencesKeys.HADITH_MARKER)
-            } else {
-                val json = JSONObject().apply {
-                    put("collectionId", marker.collectionId)
-                    put("collectionName", marker.collectionName)
-                    put("hadithNumber", marker.hadithNumber)
-                    put("timestamp", marker.timestamp)
-                }
-                preferences[PreferencesKeys.HADITH_MARKER] = json.toString()
-            }
+        if (marker == null) {
+            setHadithMarkers(emptyList())
+        } else {
+            setHadithMarkers(listOf(marker))
         }
     }
 }

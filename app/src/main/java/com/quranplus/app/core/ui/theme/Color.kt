@@ -77,8 +77,34 @@ object QuranColors {
     val Warning = Color(0xFFFFA726)
     val Info = Color(0xFF29B6F6)
 
-    // === Marker (Biru Muda Ocean) ===
-    val OceanMarker = Color(0xFF0284C7)         // Biru Muda Ocean (#0284C7)
+    // === Marker (Maksimal 15 Warna Berbeda) ===
+    const val MAX_READING_MARKERS = 15
+
+    val OceanMarker = Color(0xFF0284C7)         // 1. Biru Muda Ocean (#0284C7)
     val OceanMarkerLight = Color(0xFF38BDF8)    // Biru Muda Ocean Terang (#38BDF8)
     val OceanMarkerContainer = Color(0xFFE0F2FE)// Container Biru Muda Ocean
+
+    val MarkerColors = listOf(
+        Color(0xFF0284C7), // 1. Biru Muda Ocean (#0284C7)
+        Color(0xFFEC4899), // 2. Merah Muda / Pink (#EC4899)
+        Color(0xFFF97316), // 3. Orange (#F97316)
+        Color(0xFF10B981), // 4. Hijau Emerald (#10B981)
+        Color(0xFF8B5CF6), // 5. Ungu / Purple (#8B5CF6)
+        Color(0xFFF59E0B), // 6. Kuning Emas / Amber (#F59E0B)
+        Color(0xFF14B8A6), // 7. Teal (#14B8A6)
+        Color(0xFFE11D48), // 8. Merah Koral / Rose (#E11D48)
+        Color(0xFF6366F1), // 9. Biru Indigo (#6366F1)
+        Color(0xFF84CC16), // 10. Hijau Lime (#84CC16)
+        Color(0xFF06B6D4), // 11. Cyan Cerah (#06B6D4)
+        Color(0xFFD97706), // 12. Coklat Tembaga (#D97706)
+        Color(0xFF7C3AED), // 13. Deep Violet (#7C3AED)
+        Color(0xFFD946EF), // 14. Magenta / Fuchsia (#D946EF)
+        Color(0xFF059669)  // 15. Forest Green (#059669)
+    )
+
+    fun getMarkerColor(index: Int): Color {
+        if (MarkerColors.isEmpty()) return OceanMarker
+        val safeIndex = ((index % MarkerColors.size) + MarkerColors.size) % MarkerColors.size
+        return MarkerColors[safeIndex]
+    }
 }

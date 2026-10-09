@@ -18,7 +18,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
@@ -102,7 +104,7 @@ fun SurahListScreen(
 ) {
     val surahState by viewModel.surahListState.collectAsStateWithLifecycle()
     val lastRead by viewModel.lastReadState.collectAsStateWithLifecycle()
-    val quranMarker by viewModel.quranMarker.collectAsStateWithLifecycle()
+    val quranMarkers by viewModel.quranMarkers.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableStateOf(QuranListTab.SURAH) }
     var showTajwidSheet by remember { mutableStateOf(false) }
     var showQuranMenu by remember { mutableStateOf(false) }
@@ -186,14 +188,14 @@ fun SurahListScreen(
                 }
             }
 
-            // Marker Banner (Ocean Light Blue) & Quick Continue / Last Read Card
+            // Marker Banner (Up to 15 Distinct Colors) & Quick Continue / Last Read Card
             if (selectedTab != QuranListTab.BOOKMARK) {
-                if (quranMarker != null) {
+                if (quranMarkers.isNotEmpty()) {
                     Box(modifier = Modifier.widthIn(max = 840.dp)) {
-                        ReadingMarkerBanner(
-                            marker = quranMarker!!,
-                            onClick = {
-                                onSurahClick(quranMarker!!.surahNumber, quranMarker!!.ayahNumber)
+                        ReadingMarkersBanner(
+                            markers = quranMarkers,
+                            onMarkerClick = { marker ->
+                                onSurahClick(marker.surahNumber, marker.ayahNumber)
                             }
                         )
                     }
@@ -689,20 +691,140 @@ private fun SurahDetailPane(
 }
 
 @Composable
+fun ReadingMarkersBanner(
+    markers: List<QuranMarker>,
+    onMarkerClick: (QuranMarker) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (markers.isEmpty()) return
+    if (markers.size == 1) {
+        val single = markers.first()
+        ReadingMarkerBanner(
+            marker = single,
+            order = 1,
+            onClick = { onMarkerClick(single) },
+            modifier = modifier
+        )
+        return
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = Spacing.md)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.PushPin,
+                        contentDescription = null,
+                        tint = QuranColors.OceanMarker,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.xs))
+                    Text(
+                        text = "Penanda Berhenti Baca (${markers.size}/${QuranColors.MAX_READING_MARKERS})",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Text(
+                    text = "Ketuk untuk membuka",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(Spacing.sm))
+
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = Spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                itemsIndexed(markers, key = { _, m -> "${m.surahNumber}_${m.ayahNumber}" }) { index, marker ->
+                    val color = QuranColors.getMarkerColor(marker.colorIndex)
+                    Surface(
+                        onClick = { onMarkerClick(marker) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = color.copy(alpha = 0.12f),
+                        border = BorderStroke(1.5.dp, color)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = color,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PushPin,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(Spacing.sm))
+                            Column {
+                                Text(
+                                    text = "QS. ${marker.surahName}:${marker.ayahNumber}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Penanda #${index + 1}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = color
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ReadingMarkerBanner(
     marker: QuranMarker,
+    order: Int = 1,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val markerColor = QuranColors.getMarkerColor(marker.colorIndex)
     Card(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.md, vertical = Spacing.xs),
         colors = CardDefaults.cardColors(
-            containerColor = QuranColors.OceanMarker.copy(alpha = 0.12f)
+            containerColor = markerColor.copy(alpha = 0.12f)
         ),
-        border = BorderStroke(1.5.dp, QuranColors.OceanMarker),
+        border = BorderStroke(1.5.dp, markerColor),
         shape = MaterialTheme.shapes.medium
     ) {
         Row(
@@ -713,7 +835,7 @@ fun ReadingMarkerBanner(
         ) {
             Surface(
                 shape = CircleShape,
-                color = QuranColors.OceanMarker,
+                color = markerColor,
                 modifier = Modifier.size(40.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -732,15 +854,15 @@ fun ReadingMarkerBanner(
                         text = "Penanda Berhenti Baca",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = QuranColors.OceanMarker
+                        color = markerColor
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = QuranColors.OceanMarker
+                        color = markerColor
                     ) {
                         Text(
-                            text = "MARKER",
+                            text = "MARKER #$order",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,

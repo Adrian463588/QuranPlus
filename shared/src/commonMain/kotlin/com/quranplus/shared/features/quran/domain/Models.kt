@@ -55,12 +55,14 @@ data class QuranMarker(
     val surahNumber: Int,
     val surahName: String,
     val ayahNumber: Int,
-    val timestamp: Long = 0L
+    val timestamp: Long = 0L,
+    val colorIndex: Int = 0
 )
 
 data class HadithMarker(
     val collectionId: String,
     val collectionName: String,
     val hadithNumber: Int,
-    val timestamp: Long = 0L
+    val timestamp: Long = 0L,
+    val colorIndex: Int = 0
 )

@@ -50,14 +50,55 @@ class HadithViewModel(
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val hadithMarkers: StateFlow<List<HadithMarker>> = preferencesManager?.hadithMarkers
+        ?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        ?: MutableStateFlow(emptyList())
+
     val hadithMarker: StateFlow<HadithMarker?> = preferencesManager?.hadithMarker
         ?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
         ?: MutableStateFlow(null)
 
     fun setHadithMarker(marker: HadithMarker?) {
         viewModelScope.launch {
-            preferencesManager?.setHadithMarker(marker)
+            if (marker == null) {
+                preferencesManager?.setHadithMarkers(emptyList())
+            } else {
+                preferencesManager?.setHadithMarkers(listOf(marker))
+            }
             safUserDataManager?.exportMarkersToSaf()
+        }
+    }
+
+    fun toggleHadithMarker(
+        collectionId: String,
+        collectionName: String,
+        hadithNumber: Int,
+        onLimitReached: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val current = hadithMarkers.value
+            val existing = current.find { it.collectionId == collectionId && it.hadithNumber == hadithNumber }
+            if (existing != null) {
+                val updated = current.filterNot { it.collectionId == collectionId && it.hadithNumber == hadithNumber }
+                preferencesManager?.setHadithMarkers(updated)
+                safUserDataManager?.exportMarkersToSaf()
+            } else {
+                if (current.size >= com.quranplus.app.core.ui.theme.QuranColors.MAX_READING_MARKERS) {
+                    onLimitReached()
+                    return@launch
+                }
+                val usedColors = current.map { it.colorIndex }.toSet()
+                val nextColor = (0 until com.quranplus.app.core.ui.theme.QuranColors.MAX_READING_MARKERS).firstOrNull { it !in usedColors } ?: 0
+                val newMarker = HadithMarker(
+                    collectionId = collectionId,
+                    collectionName = collectionName,
+                    hadithNumber = hadithNumber,
+                    timestamp = System.currentTimeMillis(),
+                    colorIndex = nextColor
+                )
+                preferencesManager?.setHadithMarkers(current + newMarker)
+                safUserDataManager?.exportMarkersToSaf()
+            }
         }
     }
 
