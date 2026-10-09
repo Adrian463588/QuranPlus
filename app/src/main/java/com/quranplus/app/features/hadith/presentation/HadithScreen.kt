@@ -93,6 +93,7 @@ import com.quranplus.app.features.hadith.domain.HadithCollectionSection
 import com.quranplus.app.features.hadith.domain.HadithRecord
 import com.quranplus.app.features.hadith.domain.sectionedHadithCollections
 import com.quranplus.shared.features.quran.domain.HadithMarker
+import com.quranplus.shared.features.quran.domain.HadithBookmark
 
 @Composable
 fun HadithScreen(
@@ -109,6 +110,7 @@ fun HadithScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val bundleState by viewModel.bundleState.collectAsStateWithLifecycle()
     val hadithMarkers by viewModel.hadithMarkers.collectAsStateWithLifecycle()
+    val hadithBookmarks by viewModel.hadithBookmarks.collectAsStateWithLifecycle()
 
     var showBundleDialog by remember { mutableStateOf(false) }
     var showJumpDialog by remember { mutableStateOf(false) }
@@ -302,6 +304,7 @@ fun HadithScreen(
                     collections = collections,
                     query = query,
                     hadithMarkers = hadithMarkers,
+                    hadithBookmarks = hadithBookmarks,
                     onMarkerToggle = { record ->
                         val isMarked = hadithMarkers.any { it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber }
                         val collName = collections.firstOrNull { it.id == record.collectionId }?.title.orEmpty().ifBlank { record.title }
@@ -315,6 +318,16 @@ fun HadithScreen(
                                 viewModel.toggleHadithMarker(record.collectionId, collName, record.hadithNumber)
                                 Toast.makeText(context, "Penanda baca #${hadithMarkers.size + 1} disimpan di HR. $collName No. ${record.hadithNumber}", Toast.LENGTH_SHORT).show()
                             }
+                        }
+                    },
+                    onBookmarkToggle = { record ->
+                        val isBookmarked = hadithBookmarks.any { it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber }
+                        val collName = collections.firstOrNull { it.id == record.collectionId }?.title.orEmpty().ifBlank { record.title }
+                        viewModel.toggleHadithBookmark(record, collName)
+                        if (isBookmarked) {
+                            Toast.makeText(context, "Bookmark hadist dihapus", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Bookmark hadist disimpan", Toast.LENGTH_SHORT).show()
                         }
                     },
                     scrollToIndex = scrollToIndex,
@@ -1126,7 +1139,9 @@ private fun HadithResults(
     modifier: Modifier = Modifier,
     query: String = "",
     hadithMarkers: List<HadithMarker> = emptyList(),
+    hadithBookmarks: List<HadithBookmark> = emptyList(),
     onMarkerToggle: (HadithRecord) -> Unit = {},
+    onBookmarkToggle: (HadithRecord) -> Unit = {},
     scrollToIndex: Int? = null,
     highlightedNumber: Int? = null,
     onScrolledToIndex: () -> Unit = {}
@@ -1199,6 +1214,7 @@ private fun HadithResults(
             val isMarked = marker != null
             val markerColor = marker?.let { QuranColors.getMarkerColor(it.colorIndex) } ?: QuranColors.OceanMarker
             val markerOrder = marker?.let { hadithMarkers.indexOf(it) + 1 } ?: 1
+            val isBookmarked = hadithBookmarks.any { it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber }
             HadithCardItem(
                 record = record,
                 collectionName = collectionName.ifBlank { record.title },
@@ -1206,7 +1222,9 @@ private fun HadithResults(
                 isMarked = isMarked,
                 markerColor = markerColor,
                 markerOrder = markerOrder,
-                onMarkerToggle = { onMarkerToggle(record) }
+                onMarkerToggle = { onMarkerToggle(record) },
+                isBookmarked = isBookmarked,
+                onBookmarkToggle = { onBookmarkToggle(record) }
             )
         }
     }
@@ -1220,7 +1238,9 @@ private fun HadithCardItem(
     isMarked: Boolean = false,
     markerColor: Color = QuranColors.OceanMarker,
     markerOrder: Int = 1,
-    onMarkerToggle: () -> Unit = {}
+    onMarkerToggle: () -> Unit = {},
+    isBookmarked: Boolean = false,
+    onBookmarkToggle: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -1247,7 +1267,7 @@ private fun HadithCardItem(
                 .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
-            // 1. Card Header: Hadith Identifier Badge & Quick Actions (Copy / Share / Marker)
+            // 1. Card Header: Hadith Identifier Badge & Quick Actions (Copy / Share / Bookmark / Marker)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1277,6 +1297,20 @@ private fun HadithCardItem(
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp)
                         )
+                    }
+                    if (isBookmarked) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        ) {
+                            Text(
+                                text = "🔖 Bookmark",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 3.dp)
+                            )
+                        }
                     }
                     if (isMarked) {
                         Surface(
@@ -1308,7 +1342,7 @@ private fun HadithCardItem(
                     }
                 }
 
-                // Copy & Share Actions
+                // Copy, Share, Bookmark, Marker Actions
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                     verticalAlignment = Alignment.CenterVertically
@@ -1381,6 +1415,18 @@ private fun HadithCardItem(
                             imageVector = Icons.Rounded.Share,
                             contentDescription = "Bagikan Hadist",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onBookmarkToggle,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isBookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                            contentDescription = if (isBookmarked) "Hapus Bookmark Hadist" else "Simpan Bookmark Hadist",
+                            tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                     }

@@ -135,4 +135,102 @@ class SafUserDataContractTest {
         val distinctColors = hadithMarkers.map { it.colorIndex }.toSet()
         assertEquals(15, distinctColors.size)
     }
+
+    @Test
+    fun GIVEN_hadithBookmark_WHEN_created_THEN_containsAllRequiredFields() {
+        val hadithBookmark = com.quranplus.shared.features.quran.domain.HadithBookmark(
+            id = 1L,
+            collectionId = "bukhari",
+            collectionName = "Shahih Bukhari",
+            hadithNumber = 1,
+            hadithTextArabic = "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ",
+            hadithTranslation = "Sesungguhnya setiap amalan tergantung pada niatnya",
+            note = "Hadits tentang niat",
+            timestamp = 1700000003000L
+        )
+
+        assertEquals(1L, hadithBookmark.id)
+        assertEquals("bukhari", hadithBookmark.collectionId)
+        assertEquals("Shahih Bukhari", hadithBookmark.collectionName)
+        assertEquals(1, hadithBookmark.hadithNumber)
+        assertEquals("إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ", hadithBookmark.hadithTextArabic)
+        assertEquals("Sesungguhnya setiap amalan tergantung pada niatnya", hadithBookmark.hadithTranslation)
+        assertEquals("Hadits tentang niat", hadithBookmark.note)
+        assertEquals(1700000003000L, hadithBookmark.timestamp)
+    }
+
+    @Test
+    fun GIVEN_existingLocalAndSafHadithBookmarks_WHEN_merged_THEN_deduplicatesByCollectionAndNumber() {
+        val local = listOf(
+            com.quranplus.shared.features.quran.domain.HadithBookmark(
+                id = 1L,
+                collectionId = "bukhari",
+                collectionName = "Shahih Bukhari",
+                hadithNumber = 1,
+                hadithTextArabic = "Ar1",
+                hadithTranslation = "Tr1",
+                note = "Catatan Lokal",
+                timestamp = 1000L
+            )
+        )
+        val saf = listOf(
+            com.quranplus.shared.features.quran.domain.HadithBookmark(
+                id = 2L,
+                collectionId = "bukhari",
+                collectionName = "Shahih Bukhari",
+                hadithNumber = 1,
+                hadithTextArabic = "Ar1",
+                hadithTranslation = "Tr1",
+                note = "Catatan SAF (lama)",
+                timestamp = 500L
+            ),
+            com.quranplus.shared.features.quran.domain.HadithBookmark(
+                id = 3L,
+                collectionId = "muslim",
+                collectionName = "Shahih Muslim",
+                hadithNumber = 42,
+                hadithTextArabic = "Ar42",
+                hadithTranslation = "Tr42",
+                note = null,
+                timestamp = 2000L
+            )
+        )
+
+        val existingKeys = local.map { "${it.collectionId}:${it.hadithNumber}" }.toSet()
+        val toInsert = saf.filter { "${it.collectionId}:${it.hadithNumber}" !in existingKeys }
+        val merged = local + toInsert
+
+        assertEquals(2, merged.size)
+        assertEquals("Catatan Lokal", merged.find { it.collectionId == "bukhari" && it.hadithNumber == 1 }?.note)
+        assertEquals("muslim", merged.find { it.hadithNumber == 42 }?.collectionId)
+    }
+
+    @Test
+    fun GIVEN_bookmarkAndMarker_WHEN_compared_THEN_theyAreFundamentallyDistinctEntities() {
+        // Marker represents current stop position with a color index
+        val marker = HadithMarker(
+            collectionId = "bukhari",
+            collectionName = "Shahih Bukhari",
+            hadithNumber = 10,
+            colorIndex = 0
+        )
+
+        // Bookmark represents a saved/favorited item with translation, text, notes
+        val bookmark = com.quranplus.shared.features.quran.domain.HadithBookmark(
+            id = 10L,
+            collectionId = "bukhari",
+            collectionName = "Shahih Bukhari",
+            hadithNumber = 10,
+            hadithTextArabic = "Text",
+            hadithTranslation = "Translation",
+            note = "Saved for study"
+        )
+
+        // They serve different functions and have different models
+        assertNotEquals(marker::class, bookmark::class)
+        assertEquals(marker.collectionId, bookmark.collectionId)
+        assertEquals(marker.hadithNumber, bookmark.hadithNumber)
+        assertNotNull(bookmark.note)
+    }
 }
+

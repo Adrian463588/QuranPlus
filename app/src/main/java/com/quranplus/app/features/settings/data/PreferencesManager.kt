@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import com.quranplus.shared.features.quran.domain.QuranMarker
 import com.quranplus.shared.features.quran.domain.HadithMarker
+import com.quranplus.shared.features.quran.domain.HadithBookmark
 import com.quranplus.app.core.ui.theme.QuranColors
 import org.json.JSONArray
 import org.json.JSONObject
@@ -94,6 +95,7 @@ class PreferencesManager(private val context: Context) {
         val HADITH_MARKER = stringPreferencesKey("hadith_marker_data")
         val QURAN_MARKERS = stringPreferencesKey("quran_markers_list_data")
         val HADITH_MARKERS = stringPreferencesKey("hadith_markers_list_data")
+        val HADITH_BOOKMARKS = stringPreferencesKey("hadith_bookmarks_list_data")
     }
 
     val isDarkMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -405,4 +407,52 @@ class PreferencesManager(private val context: Context) {
             setHadithMarkers(listOf(marker))
         }
     }
+
+    val hadithBookmarks: Flow<List<HadithBookmark>> = context.dataStore.data.map { preferences ->
+        val json = preferences[PreferencesKeys.HADITH_BOOKMARKS] ?: return@map emptyList()
+        runCatching {
+            val array = JSONArray(json)
+            val list = mutableListOf<HadithBookmark>()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                list.add(
+                    HadithBookmark(
+                        id = obj.optLong("id", i.toLong() + 1),
+                        collectionId = obj.getString("collectionId"),
+                        collectionName = obj.getString("collectionName"),
+                        hadithNumber = obj.getInt("hadithNumber"),
+                        hadithTextArabic = obj.optString("hadithTextArabic", ""),
+                        hadithTranslation = obj.optString("hadithTranslation", ""),
+                        note = obj.optString("note", "").takeIf { it.isNotBlank() },
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+                    )
+                )
+            }
+            list
+        }.getOrDefault(emptyList())
+    }
+
+    suspend fun setHadithBookmarks(bookmarks: List<HadithBookmark>) {
+        context.dataStore.edit { preferences ->
+            if (bookmarks.isEmpty()) {
+                preferences.remove(PreferencesKeys.HADITH_BOOKMARKS)
+            } else {
+                val array = JSONArray()
+                bookmarks.forEach { b ->
+                    array.put(JSONObject().apply {
+                        put("id", b.id)
+                        put("collectionId", b.collectionId)
+                        put("collectionName", b.collectionName)
+                        put("hadithNumber", b.hadithNumber)
+                        put("hadithTextArabic", b.hadithTextArabic)
+                        put("hadithTranslation", b.hadithTranslation)
+                        put("note", b.note ?: "")
+                        put("timestamp", b.timestamp)
+                    })
+                }
+                preferences[PreferencesKeys.HADITH_BOOKMARKS] = array.toString()
+            }
+        }
+    }
 }
+

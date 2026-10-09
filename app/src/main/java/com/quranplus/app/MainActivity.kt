@@ -481,8 +481,12 @@ fun AppNavHost(
         composable(AppDestination.BOOKMARKS.route) {
             BookmarksScreen(
                 viewModel = quranViewModel,
+                hadithViewModel = hadithViewModel,
                 onBookmarkClick = { surahNumber, ayahNumber ->
                     navController.navigateToReader(surahNumber, ayahNumber)
+                },
+                onHadithBookmarkClick = { collectionId, hadithNumber ->
+                    navController.navigateToHadith(collectionId, hadithNumber)
                 }
             )
         }

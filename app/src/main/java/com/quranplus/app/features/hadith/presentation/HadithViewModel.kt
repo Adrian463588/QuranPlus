@@ -11,6 +11,7 @@ import com.quranplus.app.features.hadith.domain.SearchHadithUseCase
 import com.quranplus.app.features.settings.data.PreferencesManager
 import com.quranplus.app.core.database.SafUserDataManager
 import com.quranplus.shared.features.quran.domain.HadithMarker
+import com.quranplus.shared.features.quran.domain.HadithBookmark
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -101,6 +102,73 @@ class HadithViewModel(
             }
         }
     }
+
+    val hadithBookmarks: StateFlow<List<HadithBookmark>> = preferencesManager?.hadithBookmarks
+        ?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        ?: MutableStateFlow(emptyList())
+
+    fun toggleHadithBookmark(
+        record: HadithRecord,
+        collectionName: String,
+        note: String? = null
+    ) {
+        viewModelScope.launch {
+            val current = hadithBookmarks.value
+            val existing = current.find { it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber }
+            if (existing != null) {
+                val updated = current.filterNot { it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber }
+                preferencesManager?.setHadithBookmarks(updated)
+                safUserDataManager?.exportHadithBookmarksToSaf()
+            } else {
+                val nextId = (current.maxOfOrNull { it.id } ?: 0L) + 1L
+                val newBookmark = HadithBookmark(
+                    id = nextId,
+                    collectionId = record.collectionId,
+                    collectionName = collectionName,
+                    hadithNumber = record.hadithNumber,
+                    hadithTextArabic = record.textArabic,
+                    hadithTranslation = record.translationId.ifBlank { record.translationEn },
+                    note = note,
+                    timestamp = System.currentTimeMillis()
+                )
+                preferencesManager?.setHadithBookmarks(current + newBookmark)
+                safUserDataManager?.exportHadithBookmarksToSaf()
+            }
+        }
+    }
+
+    fun deleteHadithBookmark(bookmark: HadithBookmark) {
+        viewModelScope.launch {
+            val current = hadithBookmarks.value
+            val updated = current.filterNot { it.collectionId == bookmark.collectionId && it.hadithNumber == bookmark.hadithNumber }
+            preferencesManager?.setHadithBookmarks(updated)
+            safUserDataManager?.exportHadithBookmarksToSaf()
+        }
+    }
+
+    fun restoreHadithBookmark(bookmark: HadithBookmark) {
+        viewModelScope.launch {
+            val current = hadithBookmarks.value
+            if (current.none { it.collectionId == bookmark.collectionId && it.hadithNumber == bookmark.hadithNumber }) {
+                preferencesManager?.setHadithBookmarks(current + bookmark)
+                safUserDataManager?.exportHadithBookmarksToSaf()
+            }
+        }
+    }
+
+    fun updateHadithBookmarkNote(collectionId: String, hadithNumber: Int, note: String?) {
+        viewModelScope.launch {
+            val current = hadithBookmarks.value
+            val updated = current.map {
+                if (it.collectionId == collectionId && it.hadithNumber == hadithNumber) {
+                    it.copy(note = note)
+                } else it
+            }
+            preferencesManager?.setHadithBookmarks(updated)
+            safUserDataManager?.exportHadithBookmarksToSaf()
+        }
+    }
+
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()

@@ -6,6 +6,7 @@ import com.quranplus.app.features.rag.data.SafAssetStore
 import com.quranplus.app.features.settings.data.PreferencesManager
 import com.quranplus.shared.features.quran.domain.HadithMarker
 import com.quranplus.shared.features.quran.domain.QuranMarker
+import com.quranplus.shared.features.quran.domain.HadithBookmark
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -86,6 +87,80 @@ class SafUserDataManager(
                     } else if (existing.note.isNullOrBlank() && !note.isNullOrBlank()) {
                         bookmarkDao.updateNote(existing.id, note)
                     }
+                }
+                restoredCount
+            }.getOrDefault(0)
+        }
+    }
+
+    suspend fun exportHadithBookmarksToSaf(): Boolean = withContext(Dispatchers.IO) {
+        syncMutex.withLock {
+            runCatching {
+                val bookmarks = preferencesManager.hadithBookmarks.firstOrNull() ?: emptyList()
+                val array = JSONArray()
+                bookmarks.forEach { b ->
+                    val obj = JSONObject().apply {
+                        put("id", b.id)
+                        put("collectionId", b.collectionId)
+                        put("collectionName", b.collectionName)
+                        put("hadithNumber", b.hadithNumber)
+                        put("hadithTextArabic", b.hadithTextArabic)
+                        put("hadithTranslation", b.hadithTranslation)
+                        put("note", b.note ?: "")
+                        put("timestamp", b.timestamp)
+                    }
+                    array.put(obj)
+                }
+                safAssetStore.publishText(
+                    text = array.toString(2),
+                    relativeDirectory = "userdata",
+                    filename = "hadith_bookmarks.json"
+                )
+                true
+            }.getOrDefault(false)
+        }
+    }
+
+    suspend fun importHadithBookmarksFromSaf(): Int = withContext(Dispatchers.IO) {
+        syncMutex.withLock {
+            runCatching {
+                val jsonText = safAssetStore.readText("userdata", "hadith_bookmarks.json") ?: return@withLock 0
+                val array = JSONArray(jsonText)
+                val current = preferencesManager.hadithBookmarks.firstOrNull() ?: emptyList()
+                val currentMap = current.associateBy { "${it.collectionId}:${it.hadithNumber}" }.toMutableMap()
+                var restoredCount = 0
+
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val collectionId = obj.getString("collectionId")
+                    val collectionName = obj.optString("collectionName", "")
+                    val hadithNumber = obj.getInt("hadithNumber")
+                    val hadithTextArabic = obj.optString("hadithTextArabic", "")
+                    val hadithTranslation = obj.optString("hadithTranslation", "")
+                    val note = obj.optString("note", "").takeIf { it.isNotBlank() }
+                    val timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+                    val key = "$collectionId:$hadithNumber"
+
+                    val existing = currentMap[key]
+                    if (existing == null) {
+                        currentMap[key] = HadithBookmark(
+                            id = obj.optLong("id", currentMap.size.toLong() + 1),
+                            collectionId = collectionId,
+                            collectionName = collectionName,
+                            hadithNumber = hadithNumber,
+                            hadithTextArabic = hadithTextArabic,
+                            hadithTranslation = hadithTranslation,
+                            note = note,
+                            timestamp = timestamp
+                        )
+                        restoredCount++
+                    } else if (existing.note.isNullOrBlank() && !note.isNullOrBlank()) {
+                        currentMap[key] = existing.copy(note = note)
+                    }
+                }
+
+                if (restoredCount > 0 || currentMap.size > current.size) {
+                    preferencesManager.setHadithBookmarks(currentMap.values.toList())
                 }
                 restoredCount
             }.getOrDefault(0)
@@ -228,11 +303,18 @@ class SafUserDataManager(
 
     suspend fun restoreFromSaf(): Boolean = withContext(Dispatchers.IO) {
         val bookmarksRestored = importBookmarksFromSaf()
+        val hadithBookmarksRestored = importHadithBookmarksFromSaf()
         val markersRestored = importMarkersToSaf()
         if (bookmarksRestored == 0) {
             val localBookmarks = bookmarkDao.getAllBookmarks().first()
             if (localBookmarks.isNotEmpty()) {
                 exportBookmarksToSaf()
+            }
+        }
+        if (hadithBookmarksRestored == 0) {
+            val localHadithBookmarks = preferencesManager.hadithBookmarks.firstOrNull() ?: emptyList()
+            if (localHadithBookmarks.isNotEmpty()) {
+                exportHadithBookmarksToSaf()
             }
         }
         if (!markersRestored) {

@@ -66,3 +66,15 @@ data class HadithMarker(
     val timestamp: Long = 0L,
     val colorIndex: Int = 0
 )
+
+data class HadithBookmark(
+    val id: Long = 0L,
+    val collectionId: String,
+    val collectionName: String,
+    val hadithNumber: Int,
+    val hadithTextArabic: String = "",
+    val hadithTranslation: String = "",
+    val note: String? = null,
+    val timestamp: Long = 0L
+)
+
