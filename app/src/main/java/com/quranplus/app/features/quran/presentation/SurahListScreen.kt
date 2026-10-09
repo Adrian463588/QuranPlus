@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.ui.graphics.Color
@@ -717,7 +718,7 @@ fun ReadingMarkerBanner(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Rounded.Bookmark,
+                        imageVector = Icons.Rounded.PushPin,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(22.dp)

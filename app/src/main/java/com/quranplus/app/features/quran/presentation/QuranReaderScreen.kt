@@ -42,6 +42,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Fullscreen
@@ -1345,7 +1347,7 @@ fun AyahReaderItem(
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        imageVector = if (isMarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                        imageVector = if (isMarked) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
                         contentDescription = "Penanda Berhenti Baca",
                         tint = if (isMarked) QuranColors.OceanMarker else MaterialTheme.colorScheme.onSurfaceVariant
                     )

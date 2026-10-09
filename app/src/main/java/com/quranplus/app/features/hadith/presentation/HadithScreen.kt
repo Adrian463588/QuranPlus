@@ -30,6 +30,8 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.CloudDownload
@@ -760,7 +762,7 @@ fun HadithReadingMarkerBanner(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Rounded.Bookmark,
+                        imageVector = Icons.Rounded.PushPin,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(22.dp)
@@ -1260,7 +1262,7 @@ private fun HadithCardItem(
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
-                            imageVector = if (isMarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                            imageVector = if (isMarked) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
                             contentDescription = if (isMarked) "Hapus Penanda Berhenti" else "Tandai Berhenti Baca",
                             tint = if (isMarked) QuranColors.OceanMarker else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)

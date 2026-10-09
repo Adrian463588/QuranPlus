@@ -28,6 +28,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.EditNote
@@ -183,7 +185,7 @@ fun AyahActionBottomSheet(
                         ).show()
                     }) {
                         Icon(
-                            imageVector = if (isMarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                            imageVector = if (isMarked) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
                             contentDescription = "Penanda Berhenti Baca",
                             tint = if (isMarked) QuranColors.OceanMarker else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -262,7 +264,7 @@ fun AyahActionBottomSheet(
 
             // 2b. Reading Marker (Penanda Berhenti Baca - Biru Muda Ocean)
             ActionItemRow(
-                icon = if (isMarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                icon = if (isMarked) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
                 title = if (isMarked) "Hapus Penanda Baca (Berhenti di Sini)" else "Tandai Berhenti di Sini (Penanda Baca)",
                 subtitle = if (isMarked) "Penanda baca aktif terpasang di ayat ini (tersimpan di SAF)" else "Tandai ayat ini sebagai tempat berhenti membaca (tersimpan di SAF)",
                 onClick = {
