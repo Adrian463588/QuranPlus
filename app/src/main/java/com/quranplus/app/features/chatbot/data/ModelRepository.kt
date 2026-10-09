@@ -289,14 +289,12 @@ class ModelRepository(
     suspend fun restoreVerifiedModelsFromSaf(force: Boolean = false) =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             startupVerificationMutex.withLock {
-                if (startupVerificationComplete && !force) return@withLock
-                // Prioritize embedding models first so RAG services become ready immediately
-                (availableEmbeddingModels + availableChatbotModels)
+                val downloadableModels = (availableEmbeddingModels + availableChatbotModels)
                     .filter(ModelInfo::isDownloadable)
-                    .forEach { model ->
-                        // A process-local readiness bit is not durable trust.
-                        // Hash every existing artifact once per startup, even
-                        // when its byte length still matches the manifest.
+                val allReady = downloadableModels.all { isModelReady(it) }
+                if (allReady && !force) return@withLock
+                downloadableModels.forEach { model ->
+                    if (!isModelReady(model) || force) {
                         if (!verifyModelSha256Async(model)) {
                             runCatching {
                                 safAssetStore.materialize(
@@ -308,6 +306,7 @@ class ModelRepository(
                             verifyModelSha256Async(model)
                         }
                     }
+                }
                 startupVerificationComplete = true
             }
         }

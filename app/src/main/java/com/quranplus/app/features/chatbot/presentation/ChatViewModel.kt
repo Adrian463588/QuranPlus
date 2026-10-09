@@ -139,6 +139,14 @@ class ChatViewModel(
         checkModelStatus()
         refreshHadithBundleStatus()
         viewModelScope.launch {
+            hadithBundleManager.observeStorageRoot().collect { rootUri ->
+                if (rootUri != null) {
+                    checkModelStatus()
+                    refreshHadithBundleStatus()
+                }
+            }
+        }
+        viewModelScope.launch {
             hadithBundleManager.observeDownload().collect { workState ->
                 _hadithBundleState.update { current ->
                     current.copy(

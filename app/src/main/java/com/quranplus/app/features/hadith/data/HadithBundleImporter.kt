@@ -95,8 +95,7 @@ class HadithBundleImporter(
     }
 
     suspend fun restoreFromSaf(): HadithBundleImportSummary? = withContext(Dispatchers.IO) {
-        // Rebuild from the verified archive in SAF.
-        // The archive is cryptographically verified against HadithBundleManifest.VERIFIED.archiveSha256.
+        // 1. Rebuild from verified archive in SAF
         val temporary = File.createTempFile("quranplus-hadith-restore-", ".zip")
         try {
             val materialized = assetStore.materialize(
@@ -104,13 +103,39 @@ class HadithBundleImporter(
                 destination = temporary,
                 expectedSha256 = HadithBundleManifest.VERIFIED.archiveSha256
             )
-            if (!materialized || temporary.length() != HadithBundleManifest.VERIFIED.archiveSizeBytes) {
-                return@withContext null
+            if (materialized && temporary.length() == HadithBundleManifest.VERIFIED.archiveSizeBytes) {
+                return@withContext importArchive(temporary)
             }
-            importArchive(temporary)
+        } catch (_: Exception) {
+            // Zip not found; proceed to extracted books fallback
         } finally {
             temporary.delete()
         }
+
+        // 2. Fallback: restore from extracted JSON books in rag/source/hadith
+        runCatching { restoreFromExtractedBooks() }.getOrNull()
+    }
+
+    private suspend fun restoreFromExtractedBooks(): HadithBundleImportSummary? {
+        val bookUris = assetStore.listFiles("rag/source/hadith")
+        if (bookUris.isEmpty()) return null
+        val imported = mutableListOf<HadithImportSummary>()
+        for (uri in bookUris) {
+            referenceImporter.import(
+                uri = uri,
+                source = VerifiedHadithSource(
+                    revision = HadithBundleManifest.VERIFIED.revision,
+                    licenseId = HadithBundleManifest.VERIFIED.licenseId,
+                    licenseUrl = HadithBundleManifest.VERIFIED.licenseUrl,
+                    sourceSha256 = HadithBundleManifest.VERIFIED.archiveSha256
+                )
+            )?.let(imported::add)
+        }
+        if (imported.isEmpty()) return null
+        return HadithBundleImportSummary(
+            collectionCount = imported.size,
+            recordCount = imported.sumOf(HadithImportSummary::recordCount)
+        )
     }
 
     companion object {

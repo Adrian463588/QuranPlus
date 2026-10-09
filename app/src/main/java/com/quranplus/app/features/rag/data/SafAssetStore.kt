@@ -132,17 +132,13 @@ class SafAssetStore(
         expectedSha256: String
     ): Boolean = withContext(Dispatchers.IO) {
         val root = linkedRootOrThrow()
-        val parts = relativePath.split('/').filter(String::isNotBlank)
-        require(parts.isNotEmpty()) { "Path asset kosong" }
-        val file = runCatching {
-            parts.dropLast(1).fold(root) { parent, segment ->
-                parent.findFile(segment) ?: throw IllegalStateException("Folder SAF tidak ditemukan: $segment")
-            }.findFile(parts.last())
-        }.getOrNull() ?: root.findFile(parts.last())
+        val file = findDocumentFile(root, relativePath)
             ?: throw IllegalStateException("Asset SAF tidak ditemukan: $relativePath")
-        // Keep SAF materialization separate from the downloader's resumable
-        // `${destination.name}.tmp` candidate. A startup restore must never
-        // overwrite an active WorkManager transfer.
+        
+        destination.parentFile?.mkdirs()
+        if (destination.exists() && sha256(destination).equals(expectedSha256, ignoreCase = true)) {
+            return@withContext true
+        }
         val temporary = File(destination.parentFile ?: context.cacheDir, "${destination.name}.saf.tmp")
         try {
             resolver.openInputStream(file.uri)?.use { input ->
@@ -154,6 +150,57 @@ class SafAssetStore(
         } finally {
             temporary.delete()
         }
+    }
+
+    private fun findDocumentFile(root: DocumentFile, relativePath: String): DocumentFile? {
+        val parts = relativePath.split('/').filter(String::isNotBlank)
+        if (parts.isEmpty()) return null
+        val targetName = parts.last()
+
+        // 1. Precise path navigation (case-insensitive)
+        val directMatch = runCatching {
+            var current: DocumentFile = root
+            for (i in 0 until parts.size - 1) {
+                val segment = parts[i]
+                val nextDir = current.listFiles().firstOrNull {
+                    it.isDirectory && it.name.equals(segment, ignoreCase = true)
+                } ?: current.findFile(segment)
+                if (nextDir == null) return@runCatching null
+                current = nextDir
+            }
+            current.listFiles().firstOrNull {
+                it.isFile && it.name.equals(targetName, ignoreCase = true)
+            } ?: current.findFile(targetName)
+        }.getOrNull()
+
+        if (directMatch != null) return directMatch
+
+        // 2. Direct lookup at root
+        val rootMatch = root.listFiles().firstOrNull {
+            it.isFile && it.name.equals(targetName, ignoreCase = true)
+        } ?: root.findFile(targetName)
+        if (rootMatch != null) return rootMatch
+
+        // 3. Recursive lookup across subdirectories
+        return searchDocumentRecursively(root, targetName, currentDepth = 0, maxDepth = 3)
+    }
+
+    private fun searchDocumentRecursively(
+        directory: DocumentFile,
+        targetName: String,
+        currentDepth: Int,
+        maxDepth: Int
+    ): DocumentFile? {
+        if (currentDepth > maxDepth) return null
+        val files = directory.listFiles()
+        val match = files.firstOrNull { it.isFile && it.name.equals(targetName, ignoreCase = true) }
+        if (match != null) return match
+
+        for (subdir in files.filter { it.isDirectory }) {
+            val found = searchDocumentRecursively(subdir, targetName, currentDepth + 1, maxDepth)
+            if (found != null) return found
+        }
+        return null
     }
 
     private suspend fun linkedRootOrThrow(): DocumentFile {
@@ -192,8 +239,8 @@ class SafAssetStore(
         filename: String
     ): String? = withContext(Dispatchers.IO) {
         val root = runCatching { linkedRootOrThrow() }.getOrNull() ?: return@withContext null
-        val directory = createDirectoryPath(root, relativeDirectory)
-        val file = directory.findFile(filename) ?: return@withContext null
+        val targetPath = if (relativeDirectory.isBlank()) filename else "$relativeDirectory/$filename"
+        val file = findDocumentFile(root, targetPath) ?: return@withContext null
         resolver.openInputStream(file.uri)?.use { input ->
             input.bufferedReader(Charsets.UTF_8).readText()
         }
@@ -204,8 +251,8 @@ class SafAssetStore(
         filename: String
     ): Boolean = withContext(Dispatchers.IO) {
         val root = runCatching { linkedRootOrThrow() }.getOrNull() ?: return@withContext false
-        val directory = createDirectoryPath(root, relativeDirectory)
-        val file = directory.findFile(filename)
+        val targetPath = if (relativeDirectory.isBlank()) filename else "$relativeDirectory/$filename"
+        val file = findDocumentFile(root, targetPath)
         file != null && file.isFile && file.length() > 0L
     }
 
@@ -215,8 +262,8 @@ class SafAssetStore(
         destination: File
     ): Boolean = withContext(Dispatchers.IO) {
         val root = runCatching { linkedRootOrThrow() }.getOrNull() ?: return@withContext false
-        val directory = createDirectoryPath(root, relativeDirectory)
-        val file = directory.findFile(filename) ?: return@withContext false
+        val targetPath = if (relativeDirectory.isBlank()) filename else "$relativeDirectory/$filename"
+        val file = findDocumentFile(root, targetPath) ?: return@withContext false
         if (!file.isFile || file.length() <= 0L) return@withContext false
         destination.parentFile?.mkdirs()
         val temporary = File(destination.parentFile ?: context.cacheDir, "${destination.name}.tmp")

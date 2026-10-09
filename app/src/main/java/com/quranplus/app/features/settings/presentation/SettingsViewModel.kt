@@ -35,7 +35,7 @@ class SettingsViewModel(
 
     fun refreshInstalledModels() {
         val repo = modelRepository ?: return
-        val ready = repo.availableEmbeddingModels
+        val ready = (repo.availableEmbeddingModels + repo.availableChatbotModels)
             .filter { repo.isModelReady(it) }
             .map { it.id }
             .toSet()
