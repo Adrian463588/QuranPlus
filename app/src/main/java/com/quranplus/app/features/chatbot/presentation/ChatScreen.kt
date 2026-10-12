@@ -109,6 +109,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -815,7 +816,7 @@ private fun CompanionSourceBento(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Quran • Hadist • Dokumen RAG",
+                    text = stringResource(com.quranplus.app.R.string.chat_grounding_sources),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1407,7 +1408,7 @@ fun ChatBubbleItem(
                             GenerationStatus.STOPPED -> "Jawaban dihentikan; teks yang sudah tersedia disimpan."
                             GenerationStatus.TIMEOUT -> "Jawaban melewati batas waktu; periksa rujukan di bawah."
                             GenerationStatus.FALLBACK -> "Jawaban model digantikan rujukan terverifikasi."
-                            GenerationStatus.UNAVAILABLE -> "Model tidak tersedia; rujukan tetap ditampilkan."
+                            GenerationStatus.UNAVAILABLE -> stringResource(com.quranplus.app.R.string.chat_answer_unavailable)
                             GenerationStatus.STREAMING -> "Jawaban masih diproses."
                             GenerationStatus.COMPLETE -> ""
                         },

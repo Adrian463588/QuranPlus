@@ -25,4 +25,6 @@
     <string name="hadith_bundle_importing">Menyimpan dan menyiapkan Hadist untuk AI…</string>
     <string name="hadith_bundle_queued">Menunggu koneksi internet…</string>
     <string name="hadith_bundle_installed">Tersedia: %1$d koleksi, %2$d hadist</string>
+    <string name="chat_grounding_sources">Quran • Hadist</string>
+    <string name="chat_answer_unavailable">Jawaban belum tersedia.</string>
 </resources>

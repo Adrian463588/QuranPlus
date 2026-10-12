@@ -39,7 +39,7 @@ source citations and the existing opt-out for online requests.
 - [x] Repair shared formatter and primary-only retrieval/prompt boundaries.
 - [x] Add BDD regression tests covering source text and fallback branches.
 - [x] Run unit tests, lint, assemble, diff/security review.
-- [ ] Bump final 1.0.9 / code 10; commit scoped files; push and publish APK/checksum.
+- [ ] Bump final 1.0.10 / code 11; commit scoped files; push and publish APK/checksum.
 - [ ] Verify remote commit, release asset and download history links.
 
 ## Evidence boundaries
@@ -70,7 +70,7 @@ every devotional passage. Report only checks actually executed.
 - CI repeats corpus validation, app/shared unit tests, lint and APK build.
   Publication outcomes belong to the GitHub release created after this commit.
 - Local final gate: 186 app tests passed, 0 skipped/failed; shared module has no
-  unit tests. Android lint: 0 errors, 98 warnings. APK: 1.0.9 / versionCode 10.
+  unit tests. Android lint: 0 errors, 98 warnings. APK: 1.0.10 / versionCode 11.
 - Reachable text history scan found no credential-pattern matches; history
   contains no APK, AAR, keystore, private key, or notebook paths.
 - Historical v1.0.4 is an empty draft; its broken README download link now
@@ -83,3 +83,7 @@ every devotional passage. Report only checks actually executed.
   (Java 21). CI now overrides the local Java home and uses JDK 21.
 - The repository and its tests reuse the existing `LlmRunner` interface,
   avoiding native engine classloading while testing retrieval and fallback.
+- Device query `fotolitografi` returned the honest no-evidence response without
+  a confirmation dialog. Its old status label incorrectly blamed the model;
+  the final 1.0.10 uses a neutral unavailable label and lists only Quran/Hadith
+  as answer sources. No new UI element or CTA is introduced.
