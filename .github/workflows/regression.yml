@@ -26,4 +26,4 @@ jobs:
       - name: Check reviewed Arabic and Latin corpus
         run: python3 scripts/validate_dzikir_corpus.py
       - name: Unit tests, Android lint and APK
-        run: bash gradlew :app:testDebugUnitTest :shared:testDebugUnitTest :app:lintDebug :app:assembleDebug --no-daemon --console=plain
+        run: bash gradlew -Dorg.gradle.java.home="$JAVA_HOME" :app:testDebugUnitTest :shared:testDebugUnitTest :app:lintDebug :app:assembleDebug --no-daemon --console=plain
