@@ -4,7 +4,7 @@ import com.quranplus.app.core.database.QuranDatabase
 import com.quranplus.app.core.database.dao.ChatDao
 import com.quranplus.app.features.chatbot.data.ChatRepositoryImpl
 import com.quranplus.app.features.chatbot.data.InternetResearcher
-import com.quranplus.app.features.chatbot.data.LiteRtLmRunner
+import com.quranplus.app.features.chatbot.data.LlmRunner
 import com.quranplus.app.features.chatbot.domain.GenerationEvent
 import com.quranplus.app.features.rag.data.EmbeddingService
 import com.quranplus.app.features.rag.domain.GenerationStatus
@@ -32,7 +32,7 @@ class ChatGroundingFallbackTest {
     private val chatDao = mockk<ChatDao>(relaxed = true)
     private val embedder = mockk<EmbeddingService>(relaxed = true)
     private val retriever = mockk<VectorRetriever>(relaxed = true)
-    private val runner = mockk<LiteRtLmRunner>(relaxed = true)
+    private val runner = mockk<LlmRunner>(relaxed = true)
     private val internet = mockk<InternetResearcher>()
     private val preferences = mockk<PreferencesManager>()
     private val repository = ChatRepositoryImpl(

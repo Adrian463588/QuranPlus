@@ -39,7 +39,7 @@ source citations and the existing opt-out for online requests.
 - [x] Repair shared formatter and primary-only retrieval/prompt boundaries.
 - [x] Add BDD regression tests covering source text and fallback branches.
 - [x] Run unit tests, lint, assemble, diff/security review.
-- [ ] Bump 1.0.8 / code 9; commit scoped files; push and publish APK/checksum.
+- [ ] Bump final 1.0.9 / code 10; commit scoped files; push and publish APK/checksum.
 - [ ] Verify remote commit, release asset and download history links.
 
 ## Evidence boundaries
@@ -69,9 +69,17 @@ every devotional passage. Report only checks actually executed.
   unavailable-provider behavior are covered by controlled unit tests.
 - CI repeats corpus validation, app/shared unit tests, lint and APK build.
   Publication outcomes belong to the GitHub release created after this commit.
-- Local final gate: 185 app tests passed, 0 skipped/failed; shared module has no
-  unit tests. Android lint: 0 errors, 98 warnings. APK: 1.0.8 / versionCode 9.
+- Local final gate: 186 app tests passed, 0 skipped/failed; shared module has no
+  unit tests. Android lint: 0 errors, 98 warnings. APK: 1.0.9 / versionCode 10.
 - Reachable text history scan found no credential-pattern matches; history
   contains no APK, AAR, keystore, private key, or notebook paths.
 - Historical v1.0.4 is an empty draft; its broken README download link now
   states that no public APK exists, without inventing a historical binary.
+- Physical visual review found legacy wajib/jaiz tags on isolated letter names.
+  Canonical lazim/tabii spans replace those tags without changing Arabic or Latin.
+  Final delivery uses 1.0.9; the already published 1.0.8 stays as an archive.
+- CI first exposed a Windows-only Java path, then Java 17 could not mock the
+  LiteRT-LM runtime. Inspection confirms `Engine.class` major version 65
+  (Java 21). CI now overrides the local Java home and uses JDK 21.
+- The repository and its tests reuse the existing `LlmRunner` interface,
+  avoiding native engine classloading while testing retrieval and fallback.

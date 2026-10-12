@@ -67,6 +67,23 @@ class DzikirTajwidColorAuditTest {
     }
 
     @Test
+    fun GIVEN_letterNames_WHEN_coloringMad_THEN_distinguishesTabiiFromLazim() {
+        val item = DzikirDataCatalog.ALL_ITEMS.first { it.id == "bahr_03" }
+        val formatted = DzikirTajwidFormatter.formatArabic(item.arabicText, item.tajwidTags)
+        val expected = mapOf('ك' to QuranColors.TajwidMadLazim, 'ه' to QuranColors.TajwidMad,
+            'ي' to QuranColors.TajwidMad, 'ع' to QuranColors.TajwidMadLazim, 'ص' to QuranColors.TajwidMadLazim)
+        expected.forEach { (letter, color) ->
+            val offset = item.arabicText.indexOf(letter)
+            assertTrue("$letter must use the reviewed mad type", formatted.spanStyles.any {
+                it.start <= offset && it.end > offset && it.item.color == color
+            })
+            assertTrue("No wajib/jaiz label for isolated letter $letter", formatted.spanStyles.none {
+                it.start <= offset && it.end > offset && it.item.color == QuranColors.TajwidMadWajib
+            })
+        }
+    }
+
+    @Test
     fun GIVEN_catalog_WHEN_formattingEveryEntry_THEN_rendersColoredTajwidSpans() {
         DzikirDataCatalog.ALL_ITEMS.forEach { item ->
             val formatted = DzikirTajwidFormatter.formatArabic(

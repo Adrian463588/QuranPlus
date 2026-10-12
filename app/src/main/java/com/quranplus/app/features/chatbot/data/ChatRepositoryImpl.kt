@@ -43,7 +43,7 @@ class ChatRepositoryImpl(
     private val embeddingService: EmbeddingService,
     private val vectorRetriever: VectorRetriever,
     private val ragPipeline: RagPipeline,
-    private val llmRunner: LiteRtLmRunner,
+    private val llmRunner: LlmRunner,
     private val database: QuranDatabase,
     private val runtimeCoordinator: RagRuntimeCoordinator,
     private val internetResearcher: InternetResearcher,

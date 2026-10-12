@@ -6,6 +6,7 @@ import com.quranplus.app.core.network.ResumableDownloader
 import com.quranplus.app.features.chatbot.data.ChatRepositoryImpl
 import com.quranplus.app.features.chatbot.data.InternetResearcher
 import com.quranplus.app.features.chatbot.data.LiteRtLmRunner
+import com.quranplus.app.features.chatbot.data.LlmRunner
 import com.quranplus.app.features.chatbot.data.ModelDownloadScheduler
 import com.quranplus.app.features.chatbot.data.ModelRepository
 import com.quranplus.app.features.chatbot.data.AiReadinessChecker
@@ -123,7 +124,7 @@ val appModule = module {
     single { InternetResearcher(androidContext()) }
     single { ModelRepository(androidContext(), get()) }
     single { AiReadinessChecker(get(), get(), get(), get()) }
-    single { LiteRtLmRunner(androidContext(), get(), get()) }
+    single<LlmRunner> { LiteRtLmRunner(androidContext(), get(), get()) }
     single { SafAssetStore(androidContext(), get()) }
     single { SafDocumentImporter(androidContext(), get(), get()) }
     single { HadithReferenceImporter(androidContext(), get()) }
