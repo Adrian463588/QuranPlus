@@ -26,6 +26,16 @@ data class IslamicQueryPlan(
 )
 
 object IslamicQueryAnalyzer {
+    // Query expansion only; translations here never become answer evidence.
+    fun hadithSearchTerm(keyword: String): String = when (keyword.lowercase()) {
+        "puasa", "shaum" -> "fasting"
+        "shalat", "salat" -> "prayer"
+        "niat" -> "intention"
+        "wudhu", "wudu" -> "ablution"
+        "sedekah" -> "charity"
+        else -> keyword
+    }
+
     private val tokenPattern = Regex("[\\p{L}\\p{N}]+")
 
     private val stopWords = setOf(

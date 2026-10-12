@@ -11,6 +11,7 @@ import com.quranplus.app.features.rag.domain.EvidenceKind
 import com.quranplus.app.features.rag.domain.InternetSearchProvider
 import com.quranplus.app.features.rag.domain.IslamicQueryAnalyzer
 import com.quranplus.app.features.rag.domain.IslamicQueryPlan
+import com.quranplus.app.features.rag.domain.isPrimaryEvidence
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Cache
@@ -28,9 +29,7 @@ internal const val MAX_RESEARCH_QUERY_LENGTH = 160
 /**
  * Small, keyless web fallback for questions that have no adequate local evidence.
  *
- * Wikipedia is deliberately treated as supplementary web context, never as Quran,
- * Hadist, or a religious authority. The returned URL is retained as the citation
- * target so the user can inspect the exact page used by the model.
+ * Only Quran and Hadith providers are queried. Source URLs remain inspectable.
  */
 class InternetResearcher(
     private val context: Context,
@@ -46,60 +45,12 @@ class InternetResearcher(
             }
 
             val plan = IslamicQueryAnalyzer.analyze(normalizedQuery)
-            val quran = if (!plan.prefersHadith || plan.prefersQuran) {
-                QuranCloudSearchProvider(client).search(normalizedQuery, plan, limit)
-            } else {
-                emptyList()
-            }
-            val hadith = if (plan.prefersHadith) {
-                SunnahPublicSearchProvider(client).search(normalizedQuery, plan, limit)
-            } else {
-                emptyList()
-            }
-
-            val editorial = if (plan.domain != com.quranplus.app.features.rag.domain.IslamicQuestionDomain.SEJARAH_TARIKH) {
-                EditorialWebSearchProvider(client).search(
-                    query = normalizedQuery,
-                    plan = plan,
-                    limit = limit - quran.size
-                )
-            } else {
-                emptyList()
-            }
-
-            val duckduckgo = if ((quran.size + hadith.size + editorial.size) < limit &&
-                plan.domain != com.quranplus.app.features.rag.domain.IslamicQuestionDomain.SEJARAH_TARIKH
-            ) {
-                DuckDuckGoWebSearchProvider(client).search(
-                    query = normalizedQuery,
-                    plan = plan,
-                    limit = limit - quran.size - hadith.size - editorial.size
-                )
-            } else {
-                emptyList()
-            }
-
-            // Wikipedia is useful for tarikh/general context or fallback. It is never
-            // used as a substitute for a Quran, Hadith, or fatwa source.
-            val wiki = if ((quran.isEmpty() && hadith.isEmpty() && editorial.isEmpty() && duckduckgo.isEmpty()) ||
-                plan.domain == com.quranplus.app.features.rag.domain.IslamicQuestionDomain.SEJARAH_TARIKH ||
-                plan.domain == com.quranplus.app.features.rag.domain.IslamicQuestionDomain.UMUM
-            ) {
-                val indonesian = searchWiki(
-                    host = INDONESIAN_WIKI_HOST,
-                    query = normalizedQuery,
-                    limit = (limit - quran.size - hadith.size - editorial.size - duckduckgo.size).coerceAtLeast(1)
-                )
-                val english = searchWiki(
-                    host = ENGLISH_WIKI_HOST,
-                    query = normalizedQuery,
-                    limit = limit - quran.size - hadith.size - editorial.size - duckduckgo.size - indonesian.size
-                )
-                indonesian + english
-            } else {
-                emptyList()
-            }
-            (quran + hadith + editorial + duckduckgo + wiki)
+            val quranQuery = plan.coreTopicTerms.firstOrNull() ?: normalizedQuery
+            val quran = QuranCloudSearchProvider(client).search(quranQuery, plan, limit)
+            val hadithQuery = IslamicQueryAnalyzer.hadithSearchTerm(quranQuery)
+            val hadith = SunnahPublicSearchProvider(client).search(hadithQuery, plan, limit)
+            (if (plan.prefersHadith) hadith + quran else quran + hadith)
+                .filter { it.isPrimaryEvidence() }
                 .distinctBy { it.deepLinkTarget ?: it.sourceId }
                 .take(limit)
         }
@@ -404,7 +355,7 @@ internal class SunnahPublicSearchProvider(
         plan: IslamicQueryPlan,
         limit: Int
     ): List<RetrievedCitation> {
-        if (limit <= 0 || !plan.prefersHadith) return emptyList()
+        if (limit <= 0) return emptyList()
         val url = "https://sunnah.com/search".toHttpUrl().newBuilder()
             .addQueryParameter("q", query.take(MAX_RESEARCH_QUERY_LENGTH))
             .build()
@@ -433,7 +384,10 @@ internal class SunnahPublicSearchProvider(
 }
 
 internal object SunnahCitationParser {
-    private val blockPattern = Regex("(?is)<(?:article|li|div)\\b[^>]*>(.{0,8000}?)</(?:article|li|div)>")
+    private val blockPattern = Regex(
+        "(?is)<div\\b[^>]*class=[\"'][^\"']*actualHadithContainer[^\"']*[\"'][^>]*>" +
+            "(.*?)(?=<div\\b[^>]*class=[\"'][^\"']*actualHadithContainer|$)"
+    )
     private val anchorPattern = Regex(
         "(?is)<a\\b[^>]*href\\s*=\\s*[\\\"']([^\\\"']+)[\\\"'][^>]*>(.*?)</a>"
     )
@@ -448,13 +402,23 @@ internal object SunnahCitationParser {
         val candidates = if (blocks.isEmpty()) listOf(html) else blocks
         return buildList {
             for (block in candidates) {
-                val anchor = anchorPattern.find(block) ?: continue
-                val path = anchor.groupValues[1].trim().substringBefore('#')
+                val path = anchorPattern.findAll(block).mapNotNull { anchor ->
+                    val raw = anchor.groupValues[1].trim().substringBefore('#')
+                    val path = if (raw.startsWith("/")) raw else {
+                        val url = CitationTargetValidator.validateHttpsUrl(raw) ?: return@mapNotNull null
+                        val uri = java.net.URI(url)
+                        if (uri.host != "sunnah.com") return@mapNotNull null
+                        uri.path
+                    }
+                    path.takeIf { resultPathPattern.matches(it) }
+                }.firstOrNull() ?: continue
                 val result = resultPathPattern.matchEntire(path) ?: continue
                 val collection = result.groupValues[1].lowercase()
                 val number = result.groupValues[2].toIntOrNull() ?: continue
                 val url = CitationTargetValidator.validateHttpsUrl("https://sunnah.com$path") ?: continue
-                val text = Html.fromHtml(block, Html.FROM_HTML_MODE_LEGACY).toString()
+                val text = runCatching {
+                    Html.fromHtml(block, Html.FROM_HTML_MODE_LEGACY).toString()
+                }.getOrDefault(block.replace(Regex("<[^>]*>"), ""))
                     .replace(Regex("\\s+"), " ")
                     .trim()
                     .take(800)
@@ -462,16 +426,17 @@ internal object SunnahCitationParser {
                 add(
                     RetrievedCitation(
                         sourceId = "web:sunnah:$collection:$number",
-                        sourceType = "internet",
+                        sourceType = "hadith",
                         title = "Sunnah.com • ${collection.replaceFirstChar { it.uppercase() }} no. $number",
                         reference = "Sunnah.com — $collection:$number",
                         textSnippet = text,
                         score = (0.82f - size * 0.03f).coerceAtLeast(0.68f),
                         collection = collection,
-                        identifier = "$collection:$number",
+                        identifier = number.toString(),
                         deepLinkTarget = url,
                         canonicalUrl = url,
-                        authorityTier = AuthorityTier.TRUSTED_EDITORIAL,
+                        evidenceKind = EvidenceKind.HADITH,
+                        authorityTier = AuthorityTier.PRIMARY_TEXT,
                         providerId = "sunnah-public",
                         retrievedAt = System.currentTimeMillis()
                     )
@@ -677,12 +642,14 @@ internal object DuckDuckGoCitationParser {
             .trim()
 }
 
-private fun readBoundedBody(response: okhttp3.Response, maxBytes: Int): String? {
+internal fun readBoundedBody(response: okhttp3.Response, maxBytes: Int): String? {
     val body = response.body ?: return null
     if (body.contentLength() > maxBytes) return null
     return runCatching {
         body.source().use { source ->
-            source.readUtf8(maxBytes.toLong() + 1L)
+            source.request(maxBytes.toLong() + 1L)
+            if (source.buffer.size > maxBytes) return@use null
+            source.buffer.readUtf8()
         }
     }.getOrNull()?.takeIf { value ->
         value.toByteArray(Charsets.UTF_8).size <= maxBytes

@@ -115,9 +115,10 @@ object DzikirTajwidFormatter {
             val c = text[i]
 
             // 1. Ghunnah Musyaddadah (Nun / Mim bertasydid)
-            if ((c == 'ن' || c == 'م') && i + 1 < n && text[i + 1] == '\u0651') {
-                var end = i + 2
-                while (end < n && isArabicHarakat(text[end])) end++
+            var clusterEnd = i + 1
+            while (clusterEnd < n && isArabicHarakat(text[clusterEnd])) clusterEnd++
+            if ((c == 'ن' || c == 'م') && '\u0651' in text.substring(i + 1, clusterEnd)) {
+                val end = clusterEnd
                 spans += ColorSpan(i, end, QuranColors.TajwidGhunnah)
                 i = end
                 continue
@@ -147,7 +148,8 @@ object DzikirTajwidFormatter {
                 val triggerStart = i
                 val triggerEnd = if (isNunSakinah) i + 2 else i + 1
                 var nextIdx = triggerEnd
-                while (nextIdx < n && (text[nextIdx].isWhitespace() || text[nextIdx] in WAQAF_MARKS)) nextIdx++
+                // Optional waqaf signs allow wasl; sentence/ayah boundaries do not.
+                while (nextIdx < n && (text[nextIdx] == ' ' || text[nextIdx] in CONTINUE_MARKS)) nextIdx++
                 if (nextIdx < n) {
                     val targetChar = text[nextIdx]
                     var targetEnd = nextIdx + 1
@@ -187,7 +189,7 @@ object DzikirTajwidFormatter {
                 val triggerStart = i
                 val triggerEnd = i + 2
                 var nextIdx = triggerEnd
-                while (nextIdx < n && (text[nextIdx].isWhitespace() || text[nextIdx] in WAQAF_MARKS)) nextIdx++
+                while (nextIdx < n && (text[nextIdx] == ' ' || text[nextIdx] in CONTINUE_MARKS)) nextIdx++
                 if (nextIdx < n) {
                     val targetChar = text[nextIdx]
                     var targetEnd = nextIdx + 1
@@ -216,7 +218,7 @@ object DzikirTajwidFormatter {
     }
 
     private fun isArabicHarakat(ch: Char): Boolean =
-        ch in setOf('\u064E', '\u064F', '\u0650', '\u064B', '\u064C', '\u064D', '\u0670', '\u0652', '\u06E1')
+        ch in setOf('\u064E', '\u064F', '\u0650', '\u064B', '\u064C', '\u064D', '\u0651', '\u0670', '\u0652', '\u06E1')
 
     private val QALQALAH_LETTERS = setOf('ق', 'ط', 'ب', 'ج', 'د')
     private val IKHFA_LETTERS = setOf('ت', 'ث', 'ج', 'د', 'ذ', 'ز', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ف', 'ق', 'ك')
@@ -233,4 +235,5 @@ object DzikirTajwidFormatter {
         }
 
     private val WAQAF_MARKS = setOf('ۚ', 'ۗ', 'ۖ', 'ۘ', 'ۙ', 'ۛ', 'ۜ', '۞', '۩', '۝')
+    private val CONTINUE_MARKS = setOf('ۚ', 'ۗ', 'ۖ', 'ۙ', 'ۛ')
 }

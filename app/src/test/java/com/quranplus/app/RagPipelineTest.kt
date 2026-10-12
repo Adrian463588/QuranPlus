@@ -6,6 +6,7 @@ import com.quranplus.app.features.rag.domain.IslamicQuestionDomain
 import com.quranplus.app.features.rag.domain.RetrievedCitation
 import com.quranplus.app.features.settings.data.AiPersona
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class RagPipelineTest {
@@ -46,15 +47,6 @@ class RagPipelineTest {
                 collection = "bukhari",
                 identifier = "1",
                 deepLinkTarget = "hadith:bukhari:1"
-            ),
-            RetrievedCitation(
-                sourceId = "local-doc-1#0",
-                sourceType = "user_document",
-                title = "Catatan Tahsin lokal",
-                reference = "catatan-tahsin",
-                textSnippet = "Makharijul huruf perlu dipelajari dengan talaqqi",
-                score = 0.81f,
-                identifier = "local-doc-1"
             )
         )
 
@@ -68,7 +60,7 @@ class RagPipelineTest {
 
         assertTrue(prompt.contains("QS. Al-Baqarah: 183"))
         assertTrue(prompt.contains("Sahih al-Bukhari no. 1"))
-        assertTrue(prompt.contains("catatan-tahsin"))
+        assertFalse(prompt.contains("catatan-tahsin"))
         assertTrue(prompt.contains("RUJUKAN LOKAL TERVERIFIKASI"))
         assertTrue(prompt.contains("ID sumber: quran-2-183#0"))
         assertTrue(prompt.contains("Target sumber: quran:2:183"))
@@ -78,9 +70,9 @@ class RagPipelineTest {
         assertTrue(prompt.contains("Ustadz"))
     }
 
-    @Test
-    fun GIVEN_webCitation_WHEN_buildAugmentedPrompt_THEN_marksItAsSupplementary() {
-        val prompt = RagPipeline().buildAugmentedPrompt(
+    @Test(expected = GroundingUnavailable::class)
+    fun GIVEN_webCitation_WHEN_buildAugmentedPrompt_THEN_refusesNonPrimaryEvidence() {
+        RagPipeline().buildAugmentedPrompt(
             question = "Siapa tokoh ini?",
             persona = AiPersona.USTADZ,
             customPrompt = null,
@@ -97,10 +89,35 @@ class RagPipelineTest {
             )
         )
 
-        assertTrue(prompt.contains("Internet (referensi tambahan)"))
-        assertTrue(prompt.contains("RUJUKAN LOKAL + REFERENSI INTERNET TERSTRUKTUR"))
-        assertTrue(prompt.contains("Gunakan hanya fakta yang ada pada daftar rujukan di atas"))
-        assertTrue(prompt.contains("bukan dalil Quran/Hadist"))
-        assertTrue(prompt.contains("Sumber internet:"))
     }
+
+    @Test(expected = GroundingUnavailable::class)
+    fun GIVEN_userDocument_WHEN_buildingPrompt_THEN_refusesEvenWhenMixedWithQuran() {
+        RagPipeline().buildAugmentedPrompt(
+            "Pertanyaan", AiPersona.USTADZ, null,
+            listOf(
+                primaryCitation(),
+                primaryCitation().copy(sourceType = "user_document")
+            )
+        )
+    }
+
+    @Test
+    fun GIVEN_onlineQuran_WHEN_buildingPrompt_THEN_keepsPrimarySourceAndUrl() {
+        val prompt = RagPipeline().buildAugmentedPrompt(
+            "Apa hukum puasa?", AiPersona.USTADZ, null,
+            listOf(primaryCitation().copy(
+                providerId = "alquran-cloud",
+                deepLinkTarget = "https://alquran.cloud/ayah/2:183/id.indonesian"
+            ))
+        )
+        assertTrue(prompt.contains("RUJUKAN QURAN/HADIST DARI SUMBER ONLINE"))
+        assertTrue(prompt.contains("Quran dan Hadist adalah satu-satunya sumber kebenaran"))
+        assertTrue(prompt.contains("https://alquran.cloud/ayah/2:183/id.indonesian"))
+    }
+
+    private fun primaryCitation() = RetrievedCitation(
+        "quran-2-183", "quran", "QS. Al-Baqarah: 183", "QS. Al-Baqarah: 183",
+        "Puasa diwajibkan", 0.9f, deepLinkTarget = "quran:2:183"
+    )
 }

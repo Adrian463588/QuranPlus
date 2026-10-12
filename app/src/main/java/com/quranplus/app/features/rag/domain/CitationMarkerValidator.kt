@@ -18,18 +18,14 @@ object CitationMarkerValidator {
         val markers = markerPattern.findAll(content).toList()
         val referencedIds = markers.mapTo(mutableSetOf()) { match ->
             match.groupValues[1].ifEmpty {
-                match.groupValues[2].ifEmpty {
-                    match.groupValues[3]
-                }
+                match.groupValues[2]
             }
         }
         val invalidIds = referencedIds - allowedIds
         val isValid = invalidIds.isEmpty() && referencedIds.isNotEmpty()
         val cleaned = markerPattern.replace(content) { match ->
             val id = match.groupValues[1].ifEmpty {
-                match.groupValues[2].ifEmpty {
-                    match.groupValues[3]
-                }
+                match.groupValues[2]
             }
             if (id in allowedIds) "[[cite:$id]]" else ""
         }

@@ -2,6 +2,29 @@ package com.quranplus.app.features.rag.domain
 
 import java.net.URI
 
+/** Only traceable Quran/Hadith texts may ground an answer, regardless of origin. */
+fun RetrievedCitation.isPrimaryEvidence(): Boolean {
+    if (sourceId.isBlank() || textSnippet.isBlank() || !score.isFinite()) return false
+    val kind = EvidenceKind.fromSourceType(sourceType)
+    if (kind !in setOf(EvidenceKind.QURAN, EvidenceKind.HADITH) || evidenceKind != kind) return false
+    val target = navigationTarget() ?: return false
+    if (!isInternetSourced()) {
+        return when (kind) {
+            EvidenceKind.QURAN -> target is CitationTarget.Quran
+            EvidenceKind.HADITH -> target is CitationTarget.Hadith
+            else -> false
+        }
+    }
+    val url = (target as? CitationTarget.Web)?.url ?: return false
+    val host = URI(url).host.lowercase()
+    return when (kind) {
+        EvidenceKind.QURAN -> providerId == "alquran-cloud" &&
+            host in setOf("alquran.cloud", "api.alquran.cloud")
+        EvidenceKind.HADITH -> providerId == "sunnah-public" && host == "sunnah.com"
+        else -> false
+    }
+}
+
 /** The provenance class of evidence shown to the language model. */
 enum class EvidenceKind {
     QURAN,

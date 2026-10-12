@@ -8,6 +8,12 @@ import org.junit.Test
 
 class CitationMarkerValidatorTest {
     @Test
+    fun GIVEN_emptyOrParenthesizedMarker_WHEN_validating_THEN_rejectsWithoutCrashing() {
+        listOf("Klaim. [[]]", "Klaim. (C1)").forEach { content ->
+            assertFalse(CitationMarkerValidator.validate(content, listOf(citation())).isValid)
+        }
+    }
+    @Test
     fun GIVEN_retrievedCitationId_WHEN_modelUsesIt_THEN_answerIsValid() {
         val result = CitationMarkerValidator.validate(
             "Talak dibahas pada sumber. [[cite:C1]]",
