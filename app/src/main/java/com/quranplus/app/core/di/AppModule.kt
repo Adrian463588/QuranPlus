@@ -19,6 +19,7 @@ import com.quranplus.app.features.chatbot.presentation.ChatViewModel
 import com.quranplus.app.features.audio.data.AudioDownloadScheduler
 import com.quranplus.app.features.audio.presentation.AudioDownloadViewModel
 import com.quranplus.app.features.hadith.data.HadithRepositoryImpl
+import com.quranplus.app.features.hadith.data.HadithNumbering
 import com.quranplus.app.features.hadith.data.HadithReferenceImporter
 import com.quranplus.app.features.hadith.data.HadithBundleDownloadScheduler
 import com.quranplus.app.features.hadith.data.HadithBundleImporter
@@ -135,11 +136,12 @@ val appModule = module {
     // Repositories
     single<QuranRepository> { QuranRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<WordByWordRepository> { WordByWordRepositoryImpl(get()) }
-    single<HadithRepository> { HadithRepositoryImpl(get()) }
+    single { HadithNumbering { androidContext().assets.open("hadith/numbering.json").bufferedReader().use { it.readText() } } }
+    single<HadithRepository> { HadithRepositoryImpl(get(), get()) }
     single<TahsinRepository> { TahsinRepositoryImpl(get()) }
     single<QuizRepository> { QuizRepositoryImpl(get()) }
     single<ChatRepository> {
-        ChatRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get())
+        ChatRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
     }
 
     // Use Cases — Quran

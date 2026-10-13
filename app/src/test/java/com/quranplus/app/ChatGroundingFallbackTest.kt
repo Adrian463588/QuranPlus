@@ -5,6 +5,7 @@ import com.quranplus.app.core.database.dao.ChatDao
 import com.quranplus.app.features.chatbot.data.ChatRepositoryImpl
 import com.quranplus.app.features.chatbot.data.InternetResearcher
 import com.quranplus.app.features.chatbot.data.LlmRunner
+import com.quranplus.app.features.hadith.data.HadithNumbering
 import com.quranplus.app.features.chatbot.domain.GenerationEvent
 import com.quranplus.app.features.rag.data.EmbeddingService
 import com.quranplus.app.features.rag.domain.GenerationStatus
@@ -153,6 +154,77 @@ class ChatGroundingFallbackTest {
         result.tokenStream.toList()
         assertEquals(GenerationStatus.COMPLETE, result.generationStatus?.value)
     }
+
+    @Test
+    fun GIVEN_archiveNumberMismatch_WHEN_askingFor3837_THEN_silentlyRetrievesExactOnlineReference() = runTest {
+        val expected = onlineHadith(3837)
+        coEvery { internet.search(any(), any()) } returns listOf(onlineHadith(4420), expected)
+        val result = repository.generateRagResponse("session", "HR. Abu Dawud no. 3837", AiPersona.USTADZ, null)
+        assertEquals(listOf(expected), result.citations)
+        coVerify(exactly = 1) { internet.search("HR. Abu Dawud no. 3837", any()) }
+    }
+
+    @Test
+    fun GIVEN_onlyWrongNumberFromProvider_WHEN_askingFor3837_THEN_abstains() = runTest {
+        coEvery { internet.search(any(), any()) } returns listOf(onlineHadith(4420))
+        val result = repository.generateRagResponse("session", "Abu Daud 3837", AiPersona.USTADZ, null)
+        assertTrue(result.citations.isEmpty())
+        assertEquals(GenerationStatus.UNAVAILABLE, result.generationStatus?.value)
+    }
+
+    @Test
+    fun GIVEN_verifiedCrosswalk_WHEN_askingFor3837_THEN_usesDatesAndButterWithoutNetwork() = runTest {
+        coEvery { database.hadithDao().getHadithByNumber("abudawud", 3340) } returns HadithNumberingTest.row(3340)
+        val result = numberedRepository().generateRagResponse("session", "Abu Dawud 3837", AiPersona.USTADZ, null)
+        val citation = result.citations.single()
+        assertEquals("hadith:abudawud:3340", citation.deepLinkTarget)
+        assertEquals("https://sunnah.com/abudawud:3837", citation.canonicalUrl)
+        assertTrue(citation.textSnippet.contains("mentega dan kurma"))
+        coVerify(exactly = 0) { internet.search(any(), any()) }
+    }
+
+    @Test
+    fun GIVEN_corruptedLocalRow_WHEN_askingFor3837_THEN_triesPrimaryFallback() = runTest {
+        val row = HadithNumberingTest.row(3340).copy(textArabic = HadithNumberingTest.row(3837).textArabic)
+        coEvery { database.hadithDao().getHadithByNumber("abudawud", 3340) } returns row
+        val result = numberedRepository().generateRagResponse("session", "Abu Dawud 3837", AiPersona.USTADZ, null)
+        assertTrue(result.citations.isEmpty())
+        coVerify(exactly = 1) { internet.search(any(), any()) }
+    }
+
+    @Test
+    fun GIVEN_oldVectorNumber_WHEN_retrieving_THEN_rehydratesCurrentReferenceAndText() = runTest {
+        semanticResults(listOf(RetrievedCitation(
+            "hadith-3003837", "hadith", "Abu Dawud no. 3837", "Abu Dawud no. 3837", "old indexed text", 0.9f,
+            collection = "abudawud", identifier = "3837", deepLinkTarget = "hadith:abudawud:3837"
+        )))
+        coEvery { database.hadithDao().getHadithByNumber("abudawud", 3837) } returns HadithNumberingTest.row(3837)
+        val result = numberedRepository().generateRagResponse("session", "hadist merajam", AiPersona.USTADZ, null)
+        assertTrue(result.citations.single().reference.startsWith("Sunan Abu Dawud no. 4420"))
+        assertTrue(result.citations.single().textSnippet.contains("merajam"))
+    }
+
+    @Test
+    fun GIVEN_validMarkerWithInventedHadithNumber_WHEN_generating_THEN_replacesWithSourceExcerpt() = runTest {
+        semanticResults(listOf(quran()))
+        every { runner.isAvailable() } returns true
+        every { runner.generate(any(), any(), any()) } returns flowOf("HR. Abu Dawud no. 3837. [[cite:C1]]")
+        val result = repository.generateRagResponse("session", "ayat", AiPersona.USTADZ, null)
+        val answer = (result.tokenStream.toList().single() as GenerationEvent.Replace).text
+        assertTrue(answer.contains(quran().textSnippet))
+        assertEquals(GenerationStatus.FALLBACK, result.generationStatus?.value)
+    }
+
+    private fun numberedRepository() = ChatRepositoryImpl(
+        chatDao, embedder, retriever, RagPipeline(), runner, database, RagRuntimeCoordinator(), internet, preferences,
+        HadithNumbering { HadithNumberingTest.assetJson }
+    )
+
+    private fun onlineHadith(number: Int) = RetrievedCitation(
+        "web:sunnah:abudawud:$number", "hadith", "Abu Dawud $number", "Abu Dawud $number",
+        HadithNumberingTest.row(3340).textArabic, 0.9f, collection = "abudawud", identifier = number.toString(),
+        deepLinkTarget = "https://sunnah.com/abudawud:$number", providerId = "sunnah-public"
+    )
 
     private fun semanticResults(citations: List<RetrievedCitation>) {
         coEvery { embedder.isReady() } returns true

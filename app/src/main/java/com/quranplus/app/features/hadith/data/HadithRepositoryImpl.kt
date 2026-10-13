@@ -9,10 +9,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.sqlite.db.SimpleSQLiteQuery
 
 class HadithRepositoryImpl(
-    private val dao: HadithDao
+    private val dao: HadithDao,
+    private val numbering: HadithNumbering = HadithNumbering()
 ) : HadithRepository {
     override fun getCollections(): Flow<List<HadithCollection>> =
         combine(dao.getCollections(), dao.getCollectionIds()) { collections, idsWithContent ->
@@ -40,7 +43,7 @@ class HadithRepositoryImpl(
             }
         }
 
-    override suspend fun search(collectionId: String?, query: String): List<HadithRecord> {
+    override suspend fun search(collectionId: String?, query: String): List<HadithRecord> = withContext(Dispatchers.IO) {
         val trimmed = query.trim()
         val cleanNumberStr = trimmed.replace(Regex("(?i)^(hadits?|no\\.?|nomor)\\s*"), "").trim()
         val numberQuery = cleanNumberStr.toIntOrNull()
@@ -54,8 +57,7 @@ class HadithRepositoryImpl(
         val localEntities = when {
             searchQuery.isBlank() && collectionId != null ->
                 dao.getHadithsByCollection(collectionId).first()
-            numberQuery != null ->
-                dao.searchByNumber(collectionId, numberQuery)
+            numberQuery != null -> searchReferenceNumber(collectionId, numberQuery)
             else -> searchQuery.toFtsExpression()?.let { expression ->
                 dao.searchFts(
                     SimpleSQLiteQuery(
@@ -72,8 +74,20 @@ class HadithRepositoryImpl(
                 )
             }.orEmpty()
         }
-        return localEntities.map { it.toRecord() }
+        localEntities.map { it.toRecord() }
     }
+
+    private suspend fun searchReferenceNumber(collectionId: String?, number: Int): List<com.quranplus.app.core.database.entity.HadithEntity> =
+        if (collectionId != null && numbering.hasReferenceNumbers(collectionId)) {
+            numbering.archiveNumbers(collectionId, number).mapNotNull { archiveNumber ->
+                dao.getHadithByNumber(collectionId, archiveNumber)
+                    ?.takeIf { numbering.referenceNumber(it) == number }
+            }
+        } else if (collectionId == null) {
+            dao.getCollections().first().flatMap { searchReferenceNumber(it.id, number) }
+        } else {
+            dao.searchByNumber(collectionId, number)
+        }
 
     private fun String.toFtsExpression(): String? {
         val tokens = Regex("[\\p{L}\\p{N}]+")
@@ -96,10 +110,12 @@ class HadithRepositoryImpl(
             hadithNumber = hadithNumber,
             title = title,
             textArabic = textArabic,
-            translationId = translationId,
+            translationId = numbering.indonesianTranslation(this),
             translationEn = translationEn,
-            reference = reference,
-            chapterId = chapterId
+            reference = numbering.reference(this),
+            chapterId = chapterId,
+            referenceNumber = numbering.referenceNumber(this),
+            numberLabel = numbering.numberLabel(this)
         )
 
     private fun displayTitle(id: String, sourceTitle: String): String = when (id) {

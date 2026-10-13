@@ -323,19 +323,18 @@ class HadithViewModel(
                     runCatching { searchHadithUseCase(collectionId, "") }.getOrElse { emptyList() }
                 }
 
-                if (records.isNotEmpty()) {
+                val matches = runCatching { searchHadithUseCase(collectionId, rawQuery) }.getOrElse { emptyList() }
+                if (records.isNotEmpty() && matches.isNotEmpty()) {
                     _state.value = HadithUiState.Ready(records)
-                    val targetIndex = records.indexOfFirst { it.hadithNumber == numberQuery }
+                    val targetIndex = records.indexOfFirst { it.id == matches.first().id }
                     if (targetIndex >= 0) {
-                        _highlightedNumber.value = numberQuery
+                        _highlightedNumber.value = records[targetIndex].hadithNumber
                         _scrollToIndex.value = targetIndex
                     } else {
-                        val fallback = runCatching { searchHadithUseCase(collectionId, rawQuery) }.getOrElse { emptyList() }
-                        _state.value = if (fallback.isEmpty()) HadithUiState.Empty else HadithUiState.Ready(fallback)
+                        _state.value = HadithUiState.Ready(matches)
                     }
                 } else {
-                    val fallback = runCatching { searchHadithUseCase(collectionId, rawQuery) }.getOrElse { emptyList() }
-                    _state.value = if (fallback.isEmpty()) HadithUiState.Empty else HadithUiState.Ready(fallback)
+                    _state.value = if (matches.isEmpty()) HadithUiState.Empty else HadithUiState.Ready(matches)
                 }
                 return@launch
             }

@@ -12,6 +12,11 @@ import com.quranplus.app.features.chatbot.domain.GenerationEvent
 import com.quranplus.app.features.chatbot.domain.MessageRole
 import com.quranplus.app.features.chatbot.domain.RagGenerationResult
 import com.quranplus.app.features.hadith.data.HadithBundleManifest
+import com.quranplus.app.features.hadith.data.HadithNumbering
+import com.quranplus.app.core.database.entity.HadithEntity
+import com.quranplus.app.features.rag.domain.CitationTarget
+import com.quranplus.app.features.rag.domain.HadithReferenceRequest
+import com.quranplus.app.features.rag.domain.navigationTarget
 import com.quranplus.app.features.rag.domain.GenerationStatus
 import com.quranplus.app.features.rag.domain.CitationMarkerValidator
 import com.quranplus.app.features.rag.domain.EvidenceKind
@@ -47,7 +52,8 @@ class ChatRepositoryImpl(
     private val database: QuranDatabase,
     private val runtimeCoordinator: RagRuntimeCoordinator,
     private val internetResearcher: InternetResearcher,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val hadithNumbering: HadithNumbering = HadithNumbering()
 ) : ChatRepository {
 
     override fun getChatHistory(conversationId: String): Flow<List<ChatMessage>> {
@@ -121,6 +127,16 @@ class ChatRepositoryImpl(
             )
         }
 
+        // A requested reference is answered verbatim; the model cannot rename
+        // its number or replace its text with a remembered narration.
+        if (IslamicQueryAnalyzer.analyze(userQuery).hadithReference != null) {
+            return RagGenerationResult(
+                tokenStream = flow { emit(GenerationEvent.Replace(generateFallbackAnswer(citations))) },
+                citations = citations,
+                generationStatus = MutableStateFlow(GenerationStatus.COMPLETE).asStateFlow()
+            )
+        }
+
         // RagPipeline fails closed when retrieval has no verified source.
         val augmentedPrompt = ragPipeline.buildAugmentedPrompt(
             question = userQuery,
@@ -157,17 +173,20 @@ class ChatRepositoryImpl(
                     if (receivedTokens && buffer.isNotBlank()) {
                         // Validate before display processing removes internal markers.
                         val validation = CitationMarkerValidator.validate(buffer.toString(), citations)
+                        val referencesValid = HadithReferenceRequest.findAll(buffer.toString())
+                            .all { request -> citations.any(request::matches) }
+                        val answerValid = validation.isValid && referencesValid
                         emit(GenerationEvent.Replace(
-                            if (validation.isValid) {
+                            if (answerValid) {
                                 com.quranplus.app.features.chatbot.domain.AiResponsePostProcessor.process(validation.content)
                             } else generateFallbackAnswer(citations)
                         ))
                         generationStatus.value = when {
                             timedOut -> GenerationStatus.TIMEOUT
-                            validation.isValid -> GenerationStatus.COMPLETE
+                            answerValid -> GenerationStatus.COMPLETE
                             else -> GenerationStatus.FALLBACK
                         }
-                        if (!validation.isValid) llmRunner.clearConversation(conversationId)
+                        if (!answerValid) llmRunner.clearConversation(conversationId)
                     } else if (timedOut && !fallbackEmitted) {
                         // Timed out with empty buffer — use verified grounding fallback
                         generationStatus.value = GenerationStatus.TIMEOUT
@@ -257,7 +276,7 @@ class ChatRepositoryImpl(
 
         val onlineCitations = try {
             withTimeoutOrNull(ONLINE_RETRIEVAL_TIMEOUT_MS) {
-                internetResearcher.search(plan.semanticQuery)
+                internetResearcher.search(userQuery)
             }.orEmpty()
         } catch (exception: CancellationException) {
             throw exception
@@ -272,6 +291,14 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun retrieveGroundingCitations(plan: IslamicQueryPlan): List<RetrievedCitation> {
+        plan.hadithReference?.let { request ->
+            if (request.suffix.isNotEmpty()) return emptyList()
+            return hadithNumbering.archiveNumbers(request.collection, request.number).mapNotNull { number ->
+                val row = database.hadithDao().getHadithByNumber(request.collection, number) ?: return@mapNotNull null
+                if (hadithNumbering.referenceNumber(row) != request.number) return@mapNotNull null
+                hadithCitation(row, 1f)
+            }
+        }
         val canonicalCitations = plan.canonicalAyahTargets.mapNotNull { (surahId, ayahNumber) ->
             val ayah = database.quranDao().getAyah(surahId, ayahNumber) ?: return@mapNotNull null
             val surah = database.quranDao().getSurahByNumber(surahId)
@@ -310,6 +337,13 @@ class ChatRepositoryImpl(
             citation.score >= MIN_VECTOR_RELEVANCE_SCORE &&
                 citation.sourceType.isNotBlank() &&
                 !citation.sourceType.equals("internet", ignoreCase = true)
+        }.mapNotNull { citation ->
+            if (citation.evidenceKind != EvidenceKind.HADITH) return@mapNotNull citation
+            // Rehydrate old SAF/vector references from the current content row.
+            val target = citation.navigationTarget() as? CitationTarget.Hadith ?: return@mapNotNull null
+            val row = database.hadithDao().getHadithByNumber(target.collectionId, target.hadithNumber)
+                ?: return@mapNotNull null
+            hadithCitation(row, citation.score)
         }
 
         return selectGroundingCitations(
@@ -326,6 +360,7 @@ class ChatRepositoryImpl(
             it.isPrimaryEvidence() && it.score >= MIN_LOCAL_GROUNDING_SCORE
         }
         if (relevant.isEmpty()) return false
+        plan.hadithReference?.let { request -> return relevant.any(request::matches) }
 
         // Substantive topic relevance validation:
         // If coreTopicTerms are present, at least one local citation MUST match a core topic term.
@@ -357,6 +392,10 @@ class ChatRepositoryImpl(
         candidates: List<RetrievedCitation>,
         plan: IslamicQueryPlan
     ): List<RetrievedCitation> {
+        plan.hadithReference?.let { request ->
+            return candidates.filter(::isUsableCitation).filter(request::matches)
+                .distinctBy(::citationKey).take(MAX_CITATIONS)
+        }
         val selected = linkedMapOf<String, RetrievedCitation>()
 
         // 1. Always prioritize canonical citations directly mapped for this query
@@ -471,25 +510,7 @@ class ChatRepositoryImpl(
             ).joinToString(" ")
             val matches = keywordMatchScore(searchableText, plan)
             if (matches == 0) return@mapNotNull null
-            val collectionName = hadith.collectionId.replaceFirstChar {
-                if (it.isLowerCase()) it.titlecase() else it.toString()
-            }
-            val reference = hadith.reference.ifBlank {
-                "$collectionName No. ${hadith.hadithNumber}"
-            }
-            val translation = hadith.translationId.ifBlank { hadith.translationEn }
-            RetrievedCitation(
-                sourceId = "hadith-${hadith.id}",
-                sourceType = "hadith",
-                title = "$collectionName No. ${hadith.hadithNumber}",
-                reference = reference,
-                textSnippet = "${hadith.textArabic}\nArtinya: \"$translation\"",
-                score = lexicalScore(matches, 0.75f),
-                collection = hadith.collectionId,
-                identifier = hadith.hadithNumber.toString(),
-                deepLinkTarget = "hadith:${hadith.collectionId}:${hadith.hadithNumber}",
-                providerId = "local-hadith-bundle"
-            )
+            hadithCitation(hadith, lexicalScore(matches, 0.75f))
         }
 
         val rankedQuran = quranCitations
@@ -729,6 +750,19 @@ class ChatRepositoryImpl(
 
     private fun com.quranplus.app.core.database.entity.HadithEntity.isVerifiedForGrounding(): Boolean =
         licenseStatus == "reference" || HadithBundleManifest.VERIFIED.isVerifiedRecord(this)
+
+    private fun hadithCitation(row: HadithEntity, score: Float): RetrievedCitation? {
+        if (!row.isVerifiedForGrounding()) return null
+        val reference = hadithNumbering.reference(row)
+        return RetrievedCitation(
+            sourceId = "hadith-${row.id}", sourceType = "hadith", title = reference,
+            reference = reference,
+            textSnippet = "${row.textArabic}\nArtinya: \"${hadithNumbering.indonesianTranslation(row).ifBlank { row.translationEn }}\"",
+            score = score, collection = row.collectionId, identifier = row.hadithNumber.toString(),
+            deepLinkTarget = "hadith:${row.collectionId}:${row.hadithNumber}",
+            canonicalUrl = hadithNumbering.canonicalUrl(row), providerId = "local-hadith-bundle"
+        )
+    }
 
     private fun lexicalScore(matches: Int, base: Float): Float =
         (base + matches * 0.05f).coerceAtMost(0.99f)

@@ -1292,7 +1292,7 @@ private fun HadithCardItem(
                         }
                     ) {
                         Text(
-                            text = "HR. $collectionName · No. ${record.hadithNumber}",
+                            text = "HR. $collectionName · ${record.numberLabel}",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp)
@@ -1350,7 +1350,7 @@ private fun HadithCardItem(
                     IconButton(
                         onClick = {
                             val fullText = buildString {
-                                appendLine("HR. $collectionName No. ${record.hadithNumber}")
+                                appendLine(record.reference)
                                 appendLine()
                                 appendLine(record.textArabic)
                                 appendLine()
@@ -1384,7 +1384,7 @@ private fun HadithCardItem(
                     IconButton(
                         onClick = {
                             val shareText = buildString {
-                                appendLine("HR. $collectionName No. ${record.hadithNumber}")
+                                appendLine(record.reference)
                                 appendLine()
                                 appendLine(record.textArabic)
                                 appendLine()

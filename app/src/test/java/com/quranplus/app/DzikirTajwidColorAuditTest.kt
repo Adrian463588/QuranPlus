@@ -10,6 +10,33 @@ import org.junit.Test
 class DzikirTajwidColorAuditTest {
 
     @Test
+    fun GIVEN_incorrectGhunnahTags_WHEN_formatting_THEN_onlyDoubledNunOrMimIsColored() {
+        val result = DzikirTajwidFormatter.formatArabic("اللَّهُمَّ", "[g[اللَّهُمَّ]]")
+        assertTrue(result.spanStyles.filter { it.item.color == QuranColors.TajwidGhunnah }.all {
+            result.text[it.start] in "نم" && it.start == result.text.indexOf('م')
+        })
+        val invalid = DzikirTajwidFormatter.formatArabic("اللَّهُ", "[g[اللَّ]]هُ")
+        assertTrue(invalid.spanStyles.none { it.item.color == QuranColors.TajwidGhunnah })
+    }
+
+    @Test
+    fun GIVEN_incorrectQalqalahTag_WHEN_readingWithVowel_THEN_doesNotTeachFalseBounce() {
+        listOf("قَدِيرٌ" to "[q[قَ]]دِيرٌ", "خَوْفٍ" to "خَوْ[q[فٍ]]").forEach { (text, tag) ->
+            val result = DzikirTajwidFormatter.formatArabic(text, tag)
+            assertTrue(result.spanStyles.none { it.item.color == QuranColors.TajwidQalqalah })
+            assertEquals(text, result.text)
+        }
+    }
+
+    @Test
+    fun GIVEN_qalqalahAtAyahStop_WHEN_formatting_THEN_marksFinalDalOnly() {
+        val result = DzikirTajwidFormatter.formatArabic("أَحَدٌ ۝", "[q[أَحَدٌ]] ۝")
+        val spans = result.spanStyles.filter { it.item.color == QuranColors.TajwidQalqalah }
+        assertEquals(1, spans.size)
+        assertEquals('د', result.text[spans.single().start])
+    }
+
+    @Test
     fun GIVEN_catalog_WHEN_togglingTajwid_THEN_preservesEveryArabicLetterHarakatAndStop() {
         DzikirDataCatalog.ALL_ITEMS.forEach { item ->
             listOf(true, false).forEach { enabled ->

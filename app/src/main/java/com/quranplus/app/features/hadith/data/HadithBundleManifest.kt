@@ -31,6 +31,13 @@ data class HadithBundleManifest(
     fun isVerifiedCorpus(collectionCounts: Map<String, Int>): Boolean =
         expectedCollectionCounts.isNotEmpty() && collectionCounts == expectedCollectionCounts
 
+    fun verifyBookJson(filename: String, json: String): Boolean {
+        val expected = BOOK_SHA256[filename.substringAfterLast('/').substringAfterLast('\\')] ?: return false
+        val actual = MessageDigest.getInstance("SHA-256").digest(json.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
+        return actual == expected
+    }
+
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().use { input ->
@@ -46,6 +53,17 @@ data class HadithBundleManifest(
 
     companion object {
         private const val VERIFIED_RECORD_LICENSE_STATUS = "licensed"
+        private val BOOK_SHA256 = mapOf(
+            "abu-daud.json" to "b0efbb33a11aed7db639dc6e35f2bafc9882056fe113efca078c536051f74891",
+            "ahmad.json" to "61cbd6b3fe8805982204f92598412fdc2241cbb4290ea2109fb9c53621f23258",
+            "bukhari.json" to "65e7a48f8ae0b792e3f8374f9de3e45d3119a1fdb5b6322aa6182db585348bb8",
+            "darimi.json" to "001408d019769e20615803a1f6ee6ee5b484e3d5128dd5b356fc9d510eae2089",
+            "ibnu-majah.json" to "6ba481a76454a075282b4bc499c43d450596402be1a39762a1fa654321778531",
+            "malik.json" to "bcd98f0230734921b00cafff253c2b52b0a1326efef7ef91fc5879468fde7edf",
+            "muslim.json" to "c9dcee026176991c52c955628c7242f60a7ffafbb714c2cd387b14759bb89a71",
+            "nasai.json" to "8114350778730353e5ff7a78cf4fdd2242610390160898efbc4bd7c537555560",
+            "tirmidzi.json" to "91a70b0c36dcfc8e1cba248ae66fdd00075790f98eda2a8abcdbd72ee22b90fd"
+        )
 
         /** Pinned GitHub commit, measured from the immutable codeload archive. */
         val VERIFIED = HadithBundleManifest(

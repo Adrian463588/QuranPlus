@@ -45,6 +45,10 @@ class InternetResearcher(
             }
 
             val plan = IslamicQueryAnalyzer.analyze(normalizedQuery)
+            if (plan.hadithReference != null) {
+                return@withContext SunnahPublicSearchProvider(client).search(normalizedQuery, plan, limit)
+                    .filter { it.isPrimaryEvidence() && plan.hadithReference.matches(it) }
+            }
             val quranQuery = plan.coreTopicTerms.firstOrNull() ?: normalizedQuery
             val quran = QuranCloudSearchProvider(client).search(quranQuery, plan, limit)
             val hadithQuery = IslamicQueryAnalyzer.hadithSearchTerm(quranQuery)
@@ -356,9 +360,9 @@ internal class SunnahPublicSearchProvider(
         limit: Int
     ): List<RetrievedCitation> {
         if (limit <= 0) return emptyList()
-        val url = "https://sunnah.com/search".toHttpUrl().newBuilder()
-            .addQueryParameter("q", query.take(MAX_RESEARCH_QUERY_LENGTH))
-            .build()
+        val url = plan.hadithReference?.url?.toHttpUrl()
+            ?: "https://sunnah.com/search".toHttpUrl().newBuilder()
+                .addQueryParameter("q", query.take(MAX_RESEARCH_QUERY_LENGTH)).build()
         val request = Request.Builder()
             .url(url)
             .header("Accept", "text/html,application/xhtml+xml")
@@ -392,7 +396,7 @@ internal object SunnahCitationParser {
         "(?is)<a\\b[^>]*href\\s*=\\s*[\\\"']([^\\\"']+)[\\\"'][^>]*>(.*?)</a>"
     )
     private val resultPathPattern = Regex(
-        "^/(bukhari|muslim|abudawud|tirmidhi|nasai|ibnmajah|ahmad|malik|darimi):([0-9]+)(?:[/?#].*)?$",
+        "^/(bukhari|muslim|abudawud|tirmidhi|nasai|ibnmajah|ahmad|malik|darimi):([0-9]+[a-z]?)(?:[/?#].*)?$",
         RegexOption.IGNORE_CASE
     )
 
@@ -414,7 +418,8 @@ internal object SunnahCitationParser {
                 }.firstOrNull() ?: continue
                 val result = resultPathPattern.matchEntire(path) ?: continue
                 val collection = result.groupValues[1].lowercase()
-                val number = result.groupValues[2].toIntOrNull() ?: continue
+                val number = result.groupValues[2].lowercase()
+                if (number.trimEnd { it.isLetter() }.toIntOrNull()?.let { it > 0 } != true) continue
                 val url = CitationTargetValidator.validateHttpsUrl("https://sunnah.com$path") ?: continue
                 val text = runCatching {
                     Html.fromHtml(block, Html.FROM_HTML_MODE_LEGACY).toString()

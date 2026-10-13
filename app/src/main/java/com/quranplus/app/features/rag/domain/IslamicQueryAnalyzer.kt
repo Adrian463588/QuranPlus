@@ -22,7 +22,8 @@ data class IslamicQueryPlan(
     val prefersHadith: Boolean,
     val canonicalAyahTargets: List<Pair<Int, Int>> = emptyList(),
     val coreTopicTerms: List<String> = emptyList(),
-    val intentTerms: List<String> = emptyList()
+    val intentTerms: List<String> = emptyList(),
+    val hadithReference: HadithReferenceRequest? = null
 )
 
 object IslamicQueryAnalyzer {
@@ -204,7 +205,8 @@ object IslamicQueryAnalyzer {
             prefersHadith = prefersHadith,
             canonicalAyahTargets = canonicalTargets.distinct(),
             coreTopicTerms = coreTopicTerms.toList(),
-            intentTerms = intentTerms.toList()
+            intentTerms = intentTerms.toList(),
+            hadithReference = HadithReferenceRequest.findAll(query).firstOrNull()
         )
     }
 

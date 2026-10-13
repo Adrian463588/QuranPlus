@@ -58,7 +58,9 @@ data class HadithRecord(
     val translationId: String,
     val translationEn: String,
     val reference: String,
-    val chapterId: String?
+    val chapterId: String?,
+    val referenceNumber: Int? = null,
+    val numberLabel: String = "No. $hadithNumber (nomor arsip)"
 )
 
 interface HadithRepository {

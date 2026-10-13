@@ -41,7 +41,10 @@ object DzikirTajwidFormatter {
             if (!parsed.malformed && parsed.unknownTags.isEmpty()) {
                 TajwidParser.alignSpansToDisplay(parsed, cleanArabic)?.forEach { span ->
                     span.type.color?.let { color ->
-                        collectedSpans += ColorSpan(span.start, span.end, color)
+                        val tagSpan = ColorSpan(span.start, span.end, color)
+                        if (span.type in setOf(TajwidParser.TajwidType.GHUNNAH, TajwidParser.TajwidType.QALQALAH)) {
+                            collectedSpans += validatedConsonantSpans(cleanArabic, tagSpan)
+                        } else collectedSpans += tagSpan
                     }
                 }
             }
@@ -104,6 +107,23 @@ object DzikirTajwidFormatter {
                 cursor = maxOf(cursor, coveredEnd)
             }
             if (cursor < end) add(cursor to end)
+        }
+    }
+
+    private fun validatedConsonantSpans(text: String, span: ColorSpan): List<ColorSpan> = buildList {
+        for (start in span.start until span.end) {
+            var end = start + 1
+            while (end < text.length && isArabicHarakat(text[end])) end++
+            val marks = text.substring(start + 1, end)
+            val valid = if (span.color == QuranColors.TajwidGhunnah) {
+                text[start] in "نم" && '\u0651' in marks
+            } else {
+                var next = end
+                while (next < text.length && text[next] == ' ') next++
+                val stopping = next == text.length || text[next] in "۝ۘۜ\n.،"
+                text[start] in QALQALAH_LETTERS && (marks.any { it in "ْۡ" } || stopping)
+            }
+            if (valid) add(span.copy(start = start, end = end.coerceAtMost(span.end)))
         }
     }
 

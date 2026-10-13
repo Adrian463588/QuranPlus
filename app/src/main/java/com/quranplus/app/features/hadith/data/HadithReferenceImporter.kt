@@ -50,6 +50,11 @@ class HadithReferenceImporter(
         displayName: String,
         source: VerifiedHadithSource?
     ): HadithImportSummary? {
+        if (source?.revision == HadithBundleManifest.VERIFIED.revision) {
+            require(HadithBundleManifest.VERIFIED.verifyBookJson(displayName, json)) {
+                "Isi buku Hadist tidak cocok dengan sumber terverifikasi"
+            }
+        }
         val parsed = parseCollection(json, displayName, source) ?: return null
         if (parsed.records.isEmpty()) return null
 
