@@ -27,7 +27,8 @@ REFERENCE_SHA256 = {
     "nasai": "24c6f23371de8bef3fa7670e8bb8aa271ca53922df35513f8f373ceaf7dc3963",
     "tirmidhi": "85ecdb090a40630cb9b7ed57b0d67f78d21479c331ea397a61a314ae78256ea8",
 }
-ASSET_SHA256 = "ad1d8922b8449290361d3746b91718f50dc40f952d0f13cae2d256ed37398137"
+# Git checks out CRLF on Windows and LF in CI; pin the canonical UTF-8/LF text.
+ASSET_SHA256 = "5aab551838e974174b415dc539603db84fc70bd3882510fa36cdac39601c4401"
 
 
 def sha256(data: bytes) -> str:
@@ -119,10 +120,10 @@ if __name__ == "__main__":
             import re
             serialized = re.sub(r'\[\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+),\s*"([a-f0-9]{64})"\s*\]',
                                 r'[\1, \2, \3, \4, "\5"]', serialized)
-            ASSET.write_text(serialized + "\n", encoding="utf-8")
+            ASSET.write_text(serialized + "\n", encoding="utf-8", newline="\n")
             document = rebuilt
         else:
             assert document == rebuilt, "Numbering asset differs from pinned source content"
     assert document is not None, "Missing numbering asset"
-    assert sha256(ASSET.read_bytes()) == ASSET_SHA256, "Reviewed numbering asset drift"
+    assert sha256(ASSET.read_text(encoding="utf-8").encode()) == ASSET_SHA256, "Reviewed numbering asset drift"
     validate(document)
