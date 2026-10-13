@@ -316,7 +316,7 @@ fun HadithScreen(
                                 Toast.makeText(context, "Maksimal 15 penanda baca telah tercapai", Toast.LENGTH_SHORT).show()
                             } else {
                                 viewModel.toggleHadithMarker(record.collectionId, collName, record.hadithNumber)
-                                Toast.makeText(context, "Penanda baca #${hadithMarkers.size + 1} disimpan di HR. $collName No. ${record.hadithNumber}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.hadith_marker_saved, hadithMarkers.size + 1, collName, record.hadithNumber), Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
@@ -844,7 +844,7 @@ fun HadithReadingMarkersBanner(
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Column {
                                 Text(
-                                    text = "${marker.collectionName} #${marker.hadithNumber}",
+                                    text = stringResource(R.string.hadith_archive_reference, marker.collectionName, marker.hadithNumber),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -927,7 +927,7 @@ fun HadithReadingMarkerBanner(
                     }
                 }
                 Text(
-                    text = "${marker.collectionName} · No. ${marker.hadithNumber}",
+                    text = stringResource(R.string.hadith_archive_reference, marker.collectionName, marker.hadithNumber),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1369,7 +1369,7 @@ private fun HadithCardItem(
                             }
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(ClipData.newPlainText("Hadist", fullText))
-                            Toast.makeText(context, "Hadist No. ${record.hadithNumber} disalin", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.hadith_copied), Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.size(36.dp)
                     ) {

@@ -45,6 +45,10 @@ class InternetResearcher(
             }
 
             val plan = IslamicQueryAnalyzer.analyze(normalizedQuery)
+            if (plan.hadithReference?.archive == true ||
+                com.quranplus.app.features.rag.domain.HadithReferenceRequest.hasInvalidReference(normalizedQuery)) {
+                return@withContext emptyList()
+            }
             if (plan.hadithReference != null) {
                 return@withContext SunnahPublicSearchProvider(client).search(normalizedQuery, plan, limit)
                     .filter { it.isPrimaryEvidence() && plan.hadithReference.matches(it) }

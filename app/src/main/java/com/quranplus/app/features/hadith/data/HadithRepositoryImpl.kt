@@ -57,6 +57,8 @@ class HadithRepositoryImpl(
         val localEntities = when {
             searchQuery.isBlank() && collectionId != null ->
                 dao.getHadithsByCollection(collectionId).first()
+            numberQuery != null && Regex("(?i)\\b(arsip|gading|tafsirq)\\b").containsMatchIn(trimmed) ->
+                dao.searchByNumber(collectionId, numberQuery)
             numberQuery != null -> searchReferenceNumber(collectionId, numberQuery)
             else -> searchQuery.toFtsExpression()?.let { expression ->
                 dao.searchFts(

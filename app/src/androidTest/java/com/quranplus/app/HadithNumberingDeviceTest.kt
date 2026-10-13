@@ -39,4 +39,12 @@ class HadithNumberingDeviceTest {
         assertEquals("https://sunnah.com/abudawud:4420", numbering.canonicalUrl(original))
         assertEquals(original, dao.getHadithByNumber("abudawud", 3837))
     }
+
+    @Test
+    fun GIVEN_explicitArchiveNumber_WHEN_searching_THEN_canonicalReferenceKeepsCorrectNarration() = runBlocking {
+        val records = HadithRepositoryImpl(dao, numbering).search("abudawud", "arsip 3837")
+        assertEquals(3837, records.single().hadithNumber)
+        assertEquals(4420, records.single().referenceNumber)
+        assertTrue(records.single().reference.contains("edisi tafsirq/gading no. 3837"))
+    }
 }

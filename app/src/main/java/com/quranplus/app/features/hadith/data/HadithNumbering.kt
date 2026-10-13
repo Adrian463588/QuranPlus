@@ -29,6 +29,9 @@ class HadithNumbering(private val loadJson: () -> String = { "{}" }) {
 
     fun referenceNumber(row: HadithEntity): Int? = entry(row)?.number
 
+    fun isContentValid(row: HadithEntity): Boolean =
+        entries[row.collectionId]?.containsKey(row.hadithNumber) != true || entry(row) != null
+
     fun indonesianTranslation(row: HadithEntity): String =
         if (row.collectionId == "abudawud" && referenceNumber(row) == 3837) {
             // زبد is butter, as confirmed by sunnah.com/abudawud:3837.

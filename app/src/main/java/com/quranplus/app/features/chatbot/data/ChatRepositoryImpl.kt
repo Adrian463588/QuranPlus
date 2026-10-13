@@ -173,7 +173,8 @@ class ChatRepositoryImpl(
                     if (receivedTokens && buffer.isNotBlank()) {
                         // Validate before display processing removes internal markers.
                         val validation = CitationMarkerValidator.validate(buffer.toString(), citations)
-                        val referencesValid = HadithReferenceRequest.findAll(buffer.toString())
+                        val referencesValid = !HadithReferenceRequest.hasInvalidReference(buffer.toString()) &&
+                            HadithReferenceRequest.findAll(buffer.toString())
                             .all { request -> citations.any(request::matches) }
                         val answerValid = validation.isValid && referencesValid
                         emit(GenerationEvent.Replace(
@@ -262,6 +263,7 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun resolveGroundingCitations(userQuery: String): List<RetrievedCitation> {
+        if (HadithReferenceRequest.hasInvalidReference(userQuery)) return emptyList()
         val plan = IslamicQueryAnalyzer.analyze(userQuery)
         val localCitations = try {
             withTimeoutOrNull(RETRIEVAL_TIMEOUT_MS) { retrieveGroundingCitations(plan) }.orEmpty()
@@ -271,6 +273,8 @@ class ChatRepositoryImpl(
             emptyList()
         }
         if (hasAdequateLocalGrounding(localCitations, plan)) return localCitations
+        // An archive ordinal must never be sent as a different edition's number.
+        if (plan.hadithReference?.archive == true) return emptyList()
 
         if (!preferencesManager.onlineResearchEnabled.first()) return emptyList()
 
@@ -293,6 +297,12 @@ class ChatRepositoryImpl(
     private suspend fun retrieveGroundingCitations(plan: IslamicQueryPlan): List<RetrievedCitation> {
         plan.hadithReference?.let { request ->
             if (request.suffix.isNotEmpty()) return emptyList()
+            if (request.archive) {
+                val row = database.hadithDao().getHadithByNumber(request.collection, request.number)
+                return listOfNotNull(row?.takeIf {
+                    it.sourceRevision == HadithBundleManifest.VERIFIED.revision
+                }?.let { hadithCitation(it, 1f) })
+            }
             return hadithNumbering.archiveNumbers(request.collection, request.number).mapNotNull { number ->
                 val row = database.hadithDao().getHadithByNumber(request.collection, number) ?: return@mapNotNull null
                 if (hadithNumbering.referenceNumber(row) != request.number) return@mapNotNull null
@@ -749,7 +759,8 @@ class ChatRepositoryImpl(
     } + IslamicQueryAnalyzer.hadithSearchTerm(keyword)).distinct()
 
     private fun com.quranplus.app.core.database.entity.HadithEntity.isVerifiedForGrounding(): Boolean =
-        licenseStatus == "reference" || HadithBundleManifest.VERIFIED.isVerifiedRecord(this)
+        licenseStatus == "reference" ||
+            (HadithBundleManifest.VERIFIED.isVerifiedRecord(this) && hadithNumbering.isContentValid(this))
 
     private fun hadithCitation(row: HadithEntity, score: Float): RetrievedCitation? {
         if (!row.isVerifiedForGrounding()) return null
@@ -773,7 +784,7 @@ class ChatRepositoryImpl(
             "quran:${citation.surahNumber}:${citation.ayahNumber}"
 
         citation.sourceType.equals("hadith", ignoreCase = true) ->
-            "hadith:${citation.collection}:${citation.identifier.substringBefore('#')}"
+            "hadith:${citation.sourceId.substringBefore('#')}"
 
         else -> "${citation.sourceType}:${citation.reference}"
     }

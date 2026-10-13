@@ -74,6 +74,16 @@ class HadithNumberingTest {
     }
 
     @Test
+    fun GIVEN_explicitArchiveNumber_WHEN_searching_THEN_keepsThatEditionInsteadOfSubstituting3837() = runTest {
+        val dao = mockk<HadithDao>()
+        coEvery { dao.searchByNumber("abudawud", 3837, any()) } returns listOf(other)
+        val records = HadithRepositoryImpl(dao, numbering).search("abudawud", "arsip 3837")
+        assertEquals(3837, records.single().hadithNumber)
+        assertEquals(4420, records.single().referenceNumber)
+        coVerify(exactly = 0) { dao.getHadithByNumber(any(), any()) }
+    }
+
+    @Test
     fun GIVEN_modifiedExtractedBook_WHEN_claimedAsVerified_THEN_checksumRejectsIt() {
         assertFalse(HadithBundleManifest.VERIFIED.verifyBookJson("abu-daud.json", fixture.toString()))
         assertFalse(HadithBundleManifest.VERIFIED.verifyBookJson("foreign.json", "[]"))

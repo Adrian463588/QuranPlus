@@ -7,7 +7,7 @@ import org.junit.Test
 class HadithReferenceRequestTest {
     @Test
     fun GIVEN_collectionAliases_WHEN_askingByNumber_THEN_preservesExactReference() {
-        listOf("HR. Abu Dawud no. 3837", "hadist Abu Daud 3837", "abu daeud nomor 3837", "abudawud:3837").forEach {
+        listOf("HR. Abu Dawud no. 3837", "Sunan Abi Dawud 3837", "hadist Abu Daud 3837", "abu daeud nomor 3837", "abudawud:3837").forEach {
             assertEquals(HadithReferenceRequest("abudawud", 3837), IslamicQueryAnalyzer.analyze(it).hadithReference)
         }
         assertEquals(HadithReferenceRequest("muslim", 2723, "a"), IslamicQueryAnalyzer.analyze("Muslim 2723a").hadithReference)
@@ -38,6 +38,16 @@ class HadithReferenceRequestTest {
         )
         assertTrue(HadithReferenceRequest("muslim", 2723).matches(citation))
         assertFalse(HadithReferenceRequest("muslim", 2723, "a").matches(citation))
+    }
+
+    @Test
+    fun GIVEN_archiveEditionOrInvalidNumber_WHEN_parsing_THEN_preservesEditionAndRejectsInvalidReferences() {
+        listOf("Abu Dawud arsip 3837", "gading Abu Dawud 3837").forEach {
+            assertEquals(HadithReferenceRequest("abudawud", 3837, archive = true), IslamicQueryAnalyzer.analyze(it).hadithReference)
+        }
+        listOf("Abu Dawud 0", "Abu Dawud -1", "Abu Dawud 99999999999999").forEach {
+            assertTrue(HadithReferenceRequest.hasInvalidReference(it))
+        }
     }
 
     private fun source(book: String, number: Int) = RetrievedCitation(

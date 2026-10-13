@@ -27,4 +27,7 @@
     <string name="hadith_bundle_installed">Tersedia: %1$d koleksi, %2$d hadist</string>
     <string name="chat_grounding_sources">Quran • Hadist</string>
     <string name="chat_answer_unavailable">Jawaban belum tersedia.</string>
+    <string name="hadith_archive_reference">HR. %1$s · No. arsip %2$d</string>
+    <string name="hadith_marker_saved">Penanda baca #%1$d disimpan: %2$s · No. arsip %3$d</string>
+    <string name="hadith_copied">Hadist disalin</string>
 </resources>

@@ -1,5 +1,8 @@
 package com.quranplus.app.features.quran.presentation
 
+import androidx.compose.ui.res.stringResource
+import com.quranplus.app.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -372,7 +375,7 @@ fun HadithBookmarkItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "HR. ${bookmark.collectionName} · No. ${bookmark.hadithNumber}",
+                    text = stringResource(R.string.hadith_archive_reference, bookmark.collectionName, bookmark.hadithNumber),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary

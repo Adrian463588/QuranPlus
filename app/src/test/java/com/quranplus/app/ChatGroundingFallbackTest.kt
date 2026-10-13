@@ -193,6 +193,32 @@ class ChatGroundingFallbackTest {
     }
 
     @Test
+    fun GIVEN_explicitArchive3837_WHEN_asking_THEN_usesActualArchiveNarrationWithCanonical4420() = runTest {
+        coEvery { database.hadithDao().getHadithByNumber("abudawud", 3837) } returns HadithNumberingTest.row(3837)
+        val result = numberedRepository().generateRagResponse("session", "Abu Dawud arsip 3837", AiPersona.USTADZ, null)
+        assertTrue(result.citations.single().reference.startsWith("Sunan Abu Dawud no. 4420"))
+        coVerify(exactly = 0) { internet.search(any(), any()) }
+    }
+
+    @Test
+    fun GIVEN_missingArchiveOrInvalidReference_WHEN_asking_THEN_neverSearchesWrongEditionOrGenerates() = runTest {
+        listOf("Abu Dawud arsip 999999", "Abu Dawud 99999999999999").forEach { query ->
+            val result = numberedRepository().generateRagResponse("session", query, AiPersona.USTADZ, null)
+            assertTrue(result.citations.isEmpty())
+            assertEquals(GenerationStatus.UNAVAILABLE, result.generationStatus?.value)
+        }
+        coVerify(exactly = 0) { internet.search(any(), any()) }
+    }
+
+    @Test
+    fun GIVEN_corruptedArchiveRow_WHEN_asking_THEN_rejectsItDespiteCopiedProvenance() = runTest {
+        coEvery { database.hadithDao().getHadithByNumber("abudawud", 3837) } returns
+            HadithNumberingTest.row(3837).copy(textArabic = HadithNumberingTest.row(3340).textArabic)
+        val result = numberedRepository().generateRagResponse("session", "Abu Dawud arsip 3837", AiPersona.USTADZ, null)
+        assertTrue(result.citations.isEmpty())
+    }
+
+    @Test
     fun GIVEN_oldVectorNumber_WHEN_retrieving_THEN_rehydratesCurrentReferenceAndText() = runTest {
         semanticResults(listOf(RetrievedCitation(
             "hadith-3003837", "hadith", "Abu Dawud no. 3837", "Abu Dawud no. 3837", "old indexed text", 0.9f,
@@ -202,6 +228,20 @@ class ChatGroundingFallbackTest {
         val result = numberedRepository().generateRagResponse("session", "hadist merajam", AiPersona.USTADZ, null)
         assertTrue(result.citations.single().reference.startsWith("Sunan Abu Dawud no. 4420"))
         assertTrue(result.citations.single().textSnippet.contains("merajam"))
+    }
+
+    @Test
+    fun GIVEN_sameOrdinalAcrossEditions_WHEN_localEvidenceIsWeak_THEN_keepsAdequateOnlineFallback() = runTest {
+        semanticResults(listOf(RetrievedCitation(
+            "hadith-3003837", "hadith", "Abu Dawud no. 3837", "Abu Dawud no. 3837", "old indexed text", 0.65f,
+            collection = "abudawud", identifier = "3837", deepLinkTarget = "hadith:abudawud:3837"
+        )))
+        coEvery { database.hadithDao().getHadithByNumber("abudawud", 3837) } returns HadithNumberingTest.row(3837)
+        val online = onlineHadith(3837)
+        coEvery { internet.search(any(), any()) } returns listOf(online)
+        val result = numberedRepository().generateRagResponse("session", "hadist Abu Dawud", AiPersona.USTADZ, null)
+        assertTrue(result.citations.contains(online))
+        assertTrue(result.citations.any { it.reference.startsWith("Sunan Abu Dawud no. 4420") })
     }
 
     @Test
