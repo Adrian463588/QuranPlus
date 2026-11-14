@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Download APK](https://img.shields.io/badge/Download-APK%20v1.0.10-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk)
+[![Download APK](https://img.shields.io/badge/Download-APK%20v1.0.12-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk)
 [![Latest Release](https://img.shields.io/github/v/release/Adrian463588/QuranPlus?style=for-the-badge&color=0284c7)](https://github.com/Adrian463588/QuranPlus/releases/latest)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7f52ff?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack-Compose-4285f4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
@@ -20,7 +20,7 @@
 
 Untuk langsung menginstal aplikasi **Quran Plus** di smartphone atau tablet Android Anda:
 
-1. **[📥 Unduh APK Versi Terbaru (v1.0.11)](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.11/app-debug.apk)** *(Direct Mirror: [releases/latest/download/app-debug.apk](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk))*.
+1. **[📥 Unduh APK Versi Terbaru (v1.0.12)](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.12/app-debug.apk)** *(Direct Mirror: [releases/latest/download/app-debug.apk](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk))*.
 2. Setelah unduhan selesai, buka file `app-debug.apk` melalui notifikasi browser atau aplikasi **File Manager / Pengelola File**.
 3. Jika Android menampilkan peringatan keamanan sumber tidak dikenal, pilih **Setelan / Settings** lalu aktifkan **Izinkan dari sumber ini (Allow from this source)**.
 4. Tekan tombol **Pasang / Install**, tunggu hingga proses selesai, dan buka **Quran Plus**.
@@ -179,7 +179,8 @@ Tabel berikut menyediakan tautan unduh langsung (direct download) untuk setiap r
 
 | Versi | Status | Sorotan Perubahan Utama | Tautan Unduh Langsung |
 |:---:|:---:|---|:---:|
-| **v1.0.11** | **Terbaru (Latest)** | Pencarian dan kutipan hadis memakai pemetaan isi lintas edisi; Abu Dawud 3837 sesuai riwayat kurma dan mentega. Koreksi Arab/harakat, kutipan Quran, serta tag tajwid palsu. Fallback otomatis menolak nomor yang berbeda; bookmark dan marker tetap memakai identitas arsip. | [📥 Download APK v1.0.11](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.11/app-debug.apk) |
+| **v1.0.12** | **Terbaru (Latest)** | Hardening keamanan aplikasi offline (OWASP MASVS-RESILIENCE): optimasi R8/ProGuard agresif dengan penghapusan logging debug di release, proteksi refleksi Room/Koin/Media3/AI JNI, verifikasi runtime integritas signature SHA-256 APK, pendeteksian anti-debugging & tracer (/proc/self/status TracerPid), deteksi dynamic hooking (Frida/Xposed), dan enkripsi lokal berbasis hardware Android Keystore AES-256-GCM. | [📥 Download APK v1.0.12](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.12/app-debug.apk) |
+| **v1.0.11** | Arsip | Pencarian dan kutipan hadis memakai pemetaan isi lintas edisi; Abu Dawud 3837 sesuai riwayat kurma dan mentega. Koreksi Arab/harakat, kutipan Quran, serta tag tajwid palsu. Fallback otomatis menolak nomor yang berbeda; bookmark dan marker tetap memakai identitas arsip. | [📥 Download APK v1.0.11](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.11/app-debug.apk) |
 | **v1.0.10** | Arsip | Perbaikan Arab, mad, waqaf dan fallback Quran/Hadist dari v1.0.8–v1.0.9, ditambah label sumber/status yang sesuai: rujukan tidak memadai tidak lagi disebut sebagai model tidak tersedia. | [📥 Download APK v1.0.10](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.10/app-debug.apk) |
 | **v1.0.9** | Arsip | Semua perbaikan v1.0.8, ditambah koreksi tag Mad Tabi'i/Mad Lazim pada huruf muqaththa'ah dan tes warna mad. CI memakai JDK 21 sesuai artefak LiteRT-LM. | [📥 Download APK v1.0.9](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.9/app-debug.apk) |
 | **v1.0.8** | Arsip | Koreksi tanda mad huruf muqaththa'ah; kutipan Al-Baqarah 1–5 dan Yasin 1–9 mengikuti Mushaf bawaan beserta harakat/waqaf. Latin dipertahankan. Fallback chatbot otomatis khusus Quran/Hadist; perbaikan pembaca HTTP dan parser Hadist; tes regresi dan CI. | [📥 Download APK v1.0.8](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.8/app-debug.apk) |

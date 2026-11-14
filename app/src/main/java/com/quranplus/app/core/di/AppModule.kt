@@ -132,6 +132,8 @@ val appModule = module {
     single { HadithBundleImporter(get(), get()) }
     single { HadithBundleManager(get(), get(), get(), get()) }
     single { com.quranplus.app.core.database.SafUserDataManager(get(), get(), get()) }
+    single { com.quranplus.app.core.security.AppSecurityManager(androidContext()) }
+    single { com.quranplus.app.core.security.SecurityKeyStoreProvider() }
 
     // Repositories
     single<QuranRepository> { QuranRepositoryImpl(get(), get(), get(), get(), get(), get()) }
