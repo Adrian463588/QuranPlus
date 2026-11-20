@@ -28,6 +28,11 @@ import com.quranplus.app.core.database.entity.ChatMessageEntity
 import com.quranplus.app.core.database.entity.HadithEntity
 import com.quranplus.app.core.database.entity.HadithCollectionEntity
 import com.quranplus.app.core.database.entity.HadithChapterEntity
+import com.quranplus.app.core.database.entity.HadithGradeEntity
+import com.quranplus.app.core.database.entity.HadithReferenceEntity
+import com.quranplus.app.core.database.entity.HadithSchemeStatEntity
+import com.quranplus.app.core.database.entity.HadithSourceManifestEntity
+import com.quranplus.app.core.database.entity.HadithTranslationEntity
 import com.quranplus.app.core.database.entity.KnowledgeChunkEntity
 import com.quranplus.app.core.database.entity.LastReadEntity
 import com.quranplus.app.core.database.entity.SurahEntity
@@ -48,13 +53,18 @@ import com.quranplus.app.core.database.entity.WordByWordEntity
         HadithEntity::class,
         HadithCollectionEntity::class,
         HadithChapterEntity::class,
+        HadithReferenceEntity::class,
+        HadithTranslationEntity::class,
+        HadithGradeEntity::class,
+        HadithSourceManifestEntity::class,
+        HadithSchemeStatEntity::class,
         KnowledgeChunkEntity::class,
         ChatMessageEntity::class,
         QuizQuestionEntity::class,
         QuizAttemptEntity::class,
         TafsirEntity::class
     ],
-    version = 14,
+    version = 16,
     exportSchema = false
 )
 abstract class QuranDatabase : RoomDatabase() {
@@ -97,19 +107,7 @@ abstract class QuranDatabase : RoomDatabase() {
 
             return builder
                 .setDriver(driver)
-                .addMigrations(MIGRATION_1_2)
-                .addMigrations(MIGRATION_2_3)
-                .addMigrations(MIGRATION_3_4)
-                .addMigrations(MIGRATION_4_5)
-                .addMigrations(MIGRATION_5_6)
-                .addMigrations(MIGRATION_6_7)
-                .addMigrations(MIGRATION_7_8)
-                .addMigrations(MIGRATION_8_9)
-                .addMigrations(MIGRATION_9_10)
-                .addMigrations(MIGRATION_10_11)
-                .addMigrations(MIGRATION_11_12)
-                .addMigrations(MIGRATION_12_13)
-                .addMigrations(MIGRATION_13_14)
+                .addMigrations(*allMigrations())
                 .addCallback(FTS_CALLBACK)
                 .build()
         }
@@ -438,6 +436,170 @@ abstract class QuranDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(database: SQLiteConnection) {
+                if (!hasColumn(database, "hadiths", "stable_id")) {
+                    database.executeSql("ALTER TABLE hadiths ADD COLUMN stable_id TEXT NOT NULL DEFAULT ''")
+                }
+                if (!hasColumn(database, "hadiths", "scheme_id")) {
+                    database.executeSql("ALTER TABLE hadiths ADD COLUMN scheme_id TEXT NOT NULL DEFAULT 'sunnah'")
+                }
+                if (!hasColumn(database, "hadiths", "canonical_url")) {
+                    database.executeSql("ALTER TABLE hadiths ADD COLUMN canonical_url TEXT")
+                }
+                if (!hasColumn(database, "hadiths", "content_checksum")) {
+                    database.executeSql("ALTER TABLE hadiths ADD COLUMN content_checksum TEXT NOT NULL DEFAULT ''")
+                }
+                if (!hasColumn(database, "hadiths", "verification_status")) {
+                    database.executeSql("ALTER TABLE hadiths ADD COLUMN verification_status TEXT NOT NULL DEFAULT 'VERIFIED'")
+                }
+                database.executeSql(
+                    "CREATE INDEX IF NOT EXISTS idx_hadiths_stable_id ON hadiths(stable_id)"
+                )
+
+                if (!hasColumn(database, "hadith_collections", "default_scheme")) {
+                    database.executeSql(
+                        "ALTER TABLE hadith_collections ADD COLUMN default_scheme TEXT NOT NULL DEFAULT 'sunnah'"
+                    )
+                }
+                if (!hasColumn(database, "hadith_collections", "active_record_count")) {
+                    database.executeSql(
+                        "ALTER TABLE hadith_collections ADD COLUMN active_record_count INTEGER NOT NULL DEFAULT 0"
+                    )
+                }
+                if (!hasColumn(database, "hadith_collections", "availability_status")) {
+                    database.executeSql(
+                        "ALTER TABLE hadith_collections ADD COLUMN availability_status TEXT NOT NULL DEFAULT 'AVAILABLE'"
+                    )
+                }
+
+                database.executeSql(
+                    """
+                    UPDATE hadiths SET
+                        stable_id = CASE
+                            WHEN collection_id IN ('ahmad', 'darimi') THEN 'archive_gading:' || collection_id || ':' || hadith_number
+                            ELSE 'sunnah:' || collection_id || ':' || hadith_number
+                        END,
+                        scheme_id = CASE
+                            WHEN collection_id IN ('ahmad', 'darimi') THEN 'archive_gading'
+                            ELSE 'sunnah'
+                        END
+                    WHERE stable_id = ''
+                    """.trimIndent()
+                )
+
+                database.executeSql(
+                    """
+                    CREATE TABLE IF NOT EXISTS hadith_references (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        hadith_id INTEGER,
+                        stable_id TEXT NOT NULL,
+                        collection_id TEXT NOT NULL,
+                        scheme_id TEXT NOT NULL,
+                        reference_number INTEGER NOT NULL,
+                        variant_suffix TEXT NOT NULL,
+                        book_number INTEGER NOT NULL,
+                        hadith_in_book INTEGER NOT NULL,
+                        canonical_url TEXT,
+                        is_primary INTEGER NOT NULL,
+                        review_status TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                database.executeSql(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_hadith_ref_unique " +
+                        "ON hadith_references(collection_id, scheme_id, reference_number, variant_suffix)"
+                )
+                database.executeSql(
+                    "CREATE INDEX IF NOT EXISTS idx_hadith_ref_hadith_id ON hadith_references(hadith_id)"
+                )
+                database.executeSql(
+                    "CREATE INDEX IF NOT EXISTS idx_hadith_ref_stable_id ON hadith_references(stable_id)"
+                )
+
+                database.executeSql(
+                    """
+                    CREATE TABLE IF NOT EXISTS hadith_translations (
+                        hadith_id INTEGER NOT NULL,
+                        stable_id TEXT NOT NULL,
+                        collection_id TEXT NOT NULL,
+                        language TEXT NOT NULL,
+                        edition_id TEXT NOT NULL,
+                        text TEXT NOT NULL,
+                        source_revision TEXT NOT NULL,
+                        license_status TEXT NOT NULL,
+                        PRIMARY KEY(stable_id, language)
+                    )
+                    """.trimIndent()
+                )
+                database.executeSql(
+                    "CREATE INDEX IF NOT EXISTS idx_hadith_trans_hadith_id ON hadith_translations(hadith_id)"
+                )
+                database.executeSql(
+                    "CREATE INDEX IF NOT EXISTS idx_hadith_trans_col_lang ON hadith_translations(collection_id, language)"
+                )
+
+                database.executeSql(
+                    """
+                    CREATE TABLE IF NOT EXISTS hadith_grades (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        hadith_id INTEGER NOT NULL,
+                        stable_id TEXT NOT NULL,
+                        authority TEXT NOT NULL,
+                        grade TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                database.executeSql(
+                    "CREATE INDEX IF NOT EXISTS idx_hadith_grades_hadith_id ON hadith_grades(hadith_id)"
+                )
+                database.executeSql(
+                    "CREATE INDEX IF NOT EXISTS idx_hadith_grades_stable_id ON hadith_grades(stable_id)"
+                )
+
+                database.executeSql(
+                    """
+                    CREATE TABLE IF NOT EXISTS hadith_source_manifests (
+                        source_id TEXT NOT NULL PRIMARY KEY,
+                        source_uri TEXT NOT NULL,
+                        revision TEXT NOT NULL,
+                        archive_sha256 TEXT NOT NULL,
+                        license_id TEXT NOT NULL,
+                        active_record_count INTEGER NOT NULL,
+                        missing_slot_count INTEGER NOT NULL,
+                        status TEXT NOT NULL,
+                        updated_at_epoch_ms INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+
+                database.executeSql(
+                    """
+                    INSERT OR IGNORE INTO hadith_references(
+                        hadith_id, stable_id, collection_id, scheme_id,
+                        reference_number, variant_suffix, book_number, hadith_in_book,
+                        canonical_url, is_primary, review_status
+                    )
+                    SELECT
+                        id, stable_id, collection_id, scheme_id,
+                        hadith_number, '', 0, 0,
+                        canonical_url, 1, 'verified'
+                    FROM hadiths
+                    WHERE length(trim(stable_id)) > 0
+                    """.trimIndent()
+                )
+
+                database.executeSql("DROP TRIGGER IF EXISTS ayahs_fts5_after_insert")
+                database.executeSql("DROP TRIGGER IF EXISTS ayahs_fts5_after_delete")
+                database.executeSql("DROP TRIGGER IF EXISTS ayahs_fts5_after_update")
+                database.executeSql("DROP TRIGGER IF EXISTS hadiths_fts5_after_insert")
+                database.executeSql("DROP TRIGGER IF EXISTS hadiths_fts5_after_delete")
+                database.executeSql("DROP TRIGGER IF EXISTS hadiths_fts5_after_update")
+                createFts5(database)
+                createRetrievalFts5(database)
+            }
+        }
+
 
         private fun createFts5(database: SupportSQLiteDatabase) {
             fts5Statements().forEach(database::execSQL)
@@ -612,10 +774,72 @@ abstract class QuranDatabase : RoomDatabase() {
             var expression = column
             expression = "replace($expression, char(1600), '')"
             expression = "replace($expression, char(1649), char(1575))"
+            expression = "replace($expression, char(1570), char(1575))"
+            expression = "replace($expression, char(1571), char(1575))"
+            expression = "replace($expression, char(1573), char(1575))"
             for (code in 1611..1648) expression = "replace($expression, char($code), '')"
             for (code in 1750..1773) expression = "replace($expression, char($code), '')"
             return expression
         }
+
+        internal fun migrationsThrough14(): Array<Migration> = arrayOf(
+            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+            MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+            MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
+            MIGRATION_13_14
+        )
+
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(database: SQLiteConnection) {
+                database.executeSql(
+                    """
+                    CREATE TABLE IF NOT EXISTS hadith_scheme_stats (
+                        collection_id TEXT NOT NULL,
+                        scheme_id TEXT NOT NULL,
+                        scheme_label TEXT NOT NULL,
+                        record_count INTEGER NOT NULL,
+                        min_reference_number INTEGER NOT NULL,
+                        max_reference_number INTEGER NOT NULL,
+                        missing_slot_count INTEGER NOT NULL DEFAULT 0,
+                        is_default INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY(collection_id, scheme_id)
+                    )
+                    """.trimIndent()
+                )
+                database.executeSql(
+                    """
+                    INSERT OR REPLACE INTO hadith_scheme_stats(
+                        collection_id, scheme_id, scheme_label,
+                        record_count, min_reference_number, max_reference_number,
+                        missing_slot_count, is_default
+                    )
+                    SELECT
+                        r.collection_id,
+                        r.scheme_id,
+                        CASE r.scheme_id
+                            WHEN 'sunnah' THEN 'No. Sunnah.com'
+                            WHEN 'ar_risalah' THEN 'No. Ar-Risalah'
+                            WHEN 'archive_gading' THEN 'No. Arsip'
+                            ELSE r.scheme_id
+                        END,
+                        COUNT(DISTINCT CASE WHEN r.hadith_id IS NOT NULL THEN r.stable_id END),
+                        COALESCE(MIN(CASE WHEN r.hadith_id IS NOT NULL THEN r.reference_number END), 0),
+                        COALESCE(MAX(CASE WHEN r.hadith_id IS NOT NULL THEN r.reference_number END), 0),
+                        COUNT(DISTINCT CASE WHEN r.hadith_id IS NULL THEN r.stable_id END),
+                        CASE WHEN r.scheme_id = COALESCE(c.default_scheme, 'sunnah') THEN 1 ELSE 0 END
+                    FROM hadith_references r
+                    LEFT JOIN hadith_collections c ON c.id = r.collection_id
+                    GROUP BY r.collection_id, r.scheme_id
+                    """.trimIndent()
+                )
+            }
+        }
+
+        internal fun migrationsThrough15(): Array<Migration> =
+            migrationsThrough14() + MIGRATION_14_15
+
+        internal fun allMigrations(): Array<Migration> =
+            migrationsThrough15() + MIGRATION_15_16
 
         private val FTS_CALLBACK = object : RoomDatabase.Callback() {
             override fun onCreate(database: SupportSQLiteDatabase) {

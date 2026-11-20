@@ -70,8 +70,7 @@ class MainNavigationSmokeTest {
         composeRule.onNodeWithText("Hadist").performClick()
 
         waitForText("Hadist")
-        waitForText("Bundle Hadist offline")
-        val hasCatalog = waitForAnyText("Kutubus Sittah", "Belum ada katalog hadist yang dimuat.")
+        val hasCatalog = waitForAnyText("Kutubus Sittah", "Bundle Hadist offline")
         assertTrue(hasCatalog)
         if (nodeHasText("Kutubus Sittah")) {
             waitForText("Sahih al-Bukhari")

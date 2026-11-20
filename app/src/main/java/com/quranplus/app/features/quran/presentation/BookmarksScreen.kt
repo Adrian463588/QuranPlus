@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import com.quranplus.app.features.hadith.data.CanonicalHadithSynchronizer
 import com.quranplus.app.features.hadith.presentation.HadithViewModel
 import com.quranplus.shared.features.quran.domain.HadithBookmark
 import com.quranplus.app.core.ui.components.AppEmptyState
@@ -66,7 +67,8 @@ fun BookmarksScreen(
     viewModel: QuranViewModel,
     hadithViewModel: HadithViewModel? = null,
     onBookmarkClick: (Int, Int) -> Unit,
-    onHadithBookmarkClick: (String, Int) -> Unit = { _, _ -> }
+    onHadithBookmarkClick: (String, Int) -> Unit = { _, _ -> },
+    onHadithBookmarkWithSchemeClick: ((String, Int, String?) -> Unit)? = null
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val bookmarksState by viewModel.bookmarksState.collectAsStateWithLifecycle()
@@ -280,7 +282,16 @@ fun BookmarksScreen(
                             ) {
                                 HadithBookmarkItemCard(
                                     bookmark = bookmark,
-                                    onClick = { onHadithBookmarkClick(bookmark.collectionId, bookmark.hadithNumber) },
+                                    onClick = {
+                                        val effectiveScheme = bookmark.schemeId
+                                            ?: CanonicalHadithSynchronizer.SCHEME_ARCHIVE_GADING
+                                        val withScheme = onHadithBookmarkWithSchemeClick
+                                        if (withScheme != null) {
+                                            withScheme(bookmark.collectionId, bookmark.hadithNumber, effectiveScheme)
+                                        } else {
+                                            onHadithBookmarkClick(bookmark.collectionId, bookmark.hadithNumber)
+                                        }
+                                    },
                                     onDeleteClick = { deleteHadithWithUndo(bookmark) },
                                     onNoteClick = {
                                         hadithNoteInput = bookmark.note.orEmpty()
@@ -375,7 +386,14 @@ fun HadithBookmarkItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stringResource(R.string.hadith_archive_reference, bookmark.collectionName, bookmark.hadithNumber),
+                    text = when (bookmark.schemeId) {
+                        CanonicalHadithSynchronizer.SCHEME_SUNNAH ->
+                            stringResource(R.string.hadith_sunnah_reference, bookmark.collectionName, bookmark.hadithNumber)
+                        CanonicalHadithSynchronizer.SCHEME_AR_RISALAH ->
+                            stringResource(R.string.hadith_risalah_reference, bookmark.collectionName, bookmark.hadithNumber)
+                        else ->
+                            stringResource(R.string.hadith_archive_reference, bookmark.collectionName, bookmark.hadithNumber)
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary

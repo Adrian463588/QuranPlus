@@ -1,5 +1,7 @@
 package com.quranplus.app.features.hadith.data
 
+import com.quranplus.app.core.database.dao.HadithDao
+import com.quranplus.app.core.database.entity.HadithSourceManifestEntity
 import com.quranplus.app.features.rag.data.SafAssetStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,12 +18,17 @@ data class HadithBundleImportSummary(
 /** Stores and imports the real Indonesian book files from the downloaded ZIP. */
 class HadithBundleImporter(
     private val assetStore: SafAssetStore,
-    private val referenceImporter: HadithReferenceImporter
+    private val referenceImporter: HadithReferenceImporter,
+    private val hadithDao: HadithDao? = null
 ) {
     suspend fun importArchive(archiveFile: File): HadithBundleImportSummary = withContext(Dispatchers.IO) {
         require(archiveFile.isFile) { "Bundle Hadist tidak ditemukan" }
-        require(HadithBundleManifest.VERIFIED.verifyArchive(archiveFile)) {
-            "Checksum atau ukuran bundle Hadist tidak cocok dengan manifest"
+        if (!HadithBundleManifest.VERIFIED.verifyArchive(archiveFile)) {
+            recordManifest(
+                status = CanonicalHadithSynchronizer.STATUS_CORRUPT,
+                activeCount = 0
+            )
+            throw IllegalArgumentException("Checksum atau ukuran bundle Hadist tidak cocok dengan manifest")
         }
         assetStore.publishFile(
             source = archiveFile,
@@ -68,10 +75,23 @@ class HadithBundleImporter(
             }
         }
 
-        if (imported.isEmpty()) throw IllegalStateException("Bundle tidak berisi buku Hadist yang dikenali")
+        val activeCount = if (imported.isNotEmpty()) {
+            imported.sumOf(HadithImportSummary::recordCount)
+        } else {
+            val ahmadCount = hadithDao?.countActiveDistinctHadiths("ahmad") ?: 0
+            val darimiCount = hadithDao?.countActiveDistinctHadiths("darimi") ?: 0
+            if (ahmadCount + darimiCount == 0 && (hadithDao?.countActiveDistinctHadiths() ?: 0) == 0) {
+                throw IllegalStateException("Bundle tidak berisi buku Hadist yang dikenali")
+            }
+            ahmadCount + darimiCount
+        }
+        recordManifest(
+            status = CanonicalHadithSynchronizer.STATUS_VERIFIED,
+            activeCount = activeCount
+        )
         val summary = HadithBundleImportSummary(
             collectionCount = imported.size,
-            recordCount = imported.sumOf(HadithImportSummary::recordCount)
+            recordCount = activeCount
         )
         val collectionIds = JSONArray().apply {
             imported.forEach { put(it.collectionId) }
@@ -113,7 +133,32 @@ class HadithBundleImporter(
         }
 
         // 2. Fallback: restore from extracted JSON books in rag/source/hadith
-        runCatching { restoreFromExtractedBooks() }.getOrNull()
+        val restored = runCatching { restoreFromExtractedBooks() }
+        if (restored.isFailure) {
+            recordManifest(
+                status = CanonicalHadithSynchronizer.STATUS_CORRUPT,
+                activeCount = 0
+            )
+            null
+        } else {
+            restored.getOrNull()
+        }
+    }
+
+    private suspend fun recordManifest(status: String, activeCount: Int) {
+        hadithDao?.insertSourceManifest(
+            HadithSourceManifestEntity(
+                sourceId = BUNDLE_ID,
+                sourceUri = BUNDLE_SOURCE_URL,
+                revision = HadithBundleManifest.VERIFIED.revision,
+                archiveSha256 = HadithBundleManifest.VERIFIED.archiveSha256,
+                licenseId = HadithBundleManifest.VERIFIED.licenseId,
+                activeRecordCount = activeCount,
+                missingSlotCount = 0,
+                status = status,
+                updatedAtEpochMs = System.currentTimeMillis()
+            )
+        )
     }
 
     private suspend fun restoreFromExtractedBooks(): HadithBundleImportSummary? {

@@ -148,7 +148,8 @@ data class TahsinLessonEntity(
 @Entity(
     tableName = "hadiths",
     indices = [
-        Index(value = ["collection_id", "hadith_number"], name = "idx_hadiths_col")
+        Index(value = ["collection_id", "hadith_number"], name = "idx_hadiths_col"),
+        Index(value = ["stable_id"], name = "idx_hadiths_stable_id")
     ]
 )
 data class HadithEntity(
@@ -177,7 +178,17 @@ data class HadithEntity(
     val grade: String? = null,
     val language: String = "en",
     @ColumnInfo(name = "is_complete")
-    val isComplete: Boolean = false
+    val isComplete: Boolean = false,
+    @ColumnInfo(name = "stable_id")
+    val stableId: String = "",
+    @ColumnInfo(name = "scheme_id")
+    val schemeId: String = "sunnah",
+    @ColumnInfo(name = "canonical_url")
+    val canonicalUrl: String? = null,
+    @ColumnInfo(name = "content_checksum")
+    val contentChecksum: String = "",
+    @ColumnInfo(name = "verification_status")
+    val verificationStatus: String = "VERIFIED"
 )
 
 @Entity(tableName = "hadith_collections")
@@ -203,7 +214,139 @@ data class HadithCollectionEntity(
     @ColumnInfo(name = "is_complete")
     val isComplete: Boolean,
     @ColumnInfo(name = "bundle_allowed")
-    val bundleAllowed: Boolean
+    val bundleAllowed: Boolean,
+    @ColumnInfo(name = "default_scheme")
+    val defaultScheme: String = "sunnah",
+    @ColumnInfo(name = "active_record_count")
+    val activeRecordCount: Int = 0,
+    @ColumnInfo(name = "availability_status")
+    val availabilityStatus: String = "AVAILABLE"
+)
+
+@Entity(
+    tableName = "hadith_references",
+    indices = [
+        Index(
+            value = ["collection_id", "scheme_id", "reference_number", "variant_suffix"],
+            name = "idx_hadith_ref_unique",
+            unique = true
+        ),
+        Index(value = ["hadith_id"], name = "idx_hadith_ref_hadith_id"),
+        Index(value = ["stable_id"], name = "idx_hadith_ref_stable_id")
+    ]
+)
+data class HadithReferenceEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    @ColumnInfo(name = "hadith_id")
+    val hadithId: Long?,
+    @ColumnInfo(name = "stable_id")
+    val stableId: String,
+    @ColumnInfo(name = "collection_id")
+    val collectionId: String,
+    @ColumnInfo(name = "scheme_id")
+    val schemeId: String,
+    @ColumnInfo(name = "reference_number")
+    val referenceNumber: Int,
+    @ColumnInfo(name = "variant_suffix")
+    val variantSuffix: String = "",
+    @ColumnInfo(name = "book_number")
+    val bookNumber: Int = 0,
+    @ColumnInfo(name = "hadith_in_book")
+    val hadithInBook: Int = 0,
+    @ColumnInfo(name = "canonical_url")
+    val canonicalUrl: String? = null,
+    @ColumnInfo(name = "is_primary")
+    val isPrimary: Boolean = false,
+    @ColumnInfo(name = "review_status")
+    val reviewStatus: String = "verified"
+)
+
+@Entity(
+    tableName = "hadith_translations",
+    primaryKeys = ["stable_id", "language"],
+    indices = [
+        Index(value = ["hadith_id"], name = "idx_hadith_trans_hadith_id"),
+        Index(value = ["collection_id", "language"], name = "idx_hadith_trans_col_lang")
+    ]
+)
+data class HadithTranslationEntity(
+    @ColumnInfo(name = "hadith_id")
+    val hadithId: Long,
+    @ColumnInfo(name = "stable_id")
+    val stableId: String,
+    @ColumnInfo(name = "collection_id")
+    val collectionId: String,
+    val language: String,
+    @ColumnInfo(name = "edition_id")
+    val editionId: String,
+    val text: String,
+    @ColumnInfo(name = "source_revision")
+    val sourceRevision: String,
+    @ColumnInfo(name = "license_status")
+    val licenseStatus: String
+)
+
+@Entity(
+    tableName = "hadith_grades",
+    indices = [
+        Index(value = ["hadith_id"], name = "idx_hadith_grades_hadith_id"),
+        Index(value = ["stable_id"], name = "idx_hadith_grades_stable_id")
+    ]
+)
+data class HadithGradeEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    @ColumnInfo(name = "hadith_id")
+    val hadithId: Long,
+    @ColumnInfo(name = "stable_id")
+    val stableId: String,
+    val authority: String,
+    val grade: String
+)
+
+@Entity(tableName = "hadith_source_manifests")
+data class HadithSourceManifestEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "source_id")
+    val sourceId: String,
+    @ColumnInfo(name = "source_uri")
+    val sourceUri: String,
+    val revision: String,
+    @ColumnInfo(name = "archive_sha256")
+    val archiveSha256: String,
+    @ColumnInfo(name = "license_id")
+    val licenseId: String,
+    @ColumnInfo(name = "active_record_count")
+    val activeRecordCount: Int,
+    @ColumnInfo(name = "missing_slot_count")
+    val missingSlotCount: Int,
+    val status: String,
+    @ColumnInfo(name = "updated_at_epoch_ms")
+    val updatedAtEpochMs: Long
+)
+
+@Entity(
+    tableName = "hadith_scheme_stats",
+    primaryKeys = ["collection_id", "scheme_id"]
+)
+data class HadithSchemeStatEntity(
+    @ColumnInfo(name = "collection_id")
+    val collectionId: String,
+    @ColumnInfo(name = "scheme_id")
+    val schemeId: String,
+    @ColumnInfo(name = "scheme_label")
+    val schemeLabel: String,
+    @ColumnInfo(name = "record_count")
+    val recordCount: Int,
+    @ColumnInfo(name = "min_reference_number")
+    val minReferenceNumber: Int,
+    @ColumnInfo(name = "max_reference_number")
+    val maxReferenceNumber: Int,
+    @ColumnInfo(name = "missing_slot_count")
+    val missingSlotCount: Int = 0,
+    @ColumnInfo(name = "is_default")
+    val isDefault: Boolean = false
 )
 
 @Entity(

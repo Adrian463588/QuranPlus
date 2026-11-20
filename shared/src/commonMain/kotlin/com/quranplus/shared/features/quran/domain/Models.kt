@@ -64,7 +64,9 @@ data class HadithMarker(
     val collectionName: String,
     val hadithNumber: Int,
     val timestamp: Long = 0L,
-    val colorIndex: Int = 0
+    val colorIndex: Int = 0,
+    val schemeId: String? = null,
+    val stableId: String? = null
 )
 
 data class HadithBookmark(
@@ -75,6 +77,8 @@ data class HadithBookmark(
     val hadithTextArabic: String = "",
     val hadithTranslation: String = "",
     val note: String? = null,
-    val timestamp: Long = 0L
+    val timestamp: Long = 0L,
+    val schemeId: String? = null,
+    val stableId: String? = null
 )
 

@@ -55,8 +55,9 @@ class HadithNumberingTest {
 
     @Test
     fun GIVEN_canonical3837_WHEN_searching_THEN_looksUpArchive3340AndPreservesItsIdentity() = runTest {
-        val dao = mockk<HadithDao>()
-        coEvery { dao.getHadithByNumber("abudawud", 3340) } returns dates
+        val dao = mockk<HadithDao>(relaxed = true)
+        coEvery { dao.countActiveDistinctHadiths("abudawud") } returns 1
+        coEvery { dao.findByReference("abudawud", "sunnah", 3837, null, any()) } returns listOf(dates)
         val records = HadithRepositoryImpl(dao, numbering).search("abudawud", "3837")
         assertEquals(listOf(3340), records.map { it.hadithNumber })
         assertEquals(listOf(3837), records.map { it.referenceNumber })
@@ -66,7 +67,7 @@ class HadithNumberingTest {
 
     @Test
     fun GIVEN_existingArchiveBookmark_WHEN_loadingCollection_THEN_keepsOriginalNumbersAndIds() = runTest {
-        val dao = mockk<HadithDao>()
+        val dao = mockk<HadithDao>(relaxed = true)
         every { dao.getHadithsByCollection("abudawud") } returns flowOf(listOf(dates, other))
         val records = HadithRepositoryImpl(dao, numbering).search("abudawud", "")
         assertEquals(listOf(dates.id, other.id), records.map { it.id })
@@ -75,8 +76,9 @@ class HadithNumberingTest {
 
     @Test
     fun GIVEN_explicitArchiveNumber_WHEN_searching_THEN_keepsThatEditionInsteadOfSubstituting3837() = runTest {
-        val dao = mockk<HadithDao>()
-        coEvery { dao.searchByNumber("abudawud", 3837, any()) } returns listOf(other)
+        val dao = mockk<HadithDao>(relaxed = true)
+        coEvery { dao.countActiveDistinctHadiths("abudawud") } returns 1
+        coEvery { dao.findByReference("abudawud", "archive_gading", 3837, null, any()) } returns listOf(other)
         val records = HadithRepositoryImpl(dao, numbering).search("abudawud", "arsip 3837")
         assertEquals(3837, records.single().hadithNumber)
         assertEquals(4420, records.single().referenceNumber)

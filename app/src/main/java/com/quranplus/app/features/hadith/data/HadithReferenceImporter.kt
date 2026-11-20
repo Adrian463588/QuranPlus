@@ -7,6 +7,9 @@ import com.quranplus.app.core.database.QuranDatabase
 import com.quranplus.app.core.database.entity.HadithChapterEntity
 import com.quranplus.app.core.database.entity.HadithCollectionEntity
 import com.quranplus.app.core.database.entity.HadithEntity
+import com.quranplus.app.core.database.entity.HadithReferenceEntity
+import com.quranplus.app.core.database.entity.HadithSchemeStatEntity
+import com.quranplus.app.core.database.entity.HadithTranslationEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -59,28 +62,132 @@ class HadithReferenceImporter(
         if (parsed.records.isEmpty()) return null
 
         val dao = database.hadithDao()
-        dao.deleteHadithsForCollection(parsed.collectionId)
-        dao.deleteChaptersForCollection(parsed.collectionId)
-        dao.insertCollections(
-            listOf(
-                HadithCollectionEntity(
-                    id = parsed.collectionId,
-                    titleArabic = parsed.titleArabic,
-                    titleEnglish = parsed.title,
-                    sourceRevision = parsed.sourceRevision,
-                    sourceSha256 = parsed.sourceSha256,
-                    licenseStatus = parsed.licenseStatus,
-                    gradeStatus = "not_provided",
-                    recordCount = parsed.records.size,
-                    chapterCount = parsed.chapters.size,
-                    isComplete = parsed.isComplete,
-                    bundleAllowed = parsed.isBundle
-                )
+        if (parsed.collectionId in CanonicalHadithSynchronizer.CANONICAL_COLLECTION_IDS &&
+            dao.countHadithsByCollectionAndLicenses(
+                parsed.collectionId,
+                CanonicalHadithSynchronizer.CANONICAL_ACCEPTED_LICENSES.toList()
+            ) > 0
+        ) {
+            // Offline verified canonical + MIT corpus owns all 9 collections; never let a partial
+            // external SAF bundle downgrade or clobber complete collections (e.g. ahmad 4,305 vs 26,363).
+            return null
+        }
+
+        val schemeId = CanonicalHadithSynchronizer.SCHEME_ARCHIVE_GADING
+        val titleArabic = parsed.titleArabic
+        val enrichedRecords = parsed.records.map { record ->
+            val stableId = "$schemeId:${parsed.collectionId}:${record.hadithNumber}"
+            val checksum = sha256Hex("${record.textArabic}\n${record.translationEn}\n${record.translationId}")
+            record.copy(
+                stableId = stableId,
+                schemeId = schemeId,
+                contentChecksum = checksum,
+                verificationStatus = if (record.licenseStatus == "licensed") {
+                    CanonicalHadithSynchronizer.STATUS_VERIFIED
+                } else {
+                    "UNVERIFIED"
+                }
+            )
+        }
+        val references = enrichedRecords.map { record ->
+            HadithReferenceEntity(
+                hadithId = record.id,
+                stableId = record.stableId,
+                collectionId = parsed.collectionId,
+                schemeId = schemeId,
+                referenceNumber = record.hadithNumber,
+                variantSuffix = "",
+                bookNumber = record.chapterId?.toIntOrNull() ?: 0,
+                hadithInBook = 0,
+                canonicalUrl = record.canonicalUrl,
+                isPrimary = true,
+                reviewStatus = "verified"
+            )
+        }
+        val translations = enrichedRecords.flatMap { record ->
+            buildList {
+                if (record.translationId.isNotBlank()) {
+                    add(
+                        HadithTranslationEntity(
+                            hadithId = record.id,
+                            stableId = record.stableId,
+                            collectionId = parsed.collectionId,
+                            language = "id",
+                            editionId = "gadingnst-${parsed.collectionId}",
+                            text = record.translationId,
+                            sourceRevision = parsed.sourceRevision,
+                            licenseStatus = parsed.licenseStatus
+                        )
+                    )
+                }
+                if (record.translationEn.isNotBlank()) {
+                    add(
+                        HadithTranslationEntity(
+                            hadithId = record.id,
+                            stableId = record.stableId,
+                            collectionId = parsed.collectionId,
+                            language = "en",
+                            editionId = "ref-${parsed.collectionId}",
+                            text = record.translationEn,
+                            sourceRevision = parsed.sourceRevision,
+                            licenseStatus = parsed.licenseStatus
+                        )
+                    )
+                }
+            }
+        }
+        val minRef = enrichedRecords.minOfOrNull { it.hadithNumber } ?: 0
+        val maxRef = enrichedRecords.maxOfOrNull { it.hadithNumber } ?: 0
+        val isExpectedComplete = parsed.isComplete &&
+            (HadithBundleManifest.VERIFIED.expectedCollectionCounts[parsed.collectionId]?.let { it >= maxRef } ?: true) &&
+            (maxRef == 0 || enrichedRecords.size >= maxRef)
+        val collectionEntity = HadithCollectionEntity(
+            id = parsed.collectionId,
+            titleArabic = titleArabic,
+            titleEnglish = parsed.title,
+            sourceRevision = parsed.sourceRevision,
+            sourceSha256 = parsed.sourceSha256,
+            licenseStatus = parsed.licenseStatus,
+            gradeStatus = "not_provided",
+            recordCount = enrichedRecords.size,
+            chapterCount = parsed.chapters.size,
+            isComplete = isExpectedComplete,
+            bundleAllowed = parsed.isBundle,
+            defaultScheme = schemeId,
+            activeRecordCount = enrichedRecords.size,
+            availabilityStatus = if (isExpectedComplete) {
+                CanonicalHadithSynchronizer.STATUS_AVAILABLE
+            } else {
+                CanonicalHadithSynchronizer.STATUS_PARTIAL
+            }
+        )
+        val schemeStats = listOf(
+            HadithSchemeStatEntity(
+                collectionId = parsed.collectionId,
+                schemeId = schemeId,
+                schemeLabel = if (schemeId == CanonicalHadithSynchronizer.SCHEME_SUNNAH) "No. Sunnah.com" else "No. Arsip",
+                recordCount = enrichedRecords.size,
+                minReferenceNumber = minRef,
+                maxReferenceNumber = maxRef,
+                missingSlotCount = (maxRef - enrichedRecords.size).coerceAtLeast(0),
+                isDefault = true
             )
         )
-        dao.insertChapters(parsed.chapters)
-        parsed.records.chunked(BATCH_SIZE).forEach { batch -> dao.insertHadiths(batch) }
-        return HadithImportSummary(parsed.collectionId, parsed.title, parsed.records.size)
+        dao.replaceCollectionAtomically(
+            collection = collectionEntity,
+            chapters = parsed.chapters,
+            hadiths = enrichedRecords,
+            references = references,
+            translations = translations,
+            grades = emptyList(),
+            schemeStats = schemeStats
+        )
+        return HadithImportSummary(parsed.collectionId, parsed.title, enrichedRecords.size)
+    }
+
+    private fun sha256Hex(text: String): String {
+        val bytes = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
     }
 
     private fun parseCollection(
@@ -325,7 +432,6 @@ class HadithReferenceImporter(
             return collectionKey * 1_000_000L + number
         }
 
-        private const val BATCH_SIZE = 250
         val SHA256_PATTERN = Regex("[0-9a-fA-F]{64}")
     }
 }

@@ -1,0 +1,353 @@
+{
+  "validation_status": "PASS",
+  "archive_filename": "sunnah-canonical-bundle.zip",
+  "archive_size_bytes": 34735973,
+  "archive_sha256": "b3ab43be9b3b3a050deb6349d8d40682a831f5af348899cbe51f17ba63427d38",
+  "license_id": "Unlicense+MIT",
+  "revision": "df57907be35291c91ad6a6691180e22ca9920784+mit9",
+  "total_collections": 9,
+  "total_active_records": 65716,
+  "total_issues": 0,
+  "fixtures_verified": [
+    "HF-001",
+    "HF-002",
+    "HF-003",
+    "HF-004",
+    "HF-005"
+  ],
+  "collections": {
+    "abudawud": {
+      "title_english": "Sunan Abu Dawud",
+      "default_scheme": "sunnah",
+      "license_id": "Unlicense",
+      "source_id": "fawazahmed0-hadith-api",
+      "active_record_count": 5272,
+      "verified_count": 5272,
+      "partial_count": 0,
+      "partial_without_arabic": 0,
+      "indonesian_count": 4405,
+      "english_count": 5272,
+      "graded_count": 5272,
+      "empty_arabic_in_verified": 0,
+      "empty_translations_in_verified": 0,
+      "broken_canonical_urls": 0,
+      "incorrect_grade_attributions": 0,
+      "schemes": {
+        "archive_gading": {
+          "record_count": 4381,
+          "unique_numbers": 4381,
+          "min_reference_number": 1,
+          "max_reference_number": 4590,
+          "range_span_gaps": 209,
+          "documented_edition_gaps": 0
+        },
+        "sunnah": {
+          "record_count": 5272,
+          "unique_numbers": 5272,
+          "min_reference_number": 1,
+          "max_reference_number": 5274,
+          "range_span_gaps": 2,
+          "documented_edition_gaps": 2
+        }
+      },
+      "sha256": "3800c51c0c00e5c95cf8c43b460c0b528823a35b1030e5ec6a8ab8fdee0491ee",
+      "status": "PASS"
+    },
+    "ahmad": {
+      "title_english": "Musnad Ahmad",
+      "default_scheme": "ar_risalah",
+      "license_id": "MIT",
+      "source_id": "irsyadulibad-hadits-database",
+      "active_record_count": 26363,
+      "verified_count": 26363,
+      "partial_count": 0,
+      "partial_without_arabic": 0,
+      "indonesian_count": 26363,
+      "english_count": 0,
+      "graded_count": 1,
+      "empty_arabic_in_verified": 0,
+      "empty_translations_in_verified": 0,
+      "broken_canonical_urls": 0,
+      "incorrect_grade_attributions": 0,
+      "schemes": {
+        "ar_risalah": {
+          "record_count": 24357,
+          "unique_numbers": 25016,
+          "min_reference_number": 1,
+          "max_reference_number": 27647,
+          "range_span_gaps": 2631,
+          "documented_edition_gaps": 2631
+        },
+        "archive_gading": {
+          "record_count": 26363,
+          "unique_numbers": 26363,
+          "min_reference_number": 1,
+          "max_reference_number": 26363,
+          "range_span_gaps": 0,
+          "documented_edition_gaps": 0
+        }
+      },
+      "sha256": "36c9e528f11279b84c833837e44518c6a87ea096ba5fee27488371673fccb1ac",
+      "status": "PASS"
+    },
+    "bukhari": {
+      "title_english": "Sahih al-Bukhari",
+      "default_scheme": "sunnah",
+      "license_id": "Unlicense",
+      "source_id": "fawazahmed0-hadith-api",
+      "active_record_count": 7580,
+      "verified_count": 7580,
+      "partial_count": 0,
+      "partial_without_arabic": 0,
+      "indonesian_count": 6857,
+      "english_count": 7580,
+      "graded_count": 0,
+      "empty_arabic_in_verified": 0,
+      "empty_translations_in_verified": 0,
+      "broken_canonical_urls": 0,
+      "incorrect_grade_attributions": 0,
+      "schemes": {
+        "archive_gading": {
+          "record_count": 6184,
+          "unique_numbers": 6184,
+          "min_reference_number": 1,
+          "max_reference_number": 7008,
+          "range_span_gaps": 824,
+          "documented_edition_gaps": 0
+        },
+        "sunnah": {
+          "record_count": 7580,
+          "unique_numbers": 7554,
+          "min_reference_number": 1,
+          "max_reference_number": 7563,
+          "range_span_gaps": 9,
+          "documented_edition_gaps": 9
+        }
+      },
+      "sha256": "0205fe48574a0e89ab9d4d648d669cf6d95c5ecf74c6c4c0957fe327344a09ea",
+      "status": "PASS"
+    },
+    "darimi": {
+      "title_english": "Sunan al-Darimi",
+      "default_scheme": "archive_gading",
+      "license_id": "MIT",
+      "source_id": "irsyadulibad-hadits-database",
+      "active_record_count": 3367,
+      "verified_count": 3367,
+      "partial_count": 0,
+      "partial_without_arabic": 0,
+      "indonesian_count": 3367,
+      "english_count": 0,
+      "graded_count": 0,
+      "empty_arabic_in_verified": 0,
+      "empty_translations_in_verified": 0,
+      "broken_canonical_urls": 0,
+      "incorrect_grade_attributions": 0,
+      "schemes": {
+        "archive_gading": {
+          "record_count": 3367,
+          "unique_numbers": 3367,
+          "min_reference_number": 1,
+          "max_reference_number": 3367,
+          "range_span_gaps": 0,
+          "documented_edition_gaps": 0
+        }
+      },
+      "sha256": "af03340f74ec128ecc66e4031844db621db4cb41d0912285aef6afd078874c29",
+      "status": "PASS"
+    },
+    "ibnmajah": {
+      "title_english": "Sunan Ibn Majah",
+      "default_scheme": "sunnah",
+      "license_id": "Unlicense",
+      "source_id": "fawazahmed0-hadith-api",
+      "active_record_count": 4340,
+      "verified_count": 4338,
+      "partial_count": 2,
+      "partial_without_arabic": 2,
+      "indonesian_count": 4267,
+      "english_count": 4340,
+      "graded_count": 4338,
+      "empty_arabic_in_verified": 0,
+      "empty_translations_in_verified": 0,
+      "broken_canonical_urls": 0,
+      "incorrect_grade_attributions": 0,
+      "schemes": {
+        "archive_gading": {
+          "record_count": 4245,
+          "unique_numbers": 4245,
+          "min_reference_number": 1,
+          "max_reference_number": 4331,
+          "range_span_gaps": 86,
+          "documented_edition_gaps": 0
+        },
+        "sunnah": {
+          "record_count": 4340,
+          "unique_numbers": 4338,
+          "min_reference_number": 1,
+          "max_reference_number": 4341,
+          "range_span_gaps": 3,
+          "documented_edition_gaps": 3
+        }
+      },
+      "sha256": "904d0d12549e485497bd12b9063cd905ab30284b860430a5b8bde52cea294616",
+      "status": "PASS"
+    },
+    "malik": {
+      "title_english": "Muwatta Malik",
+      "default_scheme": "sunnah",
+      "license_id": "Unlicense",
+      "source_id": "fawazahmed0-hadith-api",
+      "active_record_count": 1829,
+      "verified_count": 1818,
+      "partial_count": 11,
+      "partial_without_arabic": 0,
+      "indonesian_count": 1545,
+      "english_count": 1818,
+      "graded_count": 1829,
+      "empty_arabic_in_verified": 0,
+      "empty_translations_in_verified": 0,
+      "broken_canonical_urls": 0,
+      "incorrect_grade_attributions": 0,
+      "schemes": {
+        "archive_gading": {
+          "record_count": 1534,
+          "unique_numbers": 1534,
+          "min_reference_number": 1,
+          "max_reference_number": 1594,
+          "range_span_gaps": 60,
+          "documented_edition_gaps": 0
+        },
+        "sunnah": {
+          "record_count": 1829,
+          "unique_numbers": 1829,
+          "min_reference_number": 1,
+          "max_reference_number": 1858,
+          "range_span_gaps": 29,
+          "documented_edition_gaps": 29
+        }
+      },
+      "sha256": "e9440c5cdc4cdab3b9e98c872c0b9de66f0c9f0daf22c5df890360ce466f1571",
+      "status": "PASS"
+    },
+    "muslim": {
+      "title_english": "Sahih Muslim",
+      "default_scheme": "sunnah",
+      "license_id": "Unlicense",
+      "source_id": "fawazahmed0-hadith-api",
+      "active_record_count": 7360,
+      "verified_count": 7360,
+      "partial_count": 0,
+      "partial_without_arabic": 0,
+      "indonesian_count": 4890,
+      "english_count": 7360,
+      "graded_count": 0,
+      "empty_arabic_in_verified": 0,
+      "empty_translations_in_verified": 0,
+      "broken_canonical_urls": 0,
+      "incorrect_grade_attributions": 0,
+      "schemes": {
+        "archive_gading": {
+          "record_count": 4726,
+          "unique_numbers": 4726,
+          "min_reference_number": 9,
+          "max_reference_number": 5362,
+          "range_span_gaps": 628,
+          "documented_edition_gaps": 0
+        },
+        "sunnah": {
+          "record_count": 7212,
+          "unique_numbers": 2962,
+          "min_reference_number": 8,
+          "max_reference_number": 3033,
+          "range_span_gaps": 64,
+          "documented_edition_gaps": 6
+        },
+        "sunnah_ordinal": {
+          "record_count": 7360,
+          "unique_numbers": 7360,
+          "min_reference_number": 3,
+          "max_reference_number": 7563,
+          "range_span_gaps": 201,
+          "documented_edition_gaps": 203
+        }
+      },
+      "sha256": "3d5a157a91a0563b2128a594dcebe708ca1340a6e250ca5aaa3f94811c2fbed9",
+      "status": "PASS"
+    },
+    "nasai": {
+      "title_english": "Sunan al-Nasa'i",
+      "default_scheme": "sunnah",
+      "license_id": "Unlicense",
+      "source_id": "fawazahmed0-hadith-api",
+      "active_record_count": 5679,
+      "verified_count": 5679,
+      "partial_count": 0,
+      "partial_without_arabic": 0,
+      "indonesian_count": 5325,
+      "english_count": 5679,
+      "graded_count": 5672,
+      "empty_arabic_in_verified": 0,
+      "empty_translations_in_verified": 0,
+      "broken_canonical_urls": 0,
+      "incorrect_grade_attributions": 0,
+      "schemes": {
+        "archive_gading": {
+          "record_count": 5284,
+          "unique_numbers": 5284,
+          "min_reference_number": 1,
+          "max_reference_number": 5662,
+          "range_span_gaps": 378,
+          "documented_edition_gaps": 0
+        },
+        "sunnah": {
+          "record_count": 5679,
+          "unique_numbers": 5672,
+          "min_reference_number": 1,
+          "max_reference_number": 5758,
+          "range_span_gaps": 86,
+          "documented_edition_gaps": 86
+        }
+      },
+      "sha256": "d867e98471812f3ce956436f927e5eb772d5aeab5be2bee5cf0250bb4cd60527",
+      "status": "PASS"
+    },
+    "tirmidhi": {
+      "title_english": "Jami' al-Tirmidhi",
+      "default_scheme": "sunnah",
+      "license_id": "Unlicense",
+      "source_id": "fawazahmed0-hadith-api",
+      "active_record_count": 3926,
+      "verified_count": 3924,
+      "partial_count": 2,
+      "partial_without_arabic": 2,
+      "indonesian_count": 3489,
+      "english_count": 3926,
+      "graded_count": 3890,
+      "empty_arabic_in_verified": 0,
+      "empty_translations_in_verified": 0,
+      "broken_canonical_urls": 0,
+      "incorrect_grade_attributions": 0,
+      "schemes": {
+        "archive_gading": {
+          "record_count": 3461,
+          "unique_numbers": 3461,
+          "min_reference_number": 1,
+          "max_reference_number": 3891,
+          "range_span_gaps": 430,
+          "documented_edition_gaps": 0
+        },
+        "sunnah": {
+          "record_count": 3926,
+          "unique_numbers": 3889,
+          "min_reference_number": 1,
+          "max_reference_number": 3956,
+          "range_span_gaps": 67,
+          "documented_edition_gaps": 69
+        }
+      },
+      "sha256": "8e0c68a8b036b4082ba7ff4873889465ff6dce1e14f333deda25ae75005ac960",
+      "status": "PASS"
+    }
+  }
+}

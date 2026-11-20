@@ -18,6 +18,7 @@ import com.quranplus.app.features.chatbot.domain.SaveChatMessageUseCase
 import com.quranplus.app.features.chatbot.presentation.ChatViewModel
 import com.quranplus.app.features.audio.data.AudioDownloadScheduler
 import com.quranplus.app.features.audio.presentation.AudioDownloadViewModel
+import com.quranplus.app.features.hadith.data.CanonicalHadithSynchronizer
 import com.quranplus.app.features.hadith.data.HadithRepositoryImpl
 import com.quranplus.app.features.hadith.data.HadithNumbering
 import com.quranplus.app.features.hadith.data.HadithReferenceImporter
@@ -129,8 +130,9 @@ val appModule = module {
     single { SafAssetStore(androidContext(), get()) }
     single { SafDocumentImporter(androidContext(), get(), get()) }
     single { HadithReferenceImporter(androidContext(), get()) }
-    single { HadithBundleImporter(get(), get()) }
-    single { HadithBundleManager(get(), get(), get(), get()) }
+    single { CanonicalHadithSynchronizer(androidContext(), get()) }
+    single { HadithBundleImporter(get(), get(), get()) }
+    single { HadithBundleManager(get(), get(), get(), get(), get()) }
     single { com.quranplus.app.core.database.SafUserDataManager(get(), get(), get()) }
     single { com.quranplus.app.core.security.AppSecurityManager(androidContext()) }
     single { com.quranplus.app.core.security.SecurityKeyStoreProvider() }
@@ -139,7 +141,7 @@ val appModule = module {
     single<QuranRepository> { QuranRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<WordByWordRepository> { WordByWordRepositoryImpl(get()) }
     single { HadithNumbering { androidContext().assets.open("hadith/numbering.json").bufferedReader().use { it.readText() } } }
-    single<HadithRepository> { HadithRepositoryImpl(get(), get()) }
+    single<HadithRepository> { HadithRepositoryImpl(get(), get(), get()) }
     single<TahsinRepository> { TahsinRepositoryImpl(get()) }
     single<QuizRepository> { QuizRepositoryImpl(get()) }
     single<ChatRepository> {

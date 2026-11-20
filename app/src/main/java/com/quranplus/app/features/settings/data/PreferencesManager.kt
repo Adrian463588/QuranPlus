@@ -309,7 +309,9 @@ class PreferencesManager(private val context: Context) {
                         collectionName = json.getString("collectionName"),
                         hadithNumber = json.getInt("hadithNumber"),
                         timestamp = json.optLong("timestamp", System.currentTimeMillis()),
-                        colorIndex = json.optInt("colorIndex", i.coerceAtMost(QuranColors.MAX_READING_MARKERS - 1))
+                        colorIndex = json.optInt("colorIndex", i.coerceAtMost(QuranColors.MAX_READING_MARKERS - 1)),
+                        schemeId = json.optString("schemeId", "").takeIf { it.isNotBlank() },
+                        stableId = json.optString("stableId", "").takeIf { it.isNotBlank() }
                     )
                 }
             }.getOrDefault(emptyList())
@@ -323,7 +325,9 @@ class PreferencesManager(private val context: Context) {
                         collectionName = json.getString("collectionName"),
                         hadithNumber = json.getInt("hadithNumber"),
                         timestamp = json.optLong("timestamp", System.currentTimeMillis()),
-                        colorIndex = json.optInt("colorIndex", 0)
+                        colorIndex = json.optInt("colorIndex", 0),
+                        schemeId = json.optString("schemeId", "").takeIf { it.isNotBlank() },
+                        stableId = json.optString("stableId", "").takeIf { it.isNotBlank() }
                     )
                 )
             }.getOrDefault(emptyList())
@@ -385,6 +389,8 @@ class PreferencesManager(private val context: Context) {
                         put("hadithNumber", m.hadithNumber)
                         put("timestamp", m.timestamp)
                         put("colorIndex", m.colorIndex)
+                        m.schemeId?.let { put("schemeId", it) }
+                        m.stableId?.let { put("stableId", it) }
                     })
                 }
                 preferences[PreferencesKeys.HADITH_MARKERS] = array.toString()
@@ -395,6 +401,8 @@ class PreferencesManager(private val context: Context) {
                     put("hadithNumber", first.hadithNumber)
                     put("timestamp", first.timestamp)
                     put("colorIndex", first.colorIndex)
+                    first.schemeId?.let { put("schemeId", it) }
+                    first.stableId?.let { put("stableId", it) }
                 }.toString()
             }
         }
@@ -424,7 +432,9 @@ class PreferencesManager(private val context: Context) {
                         hadithTextArabic = obj.optString("hadithTextArabic", ""),
                         hadithTranslation = obj.optString("hadithTranslation", ""),
                         note = obj.optString("note", "").takeIf { it.isNotBlank() },
-                        timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                        schemeId = obj.optString("schemeId", "").takeIf { it.isNotBlank() },
+                        stableId = obj.optString("stableId", "").takeIf { it.isNotBlank() }
                     )
                 )
             }
@@ -448,6 +458,8 @@ class PreferencesManager(private val context: Context) {
                         put("hadithTranslation", b.hadithTranslation)
                         put("note", b.note ?: "")
                         put("timestamp", b.timestamp)
+                        b.schemeId?.let { put("schemeId", it) }
+                        b.stableId?.let { put("stableId", it) }
                     })
                 }
                 preferences[PreferencesKeys.HADITH_BOOKMARKS] = array.toString()

@@ -1,0 +1,18 @@
+# Tasks — Sprint 3 Implementation Checklist
+
+- [x] **T01 (Baseline & Audit):** Audit `gadingnst`, `fawazahmed0`, `reference2`, `scratch_device.db`, and connected `SM-G988B`.
+- [x] **T02 (Corpus Scripts & Assets):** Create `scripts/build_hadith_corpus.py`, `scripts/validate_hadith_corpus.py`, update `scripts/validate_hadith_numbering.py` + `numbering.json` (add `malik`), generate `sunnah-canonical-bundle.zip`, `corpus-manifest.json`, and `audit/hadith-audit.json`.
+- [x] **T03 (Room Schema & Migration):** Update `Entities.kt`, `Daos.kt`, `QuranDatabase.kt` (v14 -> v15 `MIGRATION_14_15`), plus migration & FTS5 tests.
+- [x] **T04 (Synchronizer & Importer):** Add `CanonicalHadithSynchronizer`, update `HadithBundleManifest`, `HadithReferenceImporter`, `HadithBundleImporter`, `HadithBundleManager`, and `QuranPlusApp`.
+- [x] **T05 (Domain & Repository):** Implement `HadithNumberingScheme`, `HadithLookupStatus`, `HadithSearchResult`, `HadithGrade`, and scheme-scoped lookup + FTS5 in `HadithRepositoryImpl` + unit tests for HF-001..HF-004 & negative tests.
+- [x] **T06 (Bookmarks, Markers & Deep Links):** Update `HadithBookmark`/`HadithMarker` in `shared/.../Models.kt`, `PreferencesManager`, `SafUserDataManager`, `BookmarksScreen`, and `MainActivity`.
+- [x] **T07 (UI/UX & Accessibility):** Update `HadithViewModel` & `HadithScreen` (scheme toggle, status-aware errors, keyword fallback CTA, attributed grades, chapter titles, 48dp touch targets, diagnostic report, strings).
+- [x] **T08 (AI / RAG Grounding):** Update `HadithReferenceRequest`, `ChatRepositoryImpl`, `RagCorpusIndexer`, `AiReadiness`, `VectorRetrieverImpl` + unit tests.
+- [x] **T09 (Verification & Device QA):** Update `.github/workflows/regression.yml`, run all validators, unit tests, lint, R8 release & debug builds, secret/security scan, and connected `SM-G988B` upgrade + clean-install + offline QA.
+- [x] **T10 (Release Readiness & Git Delivery):** Author `verification-report.md` and `release-readiness.md`, stage scoped files, commit, push, and verify GitHub CI.
+- [x] **T11 (Addendum — Complete MIT Ahmad & Darimi + Ar-Risalah Crosswalk):** Integrate `irsyadulibad/hadits-database` (MIT, 26,363 `ahmad` + 3,367 `darimi`) + strict sanad/matn-verified `ar_risalah` crosswalk (`ahmad:4001` = Li'an / `Al-Alamiyah #3800` vs `archive_gading:4001` = `مَنْ نَزَلَتْ بِهِ فَاقَةٌ`).
+- [x] **T12 (Addendum — Global Corpus Validation & Machine/Human Reports):** Update `scripts/validate_hadith_corpus.py` to audit all 9 collections (`65,716` records), ranges, duplicates, scheme collisions, URLs, translations, grades, and output `corpus-validation-report.json` + `corpus-validation-summary.md`.
+- [x] **T13 (Addendum — Failing Regression Tests):** Add failing tests for `ahmad:4001` (`ar_risalah` vs `archive_gading`), cross-edition non-substitution, separate count vs max reference tracking, `PARTIAL` bundle status, and Room `v15 -> v16` migration.
+- [x] **T14 (Addendum — Room v16, Streaming Synchronizer & Repository):** Add `hadith_scheme_stats`, `MIGRATION_15_16`, streaming `JsonReader` + `DigestInputStream` ingestion, `AR_RISALAH` scheme, bounded reference-window browse/lookup, and SAF downgrade protection.
+- [x] **T15 (Addendum — UI, Jump Dialog, Bookmarks & RAG Grounding):** Separate count vs range display across UI & `JumpToHadithDialog`, dynamic scheme selector per collection, `HadithReferenceRequest` / `ChatRepositoryImpl` support for `ar_risalah` & `canonical_mit`.
+- [x] **T16 (Addendum — Full QA, Device Verification & Git Publish):** Run all validators, JVM tests, lint, R8 release, real-device `SM-G988B` v15->v16 + clean-install + offline `ahmad:4001` screenshot audit, complete R1-R8 reports, commit & push, and verify CI.

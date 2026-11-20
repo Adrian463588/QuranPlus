@@ -17,18 +17,19 @@ BUNDLE_SHA256 = "1f7ffe09ccf0be44293d3b68de036a37d4c54fc36d7f81390d8e5faeed547b1
 REFERENCE_REVISION = "df57907be35291c91ad6a6691180e22ca9920784"
 BOOKS = {
     "abudawud": "abu-daud", "bukhari": "bukhari", "ibnmajah": "ibnu-majah",
-    "muslim": "muslim", "nasai": "nasai", "tirmidhi": "tirmidzi",
+    "malik": "malik", "muslim": "muslim", "nasai": "nasai", "tirmidhi": "tirmidzi",
 }
 REFERENCE_SHA256 = {
     "abudawud": "b00cc9b74b012f3da67c7f3fe8275b61cd223707f9dba7ff68cab38d0b89a69f",
     "bukhari": "2222688acca11b122916e302c4a409cfd22b9d4163b0641ac004c88fbc3c2661",
     "ibnmajah": "9fa89db8865c4bd208db66d5f78ca220c797978ac54ab6a8b67eb8a6f96540f8",
+    "malik": "59a7184dfd83c29eda8c14d4c02af061d41a923c2c7982deece82a97851f7783",
     "muslim": "97a76412987c7f207d02bee4c36e752fa50a5e1e46ad6769892ed7c1491b9636",
     "nasai": "24c6f23371de8bef3fa7670e8bb8aa271ca53922df35513f8f373ceaf7dc3963",
     "tirmidhi": "85ecdb090a40630cb9b7ed57b0d67f78d21479c331ea397a61a314ae78256ea8",
 }
 # Git checks out CRLF on Windows and LF in CI; pin the canonical UTF-8/LF text.
-ASSET_SHA256 = "5aab551838e974174b415dc539603db84fc70bd3882510fa36cdac39601c4401"
+ASSET_SHA256 = "34fc4b7870ad292bfbfc9ca333fd0c6f232fed06216a5ffe02a85c3ba236d128"
 
 
 def sha256(data: bytes) -> str:

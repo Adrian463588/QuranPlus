@@ -61,7 +61,8 @@ class HadithBundleDownloadWorker(
                 val database = QuranDatabase.getInstance(applicationContext)
                 val importer = HadithBundleImporter(
                     assetStore = assetStore,
-                    referenceImporter = HadithReferenceImporter(applicationContext, database)
+                    referenceImporter = HadithReferenceImporter(applicationContext, database),
+                    hadithDao = database.hadithDao()
                 )
                 val summary = importer.importArchive(state.file)
                 state.file.delete()

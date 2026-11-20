@@ -8,6 +8,7 @@ import com.quranplus.app.features.rag.domain.RagRuntimeCoordinator
 import com.quranplus.app.features.rag.domain.VectorIndex
 import com.quranplus.app.features.rag.domain.VectorIndexCoverage
 import com.quranplus.app.features.rag.domain.VectorRecord
+import com.quranplus.app.features.hadith.data.CanonicalHadithSynchronizer
 import com.quranplus.app.features.hadith.data.HadithBundleManifest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.yield
@@ -62,11 +63,15 @@ class RagCorpusIndexer(
         val quranCount = database.quranDao().countAyahs()
         if ((coverage.recordCountsBySourceType["quran"] ?: 0) < quranCount) return false
 
+        val canonicalManifest = database.hadithDao()
+            .getSourceManifest(CanonicalHadithSynchronizer.CANONICAL_SOURCE_ID)
+        val canonicalReady = canonicalManifest?.status == CanonicalHadithSynchronizer.STATUS_VERIFIED &&
+            canonicalManifest.activeRecordCount > 0
         val hadithCounts = verifiedHadithCollectionCounts()
-        val hadithCount = if (HadithBundleManifest.VERIFIED.isVerifiedCorpus(hadithCounts)) {
-            hadithCounts.values.sum()
-        } else {
-            0
+        val hadithCount = when {
+            canonicalReady -> database.hadithDao().countActiveDistinctHadiths()
+            HadithBundleManifest.VERIFIED.isVerifiedCorpus(hadithCounts) -> hadithCounts.values.sum()
+            else -> 0
         }
         if (hadithCount > 0 &&
             (coverage.recordCountsBySourceType["hadith"] ?: 0) < hadithCount
@@ -108,28 +113,47 @@ class RagCorpusIndexer(
             )
         }
 
-        val verifiedHadith = if (
-            HadithBundleManifest.VERIFIED.isVerifiedCorpus(verifiedHadithCollectionCounts())
-        ) {
-            database.hadithDao().getAllHadiths()
-                .filter(HadithBundleManifest.VERIFIED::isVerifiedRecord)
-        } else {
-            emptyList()
-        }
-        verifiedHadith.forEach { hadith ->
-            val text = listOf(hadith.textArabic, hadith.translationId, hadith.translationEn)
-                .filter(String::isNotBlank)
-                .joinToString("\n")
-            appendChunks(
-                result = result,
-                sourceType = "hadith",
-                collectionId = hadith.collectionId,
-                sourceId = "hadith-${hadith.id}",
-                title = hadith.title.ifBlank { hadith.collectionId },
-                reference = hadith.reference.ifBlank { "${hadith.collectionId}:${hadith.hadithNumber}" },
-                text = text,
-                identifier = hadith.hadithNumber.toString()
-            )
+        val canonicalManifest = database.hadithDao()
+            .getSourceManifest(CanonicalHadithSynchronizer.CANONICAL_SOURCE_ID)
+        val canonicalReady = canonicalManifest?.status == CanonicalHadithSynchronizer.STATUS_VERIFIED &&
+            canonicalManifest.activeRecordCount > 0
+        val archiveReady = HadithBundleManifest.VERIFIED.isVerifiedCorpus(verifiedHadithCollectionCounts())
+        if (canonicalReady || archiveReady) {
+            val collectionIds = CanonicalHadithSynchronizer.CANONICAL_COLLECTION_IDS.toList()
+            for (collectionId in collectionIds) {
+                var offset = 0
+                while (true) {
+                    val page = database.hadithDao().getHadithsByCollectionPaged(collectionId, limit = 500, offset = offset)
+                    if (page.isEmpty()) break
+                    page.forEach { hadith ->
+                        val isCanonical = hadith.licenseStatus in CanonicalHadithSynchronizer.CANONICAL_ACCEPTED_LICENSES &&
+                            hadith.verificationStatus in setOf(
+                                CanonicalHadithSynchronizer.STATUS_VERIFIED,
+                                CanonicalHadithSynchronizer.STATUS_PARTIAL
+                            )
+                        val isVerifiedArchive = HadithBundleManifest.VERIFIED.isVerifiedRecord(hadith)
+                        if ((isCanonical || isVerifiedArchive) &&
+                            (hadith.textArabic.isNotBlank() || hadith.translationId.isNotBlank() || hadith.translationEn.isNotBlank())
+                        ) {
+                            val text = listOf(hadith.textArabic, hadith.translationId, hadith.translationEn)
+                                .filter(String::isNotBlank)
+                                .joinToString("\n")
+                            appendChunks(
+                                result = result,
+                                sourceType = "hadith",
+                                collectionId = hadith.collectionId,
+                                sourceId = "hadith-${hadith.id}",
+                                title = hadith.title.ifBlank { hadith.collectionId },
+                                reference = hadith.reference.ifBlank { "${hadith.collectionId}:${hadith.hadithNumber}" },
+                                text = text,
+                                identifier = hadith.hadithNumber.toString()
+                            )
+                        }
+                    }
+                    if (page.size < 500) break
+                    offset += 500
+                }
+            }
         }
 
         database.knowledgeChunkDao().getAllChunks().forEach { chunk ->

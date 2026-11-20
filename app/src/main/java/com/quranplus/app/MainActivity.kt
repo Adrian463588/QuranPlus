@@ -27,6 +27,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.quranplus.app.core.audio.AudioPlayerManager
 import com.quranplus.app.core.ui.components.AdaptiveNavigationScaffold
 import com.quranplus.app.core.ui.components.AppDestination
@@ -323,7 +324,7 @@ fun AppNavHost(
 
         // --- 2. Tanya AI (Chatbot RAG) Navigation ---
         composable(
-            route = "${AppDestination.HADITH.route}?collectionId={collectionId}&hadithNumber={hadithNumber}",
+            route = "${AppDestination.HADITH.route}?collectionId={collectionId}&hadithNumber={hadithNumber}&schemeId={schemeId}",
             arguments = listOf(
                 navArgument("collectionId") {
                     type = NavType.StringType
@@ -333,15 +334,31 @@ fun AppNavHost(
                 navArgument("hadithNumber") {
                     type = NavType.IntType
                     defaultValue = -1
+                },
+                navArgument("schemeId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
+            ),
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "quranplus://hadith/{collectionId}/{hadithNumber}?scheme={schemeId}" },
+                navDeepLink { uriPattern = "quranplus://hadith/{collectionId}/{hadithNumber}" },
+                navDeepLink { uriPattern = "quranplus://hadith?collectionId={collectionId}&hadithNumber={hadithNumber}&scheme={schemeId}" }
             )
         ) { backStackEntry ->
-            val initialCollectionId = backStackEntry.arguments?.getString("collectionId")
-            val initialHadithNumber = backStackEntry.arguments?.getInt("hadithNumber")
-                ?.takeIf { it > 0 }
-            LaunchedEffect(initialCollectionId, initialHadithNumber) {
-                if (initialCollectionId != null && initialHadithNumber != null) {
-                    hadithViewModel.openReference(initialCollectionId, initialHadithNumber)
+            val rawCollectionId = backStackEntry.arguments?.getString("collectionId")
+            val safeCollectionId = rawCollectionId?.trim()?.lowercase()
+                ?.takeIf { it.matches(Regex("[a-z0-9_-]{2,32}")) }
+            val safeHadithNumber = backStackEntry.arguments?.getInt("hadithNumber")
+                ?.takeIf { it in 1..200_000 }
+            val safeSchemeId = backStackEntry.arguments?.getString("schemeId")
+                ?.takeIf {
+                    it == "sunnah" || it == "ar_risalah" || it == "archive_gading"
+                }
+            LaunchedEffect(safeCollectionId, safeHadithNumber, safeSchemeId) {
+                if (safeCollectionId != null && safeHadithNumber != null) {
+                    hadithViewModel.openReference(safeCollectionId, safeHadithNumber, safeSchemeId)
                 }
             }
             HadithScreen(
@@ -487,6 +504,9 @@ fun AppNavHost(
                 },
                 onHadithBookmarkClick = { collectionId, hadithNumber ->
                     navController.navigateToHadith(collectionId, hadithNumber)
+                },
+                onHadithBookmarkWithSchemeClick = { collectionId, hadithNumber, schemeId ->
+                    navController.navigateToHadith(collectionId, hadithNumber, schemeId)
                 }
             )
         }
@@ -530,10 +550,15 @@ private fun NavHostController.navigateToReader(surahNumber: Int, ayahNumber: Int
     navigate("quran_reader/$surahNumber?initialAyah=$ayahNumber")
 }
 
-private fun NavHostController.navigateToHadith(collectionId: String, hadithNumber: Int) {
+private fun NavHostController.navigateToHadith(
+    collectionId: String,
+    hadithNumber: Int,
+    schemeId: String? = null
+) {
     if (collectionId.isBlank() || hadithNumber <= 0) return
+    val schemeQuery = schemeId?.takeIf { it.isNotBlank() }?.let { "&schemeId=${Uri.encode(it)}" }.orEmpty()
     navigate(
-        "${AppDestination.HADITH.route}?collectionId=${Uri.encode(collectionId)}&hadithNumber=$hadithNumber"
+        "${AppDestination.HADITH.route}?collectionId=${Uri.encode(collectionId)}&hadithNumber=$hadithNumber$schemeQuery"
     )
 }
 

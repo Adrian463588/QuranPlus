@@ -7,6 +7,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RawQuery
+import androidx.room.Transaction
 import androidx.room.Update
 import androidx.sqlite.db.SupportSQLiteQuery
 import com.quranplus.app.core.database.entity.AyahEntity
@@ -15,6 +16,11 @@ import com.quranplus.app.core.database.entity.ChatMessageEntity
 import com.quranplus.app.core.database.entity.HadithEntity
 import com.quranplus.app.core.database.entity.HadithCollectionEntity
 import com.quranplus.app.core.database.entity.HadithChapterEntity
+import com.quranplus.app.core.database.entity.HadithGradeEntity
+import com.quranplus.app.core.database.entity.HadithReferenceEntity
+import com.quranplus.app.core.database.entity.HadithSchemeStatEntity
+import com.quranplus.app.core.database.entity.HadithSourceManifestEntity
+import com.quranplus.app.core.database.entity.HadithTranslationEntity
 import com.quranplus.app.core.database.entity.KnowledgeChunkEntity
 import com.quranplus.app.core.database.entity.LastReadEntity
 import com.quranplus.app.core.database.entity.SurahEntity
@@ -187,6 +193,45 @@ interface HadithDao {
     @Query("SELECT * FROM hadiths ORDER BY collection_id ASC, hadith_number ASC")
     suspend fun getAllHadiths(): List<HadithEntity>
 
+    @Query("SELECT * FROM hadiths WHERE collection_id = :collectionId ORDER BY id ASC LIMIT :limit OFFSET :offset")
+    suspend fun getHadithsByCollectionPaged(collectionId: String, limit: Int, offset: Int): List<HadithEntity>
+
+    @Query(
+        "SELECT h.* FROM hadiths h " +
+            "INNER JOIN hadith_references r ON r.hadith_id = h.id " +
+            "WHERE r.collection_id = :collectionId " +
+            "AND r.scheme_id = :schemeId " +
+            "AND r.reference_number BETWEEN :minNumber AND :maxNumber " +
+            "AND r.hadith_id IS NOT NULL " +
+            "GROUP BY h.id " +
+            "ORDER BY MIN(r.reference_number) ASC, MIN(r.variant_suffix) ASC " +
+            "LIMIT :limit"
+    )
+    suspend fun getHadithsBySchemeSlice(
+        collectionId: String,
+        schemeId: String,
+        minNumber: Int,
+        maxNumber: Int,
+        limit: Int
+    ): List<HadithEntity>
+
+    @Query(
+        "SELECT h.* FROM hadiths h " +
+            "INNER JOIN hadith_references r ON r.hadith_id = h.id " +
+            "WHERE r.collection_id = :collectionId " +
+            "AND r.scheme_id = :schemeId " +
+            "AND r.hadith_id IS NOT NULL " +
+            "GROUP BY h.id " +
+            "ORDER BY MIN(r.reference_number) ASC, MIN(r.variant_suffix) ASC " +
+            "LIMIT :limit OFFSET :offset"
+    )
+    suspend fun getHadithsBySchemePaged(
+        collectionId: String,
+        schemeId: String,
+        limit: Int,
+        offset: Int
+    ): List<HadithEntity>
+
     @Query(
         "SELECT collection_id, COUNT(*) AS record_count FROM hadiths " +
             "WHERE source_revision = :sourceRevision " +
@@ -244,6 +289,158 @@ interface HadithDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChapters(chapters: List<HadithChapterEntity>)
+
+    @Query("SELECT * FROM hadith_collections WHERE id = :collectionId LIMIT 1")
+    suspend fun getCollectionById(collectionId: String): HadithCollectionEntity?
+
+    @Query(
+        "SELECT h.* FROM hadiths h " +
+            "INNER JOIN hadith_references r ON r.hadith_id = h.id " +
+            "WHERE (:collectionId IS NULL OR r.collection_id = :collectionId) " +
+            "AND r.scheme_id = :schemeId " +
+            "AND r.reference_number = :number " +
+            "AND (:variant IS NULL OR r.variant_suffix = :variant) " +
+            "AND r.hadith_id IS NOT NULL " +
+            "ORDER BY r.collection_id ASC, r.reference_number ASC, r.variant_suffix ASC " +
+            "LIMIT :limit"
+    )
+    suspend fun findByReference(
+        collectionId: String?,
+        schemeId: String,
+        number: Int,
+        variant: String? = null,
+        limit: Int = 50
+    ): List<HadithEntity>
+
+    @Query(
+        "SELECT * FROM hadith_references " +
+            "WHERE (:collectionId IS NULL OR collection_id = :collectionId) " +
+            "AND scheme_id = :schemeId " +
+            "AND reference_number = :number " +
+            "ORDER BY collection_id ASC, variant_suffix ASC"
+    )
+    suspend fun getReferenceEntries(
+        collectionId: String?,
+        schemeId: String,
+        number: Int
+    ): List<HadithReferenceEntity>
+
+    @Query("SELECT * FROM hadith_references WHERE hadith_id IN (:hadithIds) ORDER BY hadith_id ASC, is_primary DESC, scheme_id ASC")
+    suspend fun getReferencesForHadiths(hadithIds: List<Long>): List<HadithReferenceEntity>
+
+    @Query("SELECT * FROM hadith_references WHERE stable_id = :stableId ORDER BY is_primary DESC, scheme_id ASC")
+    suspend fun getReferencesByStableId(stableId: String): List<HadithReferenceEntity>
+
+    @Query("SELECT * FROM hadiths WHERE stable_id = :stableId LIMIT 1")
+    suspend fun getHadithByStableId(stableId: String): HadithEntity?
+
+    @Query("SELECT * FROM hadiths WHERE id IN (:ids)")
+    suspend fun getHadithsByIds(ids: List<Long>): List<HadithEntity>
+
+    @Query("SELECT * FROM hadith_grades WHERE hadith_id IN (:hadithIds) ORDER BY id ASC")
+    suspend fun getGradesForHadiths(hadithIds: List<Long>): List<HadithGradeEntity>
+
+    @Query("SELECT * FROM hadith_translations WHERE hadith_id IN (:hadithIds) ORDER BY language ASC")
+    suspend fun getTranslationsForHadiths(hadithIds: List<Long>): List<HadithTranslationEntity>
+
+    @Query("SELECT * FROM hadith_chapters WHERE collection_id = :collectionId AND chapter_id = :chapterId LIMIT 1")
+    suspend fun getChapter(collectionId: String, chapterId: String): HadithChapterEntity?
+
+    @Query("SELECT * FROM hadith_source_manifests WHERE source_id = :sourceId LIMIT 1")
+    suspend fun getSourceManifest(sourceId: String): HadithSourceManifestEntity?
+
+    @Query("SELECT * FROM hadith_source_manifests ORDER BY source_id ASC")
+    suspend fun getAllSourceManifests(): List<HadithSourceManifestEntity>
+
+    @Query("SELECT * FROM hadith_scheme_stats ORDER BY collection_id ASC, is_default DESC, scheme_id ASC")
+    fun getSchemeStats(): Flow<List<HadithSchemeStatEntity>>
+
+    @Query("SELECT * FROM hadith_scheme_stats WHERE collection_id = :collectionId ORDER BY is_default DESC, scheme_id ASC")
+    suspend fun getSchemeStatsForCollection(collectionId: String): List<HadithSchemeStatEntity>
+
+    @Query("DELETE FROM hadith_scheme_stats WHERE collection_id = :collectionId")
+    suspend fun deleteSchemeStatsForCollection(collectionId: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSchemeStats(stats: List<HadithSchemeStatEntity>)
+
+    @Query(
+        "SELECT COUNT(DISTINCT stable_id) FROM hadiths " +
+            "WHERE (:collectionId IS NULL OR collection_id = :collectionId) " +
+            "AND verification_status IN ('VERIFIED', 'PARTIAL') " +
+            "AND (length(trim(text_arabic)) > 0 OR length(trim(translation_en)) > 0 OR length(trim(translation_id)) > 0)"
+    )
+    suspend fun countActiveDistinctHadiths(collectionId: String? = null): Int
+
+    @Query(
+        "SELECT COUNT(DISTINCT stable_id) FROM hadiths " +
+            "WHERE length(trim(stable_id)) > 0 " +
+            "AND source_revision = :revision " +
+            "AND source_sha256 = :sha256"
+    )
+    suspend fun countCanonicalHadithsByRevisionAndSha(revision: String, sha256: String): Int
+
+    @Query("SELECT COUNT(*) FROM hadiths WHERE collection_id = :collectionId AND license_status = :licenseStatus")
+    suspend fun countHadithsByCollectionAndLicense(collectionId: String, licenseStatus: String): Int
+
+    @Query("DELETE FROM hadith_references WHERE collection_id = :collectionId")
+    suspend fun deleteReferencesForCollection(collectionId: String)
+
+    @Query("DELETE FROM hadith_translations WHERE collection_id = :collectionId")
+    suspend fun deleteTranslationsForCollection(collectionId: String)
+
+    @Query("DELETE FROM hadith_grades WHERE hadith_id IN (SELECT id FROM hadiths WHERE collection_id = :collectionId)")
+    suspend fun deleteGradesForCollection(collectionId: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertReferences(references: List<HadithReferenceEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTranslations(translations: List<HadithTranslationEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertGrades(grades: List<HadithGradeEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSourceManifest(manifest: HadithSourceManifestEntity)
+
+    @Query("SELECT COUNT(*) FROM hadiths WHERE collection_id = :collectionId AND license_status IN (:licenseStatuses)")
+    suspend fun countHadithsByCollectionAndLicenses(collectionId: String, licenseStatuses: List<String>): Int
+
+    @Transaction
+    suspend fun clearCollectionData(collectionId: String) {
+        deleteGradesForCollection(collectionId)
+        deleteTranslationsForCollection(collectionId)
+        deleteReferencesForCollection(collectionId)
+        deleteSchemeStatsForCollection(collectionId)
+        deleteHadithsForCollection(collectionId)
+        deleteChaptersForCollection(collectionId)
+    }
+
+    @Transaction
+    suspend fun runInTransaction(block: suspend () -> Unit) {
+        block()
+    }
+
+    @Transaction
+    suspend fun replaceCollectionAtomically(
+        collection: HadithCollectionEntity,
+        chapters: List<HadithChapterEntity>,
+        hadiths: List<HadithEntity>,
+        references: List<HadithReferenceEntity>,
+        translations: List<HadithTranslationEntity>,
+        grades: List<HadithGradeEntity>,
+        schemeStats: List<HadithSchemeStatEntity> = emptyList()
+    ) {
+        clearCollectionData(collection.id)
+        if (chapters.isNotEmpty()) chapters.chunked(500).forEach { insertChapters(it) }
+        if (hadiths.isNotEmpty()) hadiths.chunked(500).forEach { insertHadiths(it) }
+        if (references.isNotEmpty()) references.chunked(500).forEach { insertReferences(it) }
+        if (translations.isNotEmpty()) translations.chunked(500).forEach { insertTranslations(it) }
+        if (grades.isNotEmpty()) grades.chunked(500).forEach { insertGrades(it) }
+        if (schemeStats.isNotEmpty()) insertSchemeStats(schemeStats)
+        insertCollections(listOf(collection))
+    }
 }
 
 data class HadithBundleCollectionCount(

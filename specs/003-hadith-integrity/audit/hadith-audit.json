@@ -1,0 +1,360 @@
+{
+  "audit_date": "2026-11-20",
+  "canonical_bundle": {
+    "source_uri": "https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784",
+    "secondary_source_uri": "https://github.com/irsyadulibad/hadits-database",
+    "revision": "df57907be35291c91ad6a6691180e22ca9920784+mit9",
+    "license": "Unlicense+MIT",
+    "archive_size_bytes": 34735973,
+    "archive_sha256": "b3ab43be9b3b3a050deb6349d8d40682a831f5af348899cbe51f17ba63427d38",
+    "total_active_records": 65716,
+    "total_missing_slots": 3042
+  },
+  "archive_bundle": {
+    "source_uri": "https://github.com/gadingnst/hadith-api/tree/8e15b4f9e7585822426a0d470e8dfec27e2a1707",
+    "license": "MIT",
+    "total_records": 38102
+  },
+  "collections": {
+    "bukhari": {
+      "source": "fawazahmed0/hadith-api + gadingnst crosswalk",
+      "gading_archive_count": 6638,
+      "archive_crosswalk_count": 6185,
+      "title_english": "Sahih al-Bukhari",
+      "title_arabic": "صحيح البخاري",
+      "default_scheme": "sunnah",
+      "source_id": "fawazahmed0-hadith-api",
+      "source_uri": "https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784",
+      "source_revision": "df57907be35291c91ad6a6691180e22ca9920784",
+      "license_id": "Unlicense",
+      "active_record_count": 7580,
+      "verified_count": 7580,
+      "partial_count": 0,
+      "indonesian_count": 6857,
+      "english_count": 7580,
+      "graded_count": 0,
+      "missing_slot_count": 9,
+      "chapter_count": 97,
+      "scheme_ranges": {
+        "archive_gading": {
+          "record_count": 6184,
+          "reference_count": 6184,
+          "min_reference_number": 1,
+          "max_reference_number": 7008,
+          "missing_slot_count": 0
+        },
+        "sunnah": {
+          "record_count": 7580,
+          "reference_count": 7580,
+          "min_reference_number": 1,
+          "max_reference_number": 7563,
+          "missing_slot_count": 9
+        }
+      },
+      "file": "collections/bukhari.json",
+      "sha256": "0205fe48574a0e89ab9d4d648d669cf6d95c5ecf74c6c4c0957fe327344a09ea"
+    },
+    "muslim": {
+      "source": "fawazahmed0/hadith-api + gadingnst crosswalk",
+      "gading_archive_count": 4930,
+      "archive_crosswalk_count": 4728,
+      "title_english": "Sahih Muslim",
+      "title_arabic": "صحيح مسلم",
+      "default_scheme": "sunnah",
+      "source_id": "fawazahmed0-hadith-api",
+      "source_uri": "https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784",
+      "source_revision": "df57907be35291c91ad6a6691180e22ca9920784",
+      "license_id": "Unlicense",
+      "active_record_count": 7360,
+      "verified_count": 7360,
+      "partial_count": 0,
+      "indonesian_count": 4890,
+      "english_count": 7360,
+      "graded_count": 0,
+      "missing_slot_count": 210,
+      "chapter_count": 57,
+      "scheme_ranges": {
+        "archive_gading": {
+          "record_count": 4726,
+          "reference_count": 4726,
+          "min_reference_number": 9,
+          "max_reference_number": 5362,
+          "missing_slot_count": 0
+        },
+        "sunnah": {
+          "record_count": 7212,
+          "reference_count": 7212,
+          "min_reference_number": 8,
+          "max_reference_number": 3033,
+          "missing_slot_count": 7
+        },
+        "sunnah_ordinal": {
+          "record_count": 7360,
+          "reference_count": 7360,
+          "min_reference_number": 3,
+          "max_reference_number": 7563,
+          "missing_slot_count": 203
+        }
+      },
+      "file": "collections/muslim.json",
+      "sha256": "3d5a157a91a0563b2128a594dcebe708ca1340a6e250ca5aaa3f94811c2fbed9"
+    },
+    "abudawud": {
+      "source": "fawazahmed0/hadith-api + gadingnst crosswalk",
+      "gading_archive_count": 4419,
+      "archive_crosswalk_count": 4382,
+      "title_english": "Sunan Abu Dawud",
+      "title_arabic": "سنن أبي داود",
+      "default_scheme": "sunnah",
+      "source_id": "fawazahmed0-hadith-api",
+      "source_uri": "https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784",
+      "source_revision": "df57907be35291c91ad6a6691180e22ca9920784",
+      "license_id": "Unlicense",
+      "active_record_count": 5272,
+      "verified_count": 5272,
+      "partial_count": 0,
+      "indonesian_count": 4405,
+      "english_count": 5272,
+      "graded_count": 5272,
+      "missing_slot_count": 2,
+      "chapter_count": 43,
+      "scheme_ranges": {
+        "archive_gading": {
+          "record_count": 4381,
+          "reference_count": 4381,
+          "min_reference_number": 1,
+          "max_reference_number": 4590,
+          "missing_slot_count": 0
+        },
+        "sunnah": {
+          "record_count": 5272,
+          "reference_count": 5272,
+          "min_reference_number": 1,
+          "max_reference_number": 5274,
+          "missing_slot_count": 2
+        }
+      },
+      "file": "collections/abudawud.json",
+      "sha256": "3800c51c0c00e5c95cf8c43b460c0b528823a35b1030e5ec6a8ab8fdee0491ee"
+    },
+    "tirmidhi": {
+      "source": "fawazahmed0/hadith-api + gadingnst crosswalk",
+      "gading_archive_count": 3625,
+      "archive_crosswalk_count": 3511,
+      "title_english": "Jami' al-Tirmidhi",
+      "title_arabic": "جامع الترمذي",
+      "default_scheme": "sunnah",
+      "source_id": "fawazahmed0-hadith-api",
+      "source_uri": "https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784",
+      "source_revision": "df57907be35291c91ad6a6691180e22ca9920784",
+      "license_id": "Unlicense",
+      "active_record_count": 3926,
+      "verified_count": 3924,
+      "partial_count": 2,
+      "indonesian_count": 3489,
+      "english_count": 3926,
+      "graded_count": 3890,
+      "missing_slot_count": 72,
+      "chapter_count": 49,
+      "scheme_ranges": {
+        "archive_gading": {
+          "record_count": 3461,
+          "reference_count": 3461,
+          "min_reference_number": 1,
+          "max_reference_number": 3891,
+          "missing_slot_count": 0
+        },
+        "sunnah": {
+          "record_count": 3926,
+          "reference_count": 3926,
+          "min_reference_number": 1,
+          "max_reference_number": 3956,
+          "missing_slot_count": 72
+        }
+      },
+      "file": "collections/tirmidhi.json",
+      "sha256": "8e0c68a8b036b4082ba7ff4873889465ff6dce1e14f333deda25ae75005ac960"
+    },
+    "nasai": {
+      "source": "fawazahmed0/hadith-api + gadingnst crosswalk",
+      "gading_archive_count": 5364,
+      "archive_crosswalk_count": 5294,
+      "title_english": "Sunan al-Nasa'i",
+      "title_arabic": "سنن النسائي",
+      "default_scheme": "sunnah",
+      "source_id": "fawazahmed0-hadith-api",
+      "source_uri": "https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784",
+      "source_revision": "df57907be35291c91ad6a6691180e22ca9920784",
+      "license_id": "Unlicense",
+      "active_record_count": 5679,
+      "verified_count": 5679,
+      "partial_count": 0,
+      "indonesian_count": 5325,
+      "english_count": 5679,
+      "graded_count": 5672,
+      "missing_slot_count": 86,
+      "chapter_count": 51,
+      "scheme_ranges": {
+        "archive_gading": {
+          "record_count": 5284,
+          "reference_count": 5284,
+          "min_reference_number": 1,
+          "max_reference_number": 5662,
+          "missing_slot_count": 0
+        },
+        "sunnah": {
+          "record_count": 5679,
+          "reference_count": 5679,
+          "min_reference_number": 1,
+          "max_reference_number": 5758,
+          "missing_slot_count": 86
+        }
+      },
+      "file": "collections/nasai.json",
+      "sha256": "d867e98471812f3ce956436f927e5eb772d5aeab5be2bee5cf0250bb4cd60527"
+    },
+    "ibnmajah": {
+      "source": "fawazahmed0/hadith-api + gadingnst crosswalk",
+      "gading_archive_count": 4285,
+      "archive_crosswalk_count": 4247,
+      "title_english": "Sunan Ibn Majah",
+      "title_arabic": "سنن ابن ماجه",
+      "default_scheme": "sunnah",
+      "source_id": "fawazahmed0-hadith-api",
+      "source_uri": "https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784",
+      "source_revision": "df57907be35291c91ad6a6691180e22ca9920784",
+      "license_id": "Unlicense",
+      "active_record_count": 4340,
+      "verified_count": 4338,
+      "partial_count": 2,
+      "indonesian_count": 4267,
+      "english_count": 4340,
+      "graded_count": 4338,
+      "missing_slot_count": 3,
+      "chapter_count": 38,
+      "scheme_ranges": {
+        "archive_gading": {
+          "record_count": 4245,
+          "reference_count": 4245,
+          "min_reference_number": 1,
+          "max_reference_number": 4331,
+          "missing_slot_count": 0
+        },
+        "sunnah": {
+          "record_count": 4340,
+          "reference_count": 4340,
+          "min_reference_number": 1,
+          "max_reference_number": 4341,
+          "missing_slot_count": 3
+        }
+      },
+      "file": "collections/ibnmajah.json",
+      "sha256": "904d0d12549e485497bd12b9063cd905ab30284b860430a5b8bde52cea294616"
+    },
+    "malik": {
+      "source": "fawazahmed0/hadith-api + gadingnst crosswalk",
+      "gading_archive_count": 1587,
+      "archive_crosswalk_count": 1541,
+      "title_english": "Muwatta Malik",
+      "title_arabic": "موطأ مالك",
+      "default_scheme": "sunnah",
+      "source_id": "fawazahmed0-hadith-api",
+      "source_uri": "https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784",
+      "source_revision": "df57907be35291c91ad6a6691180e22ca9920784",
+      "license_id": "Unlicense",
+      "active_record_count": 1829,
+      "verified_count": 1818,
+      "partial_count": 11,
+      "indonesian_count": 1545,
+      "english_count": 1818,
+      "graded_count": 1829,
+      "missing_slot_count": 29,
+      "chapter_count": 61,
+      "scheme_ranges": {
+        "archive_gading": {
+          "record_count": 1534,
+          "reference_count": 1534,
+          "min_reference_number": 1,
+          "max_reference_number": 1594,
+          "missing_slot_count": 0
+        },
+        "sunnah": {
+          "record_count": 1829,
+          "reference_count": 1829,
+          "min_reference_number": 1,
+          "max_reference_number": 1858,
+          "missing_slot_count": 29
+        }
+      },
+      "file": "collections/malik.json",
+      "sha256": "e9440c5cdc4cdab3b9e98c872c0b9de66f0c9f0daf22c5df890360ce466f1571"
+    },
+    "ahmad": {
+      "source": "irsyadulibad/hadits-database (MIT) + gadingnst verified (MIT) + Ar-Risalah crosswalk",
+      "gading_archive_count": 4305,
+      "title_english": "Musnad Ahmad",
+      "title_arabic": "مسند أحمد",
+      "default_scheme": "ar_risalah",
+      "source_id": "irsyadulibad-hadits-database",
+      "source_uri": "https://github.com/irsyadulibad/hadits-database",
+      "source_revision": "irsyadulibad-hadits-database-mit-20201109",
+      "license_id": "MIT",
+      "active_record_count": 26363,
+      "verified_count": 26363,
+      "partial_count": 0,
+      "indonesian_count": 26363,
+      "english_count": 0,
+      "graded_count": 1,
+      "missing_slot_count": 2631,
+      "chapter_count": 1,
+      "scheme_ranges": {
+        "ar_risalah": {
+          "record_count": 24357,
+          "reference_count": 25016,
+          "min_reference_number": 1,
+          "max_reference_number": 27647,
+          "missing_slot_count": 2631
+        },
+        "archive_gading": {
+          "record_count": 26363,
+          "reference_count": 26363,
+          "min_reference_number": 1,
+          "max_reference_number": 26363,
+          "missing_slot_count": 0
+        }
+      },
+      "file": "collections/ahmad.json",
+      "sha256": "36c9e528f11279b84c833837e44518c6a87ea096ba5fee27488371673fccb1ac"
+    },
+    "darimi": {
+      "source": "irsyadulibad/hadits-database (MIT) + gadingnst verified (MIT)",
+      "gading_archive_count": 2949,
+      "title_english": "Sunan al-Darimi",
+      "title_arabic": "سنن الدارمي",
+      "default_scheme": "archive_gading",
+      "source_id": "irsyadulibad-hadits-database",
+      "source_uri": "https://github.com/irsyadulibad/hadits-database",
+      "source_revision": "irsyadulibad-hadits-database-mit-20201109",
+      "license_id": "MIT",
+      "active_record_count": 3367,
+      "verified_count": 3367,
+      "partial_count": 0,
+      "indonesian_count": 3367,
+      "english_count": 0,
+      "graded_count": 0,
+      "missing_slot_count": 0,
+      "chapter_count": 0,
+      "scheme_ranges": {
+        "archive_gading": {
+          "record_count": 3367,
+          "reference_count": 3367,
+          "min_reference_number": 1,
+          "max_reference_number": 3367,
+          "missing_slot_count": 0
+        }
+      },
+      "file": "collections/darimi.json",
+      "sha256": "af03340f74ec128ecc66e4031844db621db4cb41d0912285aef6afd078874c29"
+    }
+  }
+}

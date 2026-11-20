@@ -12,9 +12,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,6 +76,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,10 +91,14 @@ import com.quranplus.app.core.ui.theme.QuranColors
 import com.quranplus.app.core.ui.theme.QuranFontFamily
 import com.quranplus.app.core.ui.theme.Spacing
 import com.quranplus.app.core.ui.theme.getQuranArabicStyle
+import com.quranplus.app.features.hadith.data.CanonicalHadithSynchronizer
 import com.quranplus.app.features.hadith.data.HadithBundleWorkState
 import com.quranplus.app.features.hadith.domain.HadithCollection
 import com.quranplus.app.features.hadith.domain.HadithCollectionSection
+import com.quranplus.app.features.hadith.domain.HadithLookupStatus
+import com.quranplus.app.features.hadith.domain.HadithNumberingScheme
 import com.quranplus.app.features.hadith.domain.HadithRecord
+import com.quranplus.app.features.hadith.domain.HadithSearchResult
 import com.quranplus.app.features.hadith.domain.sectionedHadithCollections
 import com.quranplus.shared.features.quran.domain.HadithMarker
 import com.quranplus.shared.features.quran.domain.HadithBookmark
@@ -105,6 +113,7 @@ fun HadithScreen(
     val query by viewModel.query.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     val selectedCollection by viewModel.selectedCollection.collectAsStateWithLifecycle()
+    val selectedScheme by viewModel.selectedScheme.collectAsStateWithLifecycle()
     val scrollToIndex by viewModel.scrollToIndex.collectAsStateWithLifecycle()
     val highlightedNumber by viewModel.highlightedNumber.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -121,6 +130,11 @@ fun HadithScreen(
 
     val isReadingMode = selectedCollection != null || query.isNotBlank()
     val activeCollection = collections.firstOrNull { it.id == selectedCollection }
+    val availableSchemes = remember(activeCollection, selectedCollection) {
+        activeCollection?.availableSchemes()
+            ?: HadithNumberingScheme.schemesForCollection(selectedCollection)
+    }
+    val showSchemeSelector = isReadingMode && availableSchemes.size > 1
 
     // Intercept hardware / gesture back button to return to catalog first
     BackHandler(enabled = isReadingMode) {
@@ -134,7 +148,18 @@ fun HadithScreen(
                     title = activeCollection?.title ?: if (query.isNotBlank()) "Pencarian Hadist" else stringResource(R.string.hadith_title),
                     subtitle = if (activeCollection != null) {
                         val arabicPart = activeCollection.titleArabic.ifBlank { "" }
-                        if (arabicPart.isNotBlank()) "$arabicPart · ${activeCollection.count} hadist" else "${activeCollection.count} hadist"
+                        val countLabel = if (activeCollection.hasLocalContent) {
+                            val minRef = activeCollection.minReferenceNumber(selectedScheme)
+                            val maxRef = activeCollection.maxReferenceNumber(selectedScheme)
+                            if (maxRef > 0 && maxRef != activeCollection.count) {
+                                "${activeCollection.count} hadist · No. $minRef–$maxRef"
+                            } else {
+                                "${activeCollection.count} hadist"
+                            }
+                        } else {
+                            "belum terpasang"
+                        }
+                        if (arabicPart.isNotBlank()) "$countLabel · \u200F$arabicPart\u200E" else countLabel
                     } else if (query.isNotBlank()) {
                         "Kata kunci / No: \"$query\""
                     } else {
@@ -188,62 +213,81 @@ fun HadithScreen(
                 onQueryChange = viewModel::setQuery,
                 onClearQuery = { viewModel.setQuery("") },
                 placeholder = if (activeCollection != null) {
-                    "Cari no. hadits atau isi dalam ${activeCollection.title} (contoh: 1, 42)..."
+                    "Cari ${selectedScheme.label} atau kata kunci di ${activeCollection.title}..."
                 } else {
-                    "Cari no. hadits, kitab, atau kata kunci (contoh: 42, shalat)..."
+                    "Cari no. hadist atau kata kunci (contoh: 3617, shalat)..."
                 }
             )
 
-            // Quick Number Filter Chips when reading a collection
-            if (activeCollection != null) {
-                androidx.compose.foundation.lazy.LazyRow(
+            // Numbering Scheme Selector for Search / Canonical Collections
+            if (showSchemeSelector) {
+                HadithSchemeToggleRow(
+                    schemes = availableSchemes,
+                    selectedScheme = selectedScheme,
+                    onSelectScheme = viewModel::setScheme
+                )
+            }
+
+            // Quick Number Filter Chips when reading a collection with local content
+            if (activeCollection != null && activeCollection.hasLocalContent) {
+                val maxFilterRef = activeCollection.maxReferenceNumber(selectedScheme)
+                LazyRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     item {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            onClick = { showJumpDialog = true },
+                            shape = RoundedCornerShape(10.dp),
                             color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.clickable { showJumpDialog = true }
+                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Search,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(13.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
-                                Spacer(modifier = Modifier.width(3.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Lompat No...",
-                                    style = MaterialTheme.typography.labelSmall,
+                                    text = "Lompat",
+                                    style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    softWrap = false,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                         }
                     }
-                    val sampleNumbers = listOf(1, 10, 25, 42, 50, 100, 200, 500, 1000)
-                        .filter { activeCollection.count == 0 || it <= activeCollection.count }
+                    val sampleNumbers = listOf(1, 10, 25, 42, 50, 100, 500, 1000, 3000, 4001)
+                        .filter { maxFilterRef == 0 || it <= maxFilterRef }
                     items(sampleNumbers) { num ->
                         val isSelected = query == num.toString()
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            onClick = { viewModel.setQuery(num.toString()) },
+                            shape = RoundedCornerShape(10.dp),
                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier.clickable {
-                                viewModel.setQuery(num.toString())
-                            }
+                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
                         ) {
-                            Text(
-                                text = "No. $num",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp)
-                            )
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)
+                            ) {
+                                Text(
+                                    text = "No. $num",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -264,13 +308,37 @@ fun HadithScreen(
                     collections = collections,
                     hadithMarkers = hadithMarkers,
                     onMarkerClick = { marker ->
-                        viewModel.openReference(marker.collectionId, marker.hadithNumber)
+                        val effectiveScheme = marker.schemeId
+                            ?: CanonicalHadithSynchronizer.SCHEME_ARCHIVE_GADING
+                        viewModel.openReference(marker.collectionId, marker.hadithNumber, effectiveScheme)
                     },
                     onCollectionClick = viewModel::setCollection,
                     modifier = Modifier.weight(1f)
                 )
 
                 HadithUiState.Loading -> LoadingState(modifier = Modifier.weight(1f))
+
+                is HadithUiState.LookupIssue -> {
+                    val alternateScheme = availableSchemes.firstOrNull { it != selectedScheme }
+                        ?: HadithNumberingScheme.defaultForCollection(selectedCollection)
+                    HadithLookupIssueState(
+                        result = current.result,
+                        storageLinked = bundleState.storageLinked,
+                        alternateScheme = alternateScheme,
+                        onSwitchAlternateScheme = { viewModel.setScheme(alternateScheme) },
+                        onClearSearch = { viewModel.setQuery("") },
+                        onBackToCatalog = viewModel::resetToCatalog,
+                        onRetrySync = viewModel::retrySync,
+                        onRequestStorage = onRequestStorage,
+                        onDownloadArchive = viewModel::startBundleDownload,
+                        onCopyDiagnostics = { diagnostics ->
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Diagnosa Hadist", diagnostics))
+                            Toast.makeText(context, "Laporan diagnosa disalin", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
 
                 HadithUiState.Empty -> AppEmptyState(
                     icon = Icons.AutoMirrored.Rounded.MenuBook,
@@ -282,7 +350,7 @@ fun HadithScreen(
                         stringResource(R.string.hadith_no_search_results)
                     },
                     description = if (query.isNotBlank()) {
-                        "Tidak ditemukan hadist dengan nomor atau kata kunci \"$query\". Pastikan bundle Hadist lokal sudah diunduh dan diverifikasi."
+                        "Tidak ada hadist yang cocok dengan \"$query\"."
                     } else if (selectedCollection == null) {
                         stringResource(R.string.hadith_catalog_empty)
                     } else {
@@ -306,22 +374,47 @@ fun HadithScreen(
                     hadithMarkers = hadithMarkers,
                     hadithBookmarks = hadithBookmarks,
                     onMarkerToggle = { record ->
-                        val isMarked = hadithMarkers.any { it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber }
+                        val isMarked = hadithMarkers.any {
+                            (record.stableId.isNotBlank() && it.stableId == record.stableId) ||
+                                (it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber &&
+                                    (it.schemeId ?: record.schemeId) == record.schemeId)
+                        }
                         val collName = collections.firstOrNull { it.id == record.collectionId }?.title.orEmpty().ifBlank { record.title }
                         if (isMarked) {
-                            viewModel.toggleHadithMarker(record.collectionId, collName, record.hadithNumber)
+                            viewModel.toggleHadithMarker(
+                                collectionId = record.collectionId,
+                                collectionName = collName,
+                                hadithNumber = record.hadithNumber,
+                                schemeId = record.schemeId,
+                                stableId = record.stableId.ifBlank { null }
+                            )
                             Toast.makeText(context, "Penanda baca dihapus", Toast.LENGTH_SHORT).show()
                         } else {
                             if (hadithMarkers.size >= QuranColors.MAX_READING_MARKERS) {
                                 Toast.makeText(context, "Maksimal 15 penanda baca telah tercapai", Toast.LENGTH_SHORT).show()
                             } else {
-                                viewModel.toggleHadithMarker(record.collectionId, collName, record.hadithNumber)
-                                Toast.makeText(context, context.getString(R.string.hadith_marker_saved, hadithMarkers.size + 1, collName, record.hadithNumber), Toast.LENGTH_SHORT).show()
+                                viewModel.toggleHadithMarker(
+                                    collectionId = record.collectionId,
+                                    collectionName = collName,
+                                    hadithNumber = record.hadithNumber,
+                                    schemeId = record.schemeId,
+                                    stableId = record.stableId.ifBlank { null }
+                                )
+                                val msgRes = when (record.schemeId) {
+                                    CanonicalHadithSynchronizer.SCHEME_SUNNAH -> R.string.hadith_sunnah_marker_saved
+                                    CanonicalHadithSynchronizer.SCHEME_AR_RISALAH -> R.string.hadith_risalah_marker_saved
+                                    else -> R.string.hadith_marker_saved
+                                }
+                                Toast.makeText(context, context.getString(msgRes, hadithMarkers.size + 1, collName, record.hadithNumber), Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
                     onBookmarkToggle = { record ->
-                        val isBookmarked = hadithBookmarks.any { it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber }
+                        val isBookmarked = hadithBookmarks.any {
+                            (record.stableId.isNotBlank() && it.stableId == record.stableId) ||
+                                (it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber &&
+                                    (it.schemeId == null || it.schemeId == record.schemeId))
+                        }
                         val collName = collections.firstOrNull { it.id == record.collectionId }?.title.orEmpty().ifBlank { record.title }
                         viewModel.toggleHadithBookmark(record, collName)
                         if (isBookmarked) {
@@ -341,7 +434,9 @@ fun HadithScreen(
         if (showJumpDialog) {
             JumpToHadithDialog(
                 collectionTitle = activeCollection?.title,
-                maxNumber = activeCollection?.count,
+                minNumber = activeCollection?.minReferenceNumber(selectedScheme),
+                maxNumber = activeCollection?.maxReferenceNumber(selectedScheme),
+                scheme = selectedScheme,
                 onJump = { num ->
                     viewModel.setQuery(num)
                 },
@@ -844,7 +939,14 @@ fun HadithReadingMarkersBanner(
                             Spacer(modifier = Modifier.width(Spacing.sm))
                             Column {
                                 Text(
-                                    text = stringResource(R.string.hadith_archive_reference, marker.collectionName, marker.hadithNumber),
+                                    text = when (marker.schemeId) {
+                                        CanonicalHadithSynchronizer.SCHEME_SUNNAH ->
+                                            stringResource(R.string.hadith_sunnah_reference, marker.collectionName, marker.hadithNumber)
+                                        CanonicalHadithSynchronizer.SCHEME_AR_RISALAH ->
+                                            stringResource(R.string.hadith_risalah_reference, marker.collectionName, marker.hadithNumber)
+                                        else ->
+                                            stringResource(R.string.hadith_archive_reference, marker.collectionName, marker.hadithNumber)
+                                    },
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -927,7 +1029,14 @@ fun HadithReadingMarkerBanner(
                     }
                 }
                 Text(
-                    text = stringResource(R.string.hadith_archive_reference, marker.collectionName, marker.hadithNumber),
+                    text = when (marker.schemeId) {
+                        CanonicalHadithSynchronizer.SCHEME_SUNNAH ->
+                            stringResource(R.string.hadith_sunnah_reference, marker.collectionName, marker.hadithNumber)
+                        CanonicalHadithSynchronizer.SCHEME_AR_RISALAH ->
+                            stringResource(R.string.hadith_risalah_reference, marker.collectionName, marker.hadithNumber)
+                        else ->
+                            stringResource(R.string.hadith_archive_reference, marker.collectionName, marker.hadithNumber)
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1025,10 +1134,21 @@ private fun HadithCollectionCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = if (collection.hasLocalContent) {
-                            stringResource(R.string.hadith_collection_count, collection.count)
-                        } else {
-                            stringResource(R.string.hadith_collection_unavailable)
+                        text = when {
+                            collection.hasLocalContent -> {
+                                val minRef = collection.minReferenceNumber()
+                                val maxRef = collection.maxReferenceNumber()
+                                when {
+                                    collection.availabilityStatus == CanonicalHadithSynchronizer.STATUS_PARTIAL && maxRef > 0 ->
+                                        stringResource(R.string.hadith_collection_partial_range, collection.count, minRef, maxRef)
+                                    maxRef > 0 && maxRef != collection.count ->
+                                        stringResource(R.string.hadith_collection_count_range, collection.count, minRef, maxRef)
+                                    else ->
+                                        stringResource(R.string.hadith_collection_count, collection.count)
+                                }
+                            }
+                            else ->
+                                stringResource(R.string.hadith_collection_unavailable)
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (collection.hasLocalContent) {
@@ -1058,9 +1178,155 @@ private fun HadithCollectionCard(
 }
 
 @Composable
+private fun HadithSchemeToggleRow(
+    schemes: List<HadithNumberingScheme>,
+    selectedScheme: HadithNumberingScheme,
+    onSelectScheme: (HadithNumberingScheme) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        schemes.forEach { scheme ->
+            val selected = scheme == selectedScheme
+            Surface(
+                onClick = { onSelectScheme(scheme) },
+                shape = RoundedCornerShape(10.dp),
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                },
+                border = BorderStroke(
+                    1.dp,
+                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .defaultMinSize(minHeight = 48.dp)
+                    .semantics { role = Role.Tab }
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs)
+                ) {
+                    Text(
+                        text = scheme.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HadithLookupIssueState(
+    result: HadithSearchResult,
+    storageLinked: Boolean,
+    alternateScheme: HadithNumberingScheme,
+    onSwitchAlternateScheme: () -> Unit,
+    onClearSearch: () -> Unit,
+    onBackToCatalog: () -> Unit,
+    onRetrySync: () -> Unit,
+    onRequestStorage: () -> Unit,
+    onDownloadArchive: () -> Unit,
+    onCopyDiagnostics: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val title = when (result.status) {
+        HadithLookupStatus.RECORD_MISSING -> "Hadist Tidak Tersedia"
+        HadithLookupStatus.REFERENCE_UNMAPPED -> "Nomor Belum Terpetakan"
+        HadithLookupStatus.CORRUPT -> "Verifikasi Data Gagal"
+        HadithLookupStatus.PARTIAL -> "Korpus Belum Lengkap"
+        HadithLookupStatus.NOT_INSTALLED -> "Koleksi Belum Terpasang"
+        HadithLookupStatus.NO_MATCH, HadithLookupStatus.FOUND -> "Hadist Tidak Ditemukan"
+    }
+    AppEmptyState(
+        icon = Icons.AutoMirrored.Rounded.MenuBook,
+        title = title,
+        description = result.message ?: "Tidak ada hadist yang cocok pada sumber offline.",
+        modifier = modifier,
+        actionButton = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                modifier = Modifier.fillMaxWidth(0.85f)
+            ) {
+                when (result.status) {
+                    HadithLookupStatus.REFERENCE_UNMAPPED -> {
+                        AppPrimaryButton(onClick = onSwitchAlternateScheme, modifier = Modifier.fillMaxWidth()) {
+                            Text("Gunakan ${alternateScheme.label}")
+                        }
+                        AppOutlinedButton(onClick = onClearSearch, modifier = Modifier.fillMaxWidth()) {
+                            Text("Cari Kata Kunci")
+                        }
+                    }
+                    HadithLookupStatus.NOT_INSTALLED -> {
+                        if (storageLinked) {
+                            AppPrimaryButton(onClick = onDownloadArchive, modifier = Modifier.fillMaxWidth()) {
+                                Text("Unduh Bundle Arsip")
+                            }
+                        } else {
+                            AppPrimaryButton(onClick = onRequestStorage, modifier = Modifier.fillMaxWidth()) {
+                                Text("Pilih Folder Penyimpanan")
+                            }
+                        }
+                        AppOutlinedButton(onClick = onBackToCatalog, modifier = Modifier.fillMaxWidth()) {
+                            Text("Kembali ke Katalog")
+                        }
+                    }
+                    HadithLookupStatus.CORRUPT, HadithLookupStatus.PARTIAL -> {
+                        AppPrimaryButton(onClick = onRetrySync, modifier = Modifier.fillMaxWidth()) {
+                            Text("Sinkronkan Ulang")
+                        }
+                        AppOutlinedButton(onClick = onBackToCatalog, modifier = Modifier.fillMaxWidth()) {
+                            Text("Kembali ke Katalog")
+                        }
+                    }
+                    HadithLookupStatus.RECORD_MISSING -> {
+                        AppPrimaryButton(onClick = onClearSearch, modifier = Modifier.fillMaxWidth()) {
+                            Text("Cari Kata Kunci")
+                        }
+                        AppOutlinedButton(onClick = onBackToCatalog, modifier = Modifier.fillMaxWidth()) {
+                            Text("Lihat Daftar Kitab")
+                        }
+                    }
+                    HadithLookupStatus.NO_MATCH, HadithLookupStatus.FOUND -> {
+                        AppOutlinedButton(onClick = onClearSearch, modifier = Modifier.fillMaxWidth()) {
+                            Text("Hapus Pencarian")
+                        }
+                    }
+                }
+                result.errorReport?.let { report ->
+                    TextButton(
+                        onClick = { onCopyDiagnostics(report.diagnostics) },
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                    ) {
+                        Text("Salin Laporan Diagnosa")
+                    }
+                }
+            }
+        }
+    )
+}
+
+@Composable
 fun JumpToHadithDialog(
     collectionTitle: String?,
+    minNumber: Int? = 1,
     maxNumber: Int?,
+    scheme: HadithNumberingScheme = HadithNumberingScheme.SUNNAH,
     onJump: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1085,9 +1351,10 @@ fun JumpToHadithDialog(
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text(
                     text = if (collectionTitle != null && maxNumber != null && maxNumber > 0) {
-                        "Masukkan nomor hadits dalam $collectionTitle (1 - $maxNumber):"
+                        val floorNum = (minNumber ?: 1).coerceAtLeast(1)
+                        "Masukkan nomor hadits dalam $collectionTitle ($floorNum - $maxNumber):"
                     } else {
-                        "Masukkan nomor hadits yang ingin dicari (contoh: 1, 42, 100):"
+                        "Masukkan nomor hadits yang ingin dicari (contoh: 3617, 4000, 4001):"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1095,17 +1362,16 @@ fun JumpToHadithDialog(
                 Spacer(modifier = Modifier.height(Spacing.xs))
                 OutlinedTextField(
                     value = inputNumber,
-                    onValueChange = { inputNumber = it.filter { ch -> ch.isDigit() } },
+                    onValueChange = { raw ->
+                        inputNumber = raw.filter { ch -> ch.isDigit() || ch in 'a'..'z' || ch in 'A'..'Z' || ch == '.' }
+                    },
                     label = { Text("Nomor Hadits") },
-                    placeholder = { Text("Contoh: 42") },
+                    placeholder = { Text("Contoh: 3617") },
                     singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "Mencari dari database lokal dan internet secara otomatis.",
+                    text = "Pencarian menggunakan database lokal offline (${scheme.label}).",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -1114,8 +1380,9 @@ fun JumpToHadithDialog(
         confirmButton = {
             AppPrimaryButton(
                 onClick = {
-                    if (inputNumber.isNotBlank()) {
-                        onJump(inputNumber)
+                    val sanitized = inputNumber.trim()
+                    if (sanitized.isNotBlank()) {
+                        onJump(sanitized)
                         onDismiss()
                     }
                 }
@@ -1149,11 +1416,11 @@ private fun HadithResults(
     val collectionName = collections.firstOrNull { it.id == selectedCollection }?.title.orEmpty()
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
-    LaunchedEffect(scrollToIndex) {
+    LaunchedEffect(scrollToIndex, records.size) {
         val target = scrollToIndex ?: return@LaunchedEffect
         if (target in records.indices) {
             val listIndex = if (query.isNotBlank() || highlightedNumber != null) target + 1 else target
-            listState.animateScrollToItem(listIndex)
+            listState.scrollToItem(listIndex)
             onScrolledToIndex()
         }
     }
@@ -1183,7 +1450,7 @@ private fun HadithResults(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Menampilkan koleksi lengkap · Terfokus pada Hadits No. $highlightedNumber",
+                            text = "Terfokus pada Hadits No. $highlightedNumber",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.SemiBold
@@ -1199,7 +1466,7 @@ private fun HadithResults(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Menampilkan ${records.size} hadits untuk \"$query\" (Referensi Lokal)",
+                        text = "Menampilkan ${records.size} hadits untuk \"$query\" (Referensi Offline)",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
@@ -1209,15 +1476,26 @@ private fun HadithResults(
             }
         }
         items(records, key = { it.id }) { record ->
-            val isHighlighted = highlightedNumber != null && record.hadithNumber == highlightedNumber
-            val marker = hadithMarkers.find { it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber }
+            val isHighlighted = highlightedNumber != null && record.hadithNumber == highlightedNumber &&
+                (record.variantSuffix.isBlank() || scrollToIndex == null)
+            val marker = hadithMarkers.find {
+                (record.stableId.isNotBlank() && it.stableId == record.stableId) ||
+                    (it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber &&
+                        (it.schemeId ?: record.schemeId) == record.schemeId)
+            }
             val isMarked = marker != null
             val markerColor = marker?.let { QuranColors.getMarkerColor(it.colorIndex) } ?: QuranColors.OceanMarker
             val markerOrder = marker?.let { hadithMarkers.indexOf(it) + 1 } ?: 1
-            val isBookmarked = hadithBookmarks.any { it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber }
+            val isBookmarked = hadithBookmarks.any {
+                (record.stableId.isNotBlank() && it.stableId == record.stableId) ||
+                    (it.collectionId == record.collectionId && it.hadithNumber == record.hadithNumber &&
+                        (it.schemeId == null || it.schemeId == record.schemeId))
+            }
             HadithCardItem(
                 record = record,
-                collectionName = collectionName.ifBlank { record.title },
+                collectionName = collectionName.ifBlank {
+                    com.quranplus.app.features.hadith.data.HadithReferenceImporter.displayTitle(record.collectionId)
+                },
                 isHighlighted = isHighlighted,
                 isMarked = isMarked,
                 markerColor = markerColor,
@@ -1230,6 +1508,7 @@ private fun HadithResults(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HadithCardItem(
     record: HadithRecord,
@@ -1243,9 +1522,12 @@ private fun HadithCardItem(
     onBookmarkToggle: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    var showEnglishDetail by remember(record.id) { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("hadith_card_${record.collectionId}_${record.hadithNumber}"),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = when {
@@ -1267,197 +1549,168 @@ private fun HadithCardItem(
                 .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
-            // 1. Card Header: Hadith Identifier Badge & Quick Actions (Copy / Share / Bookmark / Marker)
-            Row(
+            // 1. Metadata Badge Flow + Accessible 48dp Actions
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
-                // Number Badge
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = when {
+                        isMarked -> QuranColors.OceanMarker
+                        isHighlighted -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.primaryContainer
+                    },
+                    contentColor = when {
+                        isMarked -> Color.White
+                        isHighlighted -> MaterialTheme.colorScheme.onPrimary
+                        else -> MaterialTheme.colorScheme.onPrimaryContainer
+                    }
                 ) {
+                    Text(
+                        text = "HR. $collectionName · ${record.numberLabel}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp)
+                    )
+                }
+                if (isBookmarked) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = when {
-                            isMarked -> QuranColors.OceanMarker
-                            isHighlighted -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.primaryContainer
-                        },
-                        contentColor = when {
-                            isMarked -> Color.White
-                            isHighlighted -> MaterialTheme.colorScheme.onPrimary
-                            else -> MaterialTheme.colorScheme.onPrimaryContainer
-                        }
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                     ) {
                         Text(
-                            text = "HR. $collectionName · ${record.numberLabel}",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "Tersimpan",
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 3.dp)
                         )
-                    }
-                    if (isBookmarked) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                        ) {
-                            Text(
-                                text = "🔖 Bookmark",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 3.dp)
-                            )
-                        }
-                    }
-                    if (isMarked) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = markerColor,
-                            contentColor = Color.White
-                        ) {
-                            Text(
-                                text = "📍 Penanda Baca #$markerOrder",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 3.dp)
-                            )
-                        }
-                    }
-                    if (isHighlighted) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        ) {
-                            Text(
-                                text = "🎯 Ditemukan",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 3.dp)
-                            )
-                        }
                     }
                 }
-
-                // Copy, Share, Bookmark, Marker Actions
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = {
-                            val fullText = buildString {
-                                appendLine(record.reference)
-                                appendLine()
-                                appendLine(record.textArabic)
-                                appendLine()
-                                if (record.translationId.isNotBlank()) {
-                                    appendLine("Terjemahan:")
-                                    appendLine(record.translationId)
-                                } else if (record.translationEn.isNotBlank()) {
-                                    appendLine("Translation:")
-                                    appendLine(record.translationEn)
-                                }
-                                if (record.reference.isNotBlank()) {
-                                    appendLine()
-                                    appendLine("Rujukan: ${record.reference}")
-                                }
-                                appendLine("(Quran Plus)")
-                            }
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("Hadist", fullText))
-                            Toast.makeText(context, context.getString(R.string.hadith_copied), Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.size(36.dp)
+                if (isMarked) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = markerColor,
+                        contentColor = Color.White
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.ContentCopy,
-                            contentDescription = "Salin Hadist",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
+                        Text(
+                            text = "Penanda #$markerOrder",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 3.dp)
                         )
                     }
-
-                    IconButton(
-                        onClick = {
-                            val shareText = buildString {
-                                appendLine(record.reference)
-                                appendLine()
-                                appendLine(record.textArabic)
-                                appendLine()
-                                if (record.translationId.isNotBlank()) {
-                                    appendLine("Terjemahan:")
-                                    appendLine(record.translationId)
-                                } else if (record.translationEn.isNotBlank()) {
-                                    appendLine("Translation:")
-                                    appendLine(record.translationEn)
-                                }
-                                if (record.reference.isNotBlank()) {
-                                    appendLine()
-                                    appendLine("Rujukan: ${record.reference}")
-                                }
-                                appendLine()
-                                appendLine("Dibagikan via Quran Plus")
-                            }
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, shareText)
-                                type = "text/plain"
-                            }
-                            context.startActivity(Intent.createChooser(sendIntent, "Bagikan Hadist"))
-                        },
-                        modifier = Modifier.size(36.dp)
+                }
+                if (isHighlighted) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Share,
-                            contentDescription = "Bagikan Hadist",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onBookmarkToggle,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isBookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
-                            contentDescription = if (isBookmarked) "Hapus Bookmark Hadist" else "Simpan Bookmark Hadist",
-                            tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onMarkerToggle,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isMarked) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = if (isMarked) "Hapus Penanda Berhenti" else "Tandai Berhenti Baca",
-                            tint = if (isMarked) markerColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
+                        Text(
+                            text = "Ditemukan",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 3.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            if (record.chapterTitle.isNotBlank() && record.chapterTitle != collectionName) {
+                Text(
+                    text = buildString {
+                        if (record.bookNumber > 0) append("Kitab ${record.bookNumber}: ")
+                        append(record.chapterTitle)
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-            // 2. Arabic Text with Uthmani Font & RTL formatting
-            Text(
-                text = record.textArabic,
-                style = getQuranArabicStyle(fontSizeSp = 23f).copy(
-                    textAlign = TextAlign.End,
-                    color = MaterialTheme.colorScheme.onSurface
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = Spacing.xs)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        val fullText = formatHadithShareText(record, includeShareFooter = false)
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Hadist", fullText))
+                        Toast.makeText(context, context.getString(R.string.hadith_copied), Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ContentCopy,
+                        contentDescription = "Salin Hadist",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        val shareText = formatHadithShareText(record, includeShareFooter = true)
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, shareText)
+                            type = "text/plain"
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Bagikan Hadist"))
+                    },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Share,
+                        contentDescription = "Bagikan Hadist",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onBookmarkToggle,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isBookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                        contentDescription = if (isBookmarked) "Hapus Bookmark Hadist" else "Simpan Bookmark Hadist",
+                        tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onMarkerToggle,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isMarked) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
+                        contentDescription = if (isMarked) "Hapus Penanda Berhenti" else "Tandai Berhenti Baca",
+                        tint = if (isMarked) markerColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            // 2. Arabic Matn with explicit RTL formatting (unedited canonical text)
+            if (record.textArabic.isNotBlank()) {
+                Text(
+                    text = record.textArabic,
+                    style = getQuranArabicStyle(fontSizeSp = 23f).copy(
+                        textAlign = TextAlign.End,
+                        textDirection = TextDirection.Rtl,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = Spacing.xs)
+                )
+            }
 
             // 3. Subtle Divider
             HorizontalDivider(
@@ -1466,7 +1719,7 @@ private fun HadithCardItem(
                 modifier = Modifier.padding(vertical = Spacing.xs)
             )
 
-            // 4. Translation Section
+            // 4. Verified Translations Section (never fabricates unavailable language)
             if (record.translationId.isNotBlank()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -1493,6 +1746,27 @@ private fun HadithCardItem(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (record.translationEn.isNotBlank()) {
+                    TextButton(
+                        onClick = { showEnglishDetail = !showEnglishDetail },
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                    ) {
+                        Text(
+                            if (showEnglishDetail) "Sembunyikan Teks Inggris (Sunnah.com)"
+                            else "Lihat Teks Inggris (Sunnah.com)"
+                        )
+                    }
+                    if (showEnglishDetail) {
+                        Text(
+                            text = record.translationEn,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                lineHeight = 21.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             } else {
                 Text(
                     text = stringResource(R.string.hadith_translation_indonesian_unavailable),
@@ -1517,7 +1791,14 @@ private fun HadithCardItem(
                 }
             }
 
-            // 5. Reference & Chapter Footer
+            // 5. Attributed Grading, Reference & Canonical URL Footer
+            if (record.grades.isNotEmpty()) {
+                Text(
+                    text = "Derajat: " + record.grades.joinToString(" · ") { "${it.grade} (${it.authority})" },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
             if (record.reference.isNotBlank()) {
                 Text(
                     text = "Rujukan: ${record.reference}",
@@ -1526,6 +1807,48 @@ private fun HadithCardItem(
                     modifier = Modifier.padding(top = Spacing.xs)
                 )
             }
+            record.canonicalUrl?.let { url ->
+                Text(
+                    text = url,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
+}
+
+private fun formatHadithShareText(
+    record: HadithRecord,
+    includeShareFooter: Boolean
+): String = buildString {
+    appendLine(record.reference)
+    appendLine()
+    if (record.textArabic.isNotBlank()) {
+        appendLine(record.textArabic)
+        appendLine()
+    }
+    if (record.translationId.isNotBlank()) {
+        appendLine("Terjemahan:")
+        appendLine(record.translationId)
+    }
+    if (record.translationEn.isNotBlank()) {
+        if (record.translationId.isNotBlank()) appendLine()
+        appendLine("Translation (English):")
+        appendLine(record.translationEn)
+    }
+    if (record.grades.isNotEmpty()) {
+        appendLine()
+        appendLine("Derajat: " + record.grades.joinToString("; ") { "${it.authority}: ${it.grade}" })
+    }
+    if (record.reference.isNotBlank()) {
+        appendLine()
+        appendLine("Rujukan: ${record.reference}")
+    }
+    record.canonicalUrl?.let { url ->
+        val label = if (url.contains("sunnah.com")) "Sunnah.com" else "Tautan rujukan"
+        appendLine("$label: $url")
+    }
+    appendLine("Tautan aplikasi: quranplus://hadith/${record.collectionId}/${record.hadithNumber}?scheme=${record.schemeId}")
+    appendLine(if (includeShareFooter) "Dibagikan via Quran Plus" else "(Quran Plus)")
 }

@@ -7,6 +7,8 @@
     <string name="hadith_section_kutubus_sittah">Kutubus Sittah</string>
     <string name="hadith_section_other">Hadis Lainnya</string>
     <string name="hadith_collection_count">%1$d hadist</string>
+    <string name="hadith_collection_count_range">%1$d hadist · No. %2$d–%3$d</string>
+    <string name="hadith_collection_partial_range">%1$d hadist · Jangkauan No. %2$d–%3$d</string>
     <string name="hadith_collection_unavailable">Konten offline belum tersedia</string>
     <string name="hadith_show_collections">Semua koleksi</string>
     <string name="hadith_no_records">Isi koleksi belum tersedia secara offline</string>
@@ -28,6 +30,11 @@
     <string name="chat_grounding_sources">Quran • Hadist</string>
     <string name="chat_answer_unavailable">Jawaban belum tersedia.</string>
     <string name="hadith_archive_reference">HR. %1$s · No. arsip %2$d</string>
+    <string name="hadith_sunnah_reference">HR. %1$s · No. %2$d (Sunnah.com)</string>
+    <string name="hadith_risalah_reference">HR. %1$s · No. %2$d (Ar-Risalah)</string>
     <string name="hadith_marker_saved">Penanda baca #%1$d disimpan: %2$s · No. arsip %3$d</string>
+    <string name="hadith_sunnah_marker_saved">Penanda baca #%1$d disimpan: %2$s · No. %3$d (Sunnah.com)</string>
+    <string name="hadith_risalah_marker_saved">Penanda baca #%1$d disimpan: %2$s · No. %3$d (Ar-Risalah)</string>
+    <string name="hadith_collection_optional_archive">Arsip opsional belum terpasang</string>
     <string name="hadith_copied">Hadist disalin</string>
 </resources>

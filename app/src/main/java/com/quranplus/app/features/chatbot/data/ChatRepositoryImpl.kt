@@ -11,6 +11,7 @@ import com.quranplus.app.features.chatbot.domain.ChatSession
 import com.quranplus.app.features.chatbot.domain.GenerationEvent
 import com.quranplus.app.features.chatbot.domain.MessageRole
 import com.quranplus.app.features.chatbot.domain.RagGenerationResult
+import com.quranplus.app.features.hadith.data.CanonicalHadithSynchronizer
 import com.quranplus.app.features.hadith.data.HadithBundleManifest
 import com.quranplus.app.features.hadith.data.HadithNumbering
 import com.quranplus.app.core.database.entity.HadithEntity
@@ -296,6 +297,28 @@ class ChatRepositoryImpl(
 
     private suspend fun retrieveGroundingCitations(plan: IslamicQueryPlan): List<RetrievedCitation> {
         plan.hadithReference?.let { request ->
+            val schemeId = request.targetSchemeId()
+            val canonicalMatches = database.hadithDao().findByReference(
+                collectionId = request.collection,
+                schemeId = schemeId,
+                number = request.number,
+                variant = request.suffix.ifBlank { null },
+                limit = MAX_CITATIONS
+            )
+            if (canonicalMatches.isNotEmpty()) {
+                return canonicalMatches.mapNotNull { row ->
+                    val adjusted = if (request.archive && row.hadithNumber != request.number) {
+                        row.copy(
+                            hadithNumber = request.number,
+                            canonicalUrl = null,
+                            reference = "${com.quranplus.app.features.hadith.data.HadithReferenceImporter.displayTitle(row.collectionId)} no. ${request.number} (Arsip)"
+                        )
+                    } else {
+                        row
+                    }
+                    hadithCitation(adjusted, 1f)
+                }
+            }
             if (request.suffix.isNotEmpty()) return emptyList()
             if (request.archive) {
                 val row = database.hadithDao().getHadithByNumber(request.collection, request.number)
@@ -351,7 +374,18 @@ class ChatRepositoryImpl(
             if (citation.evidenceKind != EvidenceKind.HADITH) return@mapNotNull citation
             // Rehydrate old SAF/vector references from the current content row.
             val target = citation.navigationTarget() as? CitationTarget.Hadith ?: return@mapNotNull null
-            val row = database.hadithDao().getHadithByNumber(target.collectionId, target.hadithNumber)
+            val refScheme = when {
+                citation.reference.contains("(Sunnah.com") -> CanonicalHadithSynchronizer.SCHEME_SUNNAH
+                citation.reference.contains("(Ar-Risalah") -> CanonicalHadithSynchronizer.SCHEME_AR_RISALAH
+                else -> CanonicalHadithSynchronizer.SCHEME_ARCHIVE_GADING
+            }
+            val row = database.hadithDao().findByReference(
+                collectionId = target.collectionId,
+                schemeId = refScheme,
+                number = target.hadithNumber,
+                limit = 1
+            ).firstOrNull()
+                ?: database.hadithDao().getHadithByNumber(target.collectionId, target.hadithNumber)
                 ?: return@mapNotNull null
             hadithCitation(row, citation.score)
         }
@@ -758,12 +792,42 @@ class ChatRepositoryImpl(
         else -> listOf(keyword)
     } + IslamicQueryAnalyzer.hadithSearchTerm(keyword)).distinct()
 
-    private fun com.quranplus.app.core.database.entity.HadithEntity.isVerifiedForGrounding(): Boolean =
+    private fun HadithEntity.isVerifiedForGrounding(): Boolean =
         licenseStatus == "reference" ||
+            (licenseStatus in CanonicalHadithSynchronizer.CANONICAL_ACCEPTED_LICENSES &&
+                verificationStatus in setOf(
+                    CanonicalHadithSynchronizer.STATUS_VERIFIED,
+                    CanonicalHadithSynchronizer.STATUS_PARTIAL
+                ) &&
+                (textArabic.isNotBlank() || translationId.isNotBlank() || translationEn.isNotBlank())) ||
             (HadithBundleManifest.VERIFIED.isVerifiedRecord(this) && hadithNumbering.isContentValid(this))
 
     private fun hadithCitation(row: HadithEntity, score: Float): RetrievedCitation? {
         if (!row.isVerifiedForGrounding()) return null
+        if (row.licenseStatus in CanonicalHadithSynchronizer.CANONICAL_ACCEPTED_LICENSES) {
+            val translation = row.translationId.ifBlank { row.translationEn }
+            val gradeLine = row.grade?.takeIf { it.isNotBlank() }?.let { "\nDerajat: $it" }.orEmpty()
+            val snippet = buildString {
+                append(row.textArabic)
+                if (translation.isNotBlank()) {
+                    append("\nArtinya: \"").append(translation).append('"')
+                }
+                append(gradeLine)
+            }
+            return RetrievedCitation(
+                sourceId = "hadith-${row.id}",
+                sourceType = "hadith",
+                title = row.reference,
+                reference = row.reference,
+                textSnippet = snippet,
+                score = score,
+                collection = row.collectionId,
+                identifier = row.hadithNumber.toString(),
+                deepLinkTarget = "hadith:${row.collectionId}:${row.hadithNumber}",
+                canonicalUrl = row.canonicalUrl,
+                providerId = "local-hadith-bundle"
+            )
+        }
         val reference = hadithNumbering.reference(row)
         return RetrievedCitation(
             sourceId = "hadith-${row.id}", sourceType = "hadith", title = reference,
@@ -793,7 +857,7 @@ class ChatRepositoryImpl(
         value.lowercase(Locale.ROOT).forEach { character ->
             when (character.code) {
                 1600, in 1611..1648, in 1750..1773 -> Unit
-                1649 -> append('\u0627')
+                1649, 1570, 1571, 1573 -> append('\u0627')
                 else -> append(character)
             }
         }

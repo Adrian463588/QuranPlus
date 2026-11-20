@@ -1,6 +1,7 @@
 package com.quranplus.app.features.chatbot.data
 
 import com.quranplus.app.core.database.QuranDatabase
+import com.quranplus.app.features.hadith.data.CanonicalHadithSynchronizer
 import com.quranplus.app.features.hadith.data.HadithBundleManifest
 import com.quranplus.app.features.rag.data.EmbeddingService
 import com.quranplus.app.features.rag.domain.VectorRetriever
@@ -48,12 +49,16 @@ class AiReadinessChecker(
     }
 
     private suspend fun hasRequiredCorpus(indexedSourceTypes: Set<String>): Boolean {
+        val canonicalManifest = database.hadithDao()
+            .getSourceManifest(CanonicalHadithSynchronizer.CANONICAL_SOURCE_ID)
+        val canonicalAvailable = canonicalManifest?.status == CanonicalHadithSynchronizer.STATUS_VERIFIED &&
+            canonicalManifest.activeRecordCount > 0
         val hadithCounts = database.hadithDao().getVerifiedBundleCollectionCounts(
             sourceRevision = HadithBundleManifest.VERIFIED.revision,
             sourceSha256 = HadithBundleManifest.VERIFIED.archiveSha256,
             licenseStatus = "licensed"
         ).associate { it.collectionId to it.recordCount }
-        val hadithAvailable = HadithBundleManifest.VERIFIED.isVerifiedCorpus(hadithCounts)
+        val hadithAvailable = canonicalAvailable || HadithBundleManifest.VERIFIED.isVerifiedCorpus(hadithCounts)
         val documentSourceTypes = database.knowledgeChunkDao()
             .getAllChunks()
             .map { it.sourceType }

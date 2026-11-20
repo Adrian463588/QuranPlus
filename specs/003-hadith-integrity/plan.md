@@ -1,0 +1,32 @@
+# Architecture & Implementation Plan — 003 Hadith Integrity
+
+## 1. Corpus Pipeline (`scripts/`)
+- `scripts/build_hadith_corpus.py`: Reads pinned `fawazahmed0` + `gadingnst` files, validates UTF-8, deduplicates/keys by `(collection, scheme, number, variant)`, preserves canonical Arabic matn verbatim, computes per-record `content_sha256`, preserves multi-authority grades and chapters, emits:
+  - `app/src/main/assets/hadith/sunnah-canonical-bundle.zip`
+  - `app/src/main/assets/hadith/corpus-manifest.json`
+  - `specs/003-hadith-integrity/audit/hadith-audit.json`
+- `scripts/validate_hadith_numbering.py`: Add `malik` to `BOOKS`, update `ASSET_SHA256`, regenerate `numbering.json` cleanly (~29,889 unique archive crosswalk rows).
+- `scripts/validate_hadith_corpus.py`: Validates `sunnah-canonical-bundle.zip`, `corpus-manifest.json`, zero ambiguous reference collisions, 4 golden fixtures (`HF-001..HF-004`), licenses, and Arabic parity. Added to `.github/workflows/regression.yml`.
+
+## 2. Room Database v14 -> v15 & Entities (`app/src/main/java/com/quranplus/app/core/database/`)
+- `Entities.kt`: Extend `HadithEntity` (`stable_id`, `numbering_scheme`, `canonical_url`, `content_sha256`, `verification_status`) and `HadithCollectionEntity` (`default_scheme`, `active_record_count`, `manifest_source_id`); add `HadithReferenceEntity`, `HadithTranslationEntity`, `HadithGradeEntity`, `HadithSourceManifestEntity`.
+- `QuranDatabase.kt`: Bump `version = 15`, add transactional `MIGRATION_14_15` preserving all existing tables & user data, backfilling `archive_gading` references for pre-existing rows, rebuilding `hadiths_fts5` with hamzah+harakat normalization on `text_arabic_normalized` only.
+- `Daos.kt`: Add deterministic exact-reference queries joining `hadith_references`, grade/translation/chapter/manifest queries, and dynamic `COUNT(DISTINCT stable_id)` collection counts.
+
+## 3. Data & Sync (`features/hadith/data/`)
+- `HadithBundleManifest.kt`: Add `CanonicalCorpusManifest` reading `corpus-manifest.json` and verifying archive SHA-256 + per-collection integrity.
+- `CanonicalHadithSynchronizer.kt`: Atomically synchronizes `sunnah-canonical-bundle.zip` on install/upgrade inside a database transaction (`runInTransaction`), preserving any `ahmad`/`darimi` archive rows, linking `numbering.json` `archive_gading` crosswalk entries, populating `hadith_chapters`, `hadith_references`, `hadith_translations`, `hadith_grades`, `hadith_source_manifests`, and skipping re-import if active manifest matches verified SHA-256.
+- `HadithReferenceImporter.kt` & `HadithBundleImporter.kt`: Ensure SAF import of `gadingnst` never overwrites verified `sunnah` collections; imports `ahmad`/`darimi` under `archive_gading` and verifies `archive_gading` mappings.
+- `HadithRepositoryImpl.kt`: Returns structured `HadithSearchResult` carrying `records` + `HadithLookupStatus` (`SUCCESS`, `NOT_INSTALLED`, `CORRUPT`, `PARTIAL`, `REFERENCE_UNMAPPED`, `RECORD_MISSING`, `NO_MATCH`), supporting explicit `HadithNumberingScheme` (`SUNNAH`, `ARCHIVE_GADING`).
+
+## 4. Domain, RAG, Bookmarks & UI
+- `shared/.../Models.kt`, `PreferencesManager.kt`, `SafUserDataManager.kt`: Add optional `schemeId` and `stableId` to `HadithBookmark` & `HadithMarker` with full backward compatibility (`null` -> `"archive_gading"`).
+- `HadithViewModel.kt` & `HadithScreen.kt`: Expose `selectedScheme`, visible scheme toggle (`No. Sunnah.com` vs `No. Arsip`), full status-specific error/empty states + `"Cari berdasarkan kata kunci"` recovery button, chapter & multi-authority grade display, canonical URL & scheme badges, ≥48dp touch targets, diagnostic report copy (`FR-12`).
+- `BookmarksScreen.kt` & `MainActivity.kt`: Preserve and display accurate scheme labels; pass `schemeId` through navigation & deep link (`quranplus://hadith/...`).
+- `ChatRepositoryImpl.kt`, `HadithReferenceRequest.kt`, `RagCorpusIndexer.kt`, `AiReadiness.kt`, `VectorRetrieverImpl.kt`: Resolve RAG citations by exact `(collection, scheme, number, variant)` using verified rows only, preserve `stable_id`/`scheme_id` and grades in citations, and never cite `MISSING_CONTENT`/`UNVERIFIED` rows.
+
+## 5. Sprint 3 Addendum — Musnad Ahmad 4001 & Global Corpus Integrity
+- `scripts/build_hadith_corpus.py`: Bundle complete `irsyadulibad/hadits-database` (`MIT`: `ahmad` 26,363 records + `darimi` 3,367 records) alongside the 7 Unlicense Sunnah.com collections (`65,716` total active records offline). Build strict sanad+matn-verified `ar_risalah` reference crosswalk (`ahmad:4001` -> `Al-Alamiyah #3800` *li'an*; `archive_gading:4001` -> *faqah*), track per-scheme `min_reference_number` / `max_reference_number` independently from `active_record_count`, and guard against the upstream `islamtics` `#4001`/`#4027` translation mismatch.
+- `scripts/validate_hadith_corpus.py`: Enforce Section 3 checks across all 9 collections (counts, min/max reference numbers, edition vs import gaps, duplicates, collisions, empty Arabic, translation alignment, source metadata, canonical URLs, grade attributions, SHA-256) and emit `audit/corpus-validation-report.json` + `audit/corpus-validation-summary.md`.
+- Room v16 (`Entities.kt`, `Daos.kt`, `QuranDatabase.kt`): Add `HadithSchemeStatEntity` (`hadith_scheme_stats`), `MIGRATION_15_16`, scheme-ordered reference slice queries, and streaming `JsonReader` + `DigestInputStream` ingestion in `CanonicalHadithSynchronizer`.
+- UI, Repository & RAG (`HadithModels.kt`, `HadithRepositoryImpl.kt`, `HadithViewModel.kt`, `HadithScreen.kt`, `HadithReferenceRequest.kt`, `ChatRepositoryImpl.kt`): Add `HadithNumberingScheme.AR_RISALAH`, per-collection scheme lists, separate count vs reference-range display, `maxReferenceNumber`-driven `JumpToHadithDialog`, honest `PARTIAL` status for incomplete bundles, SAF overwrite protection across all 9 bundled collections, and full `ahmad:4001` RAG citation grounding.

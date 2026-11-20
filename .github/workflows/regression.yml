@@ -27,5 +27,7 @@ jobs:
         run: python3 scripts/validate_dzikir_corpus.py
       - name: Check content-bound hadith numbering
         run: python3 scripts/validate_hadith_numbering.py
+      - name: Check canonical hadith corpus and HF-001..HF-005 fixtures
+        run: python3 scripts/validate_hadith_corpus.py
       - name: Unit tests, Android lint and APK
         run: bash gradlew -Dorg.gradle.java.home="$JAVA_HOME" :app:testDebugUnitTest :shared:testDebugUnitTest :app:lintDebug :app:assembleDebug --no-daemon --console=plain

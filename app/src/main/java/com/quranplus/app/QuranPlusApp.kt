@@ -27,6 +27,7 @@ class QuranPlusApp : Application() {
         applicationScope.launch {
             koinApplication.koin.get<com.quranplus.app.core.security.AppSecurityManager>().verifyAppIntegrity()
             koinApplication.koin.get<ReferenceAssetSynchronizer>().synchronize()
+            koinApplication.koin.get<com.quranplus.app.features.hadith.data.CanonicalHadithSynchronizer>().ensureSynchronized()
             koinApplication.koin.get<HadithBundleManager>().restoreFromSaf()
             koinApplication.koin.get<com.quranplus.app.core.audio.AudioAssetStore>().restoreFromSaf()
             koinApplication.koin.get<com.quranplus.app.features.chatbot.data.ModelRepository>().restoreVerifiedModelsFromSaf()

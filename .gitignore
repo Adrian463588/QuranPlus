@@ -64,6 +64,7 @@ signing.properties
 # 5. Arsip, Compressed & Binary Blobs
 # ------------------------------------------------------------------------------
 *.zip
+!app/src/main/assets/hadith/sunnah-canonical-bundle.zip
 *.tar
 *.tar.gz
 *.tgz

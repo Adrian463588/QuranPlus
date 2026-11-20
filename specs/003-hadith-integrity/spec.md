@@ -1,0 +1,24 @@
+# Specification — 003 Hadith Database Integrity & Search Restoration
+
+## Functional Requirements (FR-01 .. FR-12)
+
+- **FR-01 (Corpus Audit):** Audit all 9 collections across `fawazahmed0/hadith-api` (`Unlicense`) and `gadingnst/hadith-api` (`MIT`) and emit `specs/003-hadith-integrity/audit/hadith-audit.json`.
+- **FR-02 (Deterministic Identity & Crosswalk):** Separate `stable_id` from `hadith_references` keyed uniquely by `(collection_id, scheme_id, reference_number, variant_suffix)`.
+- **FR-03 (Golden Fixtures HF-001..HF-004):**
+  - **HF-001:** `bukhari:3617` — Anas narration of Christian convert who apostatized and was expelled by the earth (`Kitab 61, Hadith 124`).
+  - **HF-002:** `abudawud:4000` — Ibn al-Musayyab narration preserving both `مَالِكِ يَوْمِ الدِّينِ` and `مَلِكِ يَوْمِ الدِّينِ`, narrator & Abu Dawud's commentary, and attributed grades (`Al-Albani: Daif Isnaad`, `Muhammad Muhyi Al-Din Abdul Hamid: Daif Isnaad`, `Zubair Ali Zai: Daif`).
+  - **HF-003:** `tirmidhi:3000` — Abu Ghalib / Abu Umamah narration regarding the Khawarij (`كلاب النار`, Surah 3:106) and at-Tirmidhi's commentary + grades (`Kitab 47, Hadith 52`). Must never resolve to Hajj.
+  - **HF-004:** `tirmidhi:813` — Ibn Umar narration on provisions (`الزَّادُ`) and means of conveyance (`الرَّاحِلَةُ`) making Hajj obligatory (`Kitab 9, Hadith 5`), distinct from 3000, with at-Tirmidhi's text commentary + attributed grades (`Ahmad Muhammad Shakir: Very Daif`, `Al-Albani: Very Daif`, `Zubair Ali Zai: Daif`).
+  - **HF-005:** `ahmad:4001` — Complete `Musnad Ahmad` (`26,363` MIT records) distinguishing:
+    - `ar_risalah:4001` (`https://hadits.net/ahmad:4001`, Abdullah bin Mas'ud / *li'an*: `حَدَّثَنَا يَحْيَى بْنُ حَمَّادٍ... كُنَّا جُلُوسًا عَشِيَّةَ الْجُمُعَةِ فِي الْمَسْجِدِ... فَأُنْزِلَتْ آيَةُ اللِّعَانِ`, aligned with `Al-Alamiyah #3800`, grade `Shu'ayb al-Arna'ut (Ar-Risalah, 7/105): Isnaduhu Sahih`), AND
+    - `archive_gading:4001` (`Al-Alamiyah / Lidwa #4001`, Abdullah bin Mas'ud / reliance in poverty: `حَدَّثَنَا وَكِيعٌ... مَنْ نَزَلَتْ بِهِ فَاقَةٌ فَأَنْزَلَهَا بِالنَّاسِ...`).
+    Must never mix `ar_risalah:4001` with Ar-Risalah `#4027` (`Al-Alamiyah #3823`, *"moths or flies"*) or silently substitute across schemes.
+- **FR-04 (Exact Scheme-Scoped Numeric Search):** Exact lookup binds `(collection_id, scheme_id, reference_number)`. Visible scheme switcher per collection (`No. Sunnah.com` vs `No. Arsip` on canonical 7 collections; `No. Ar-Risalah` vs `No. Arsip` on `ahmad`). Track `record_count` separately from per-scheme `min_reference_number` and `max_reference_number` across UI, `JumpToHadithDialog`, and `hadith_scheme_stats`.
+- **FR-05 (No Cross-Edition Fallback):** Unmapped references in a requested scheme return `REFERENCE_UNMAPPED`, never another edition's record with the same integer.
+- **FR-06 (Honest Availability & Partial Bundle Differentiation):** Surface `NOT_INSTALLED`, `CORRUPT`, `PARTIAL` (when local bundle count < reference range / incomplete manifest and slot is not an explicit `missing_in_source` edition gap), `REFERENCE_UNMAPPED`, `RECORD_MISSING`, and `NO_MATCH` with contextual recovery actions.
+- **FR-07 (Transactional Room Migration v15 -> v16 & Streaming Atomic Sync):** Preserve `MIGRATION_14_15` + add transactional `MIGRATION_15_16` creating `hadith_scheme_stats` and preserving all bookmarks, markers, last-read, and chat history. Streaming `CanonicalHadithSynchronizer` (`DigestInputStream` + `android.util.JsonReader`, <6MB heap) verifies and syncs all 9 collections (`65,716` records) cleanly offline and prevents legacy partial SAF bundles (`4,305` `ahmad`) from downgrading complete verified collections.
+- **FR-08 (Detail & Accessibility):** Display Arabic RTL matn, verified translations (honest unavailable Indonesian notice when missing), chapter metadata, attributed grades, scheme label, canonical URL, and ≥48dp touch targets.
+- **FR-09 (FTS5 Full-Text Search):** Arabic search normalization (`text_arabic_normalized`) inside FTS5 only, keeping canonical `text_arabic` unchanged.
+- **FR-10 (Bookmarks, Share, Deep Links & RAG Grounding):** Preserve `stable_id` and `scheme_id` across bookmarks, markers, share/copy, deep links (`quranplus://hadith/...` and internal nav), and RAG `HadithReferenceRequest` / `ChatRepositoryImpl` / `RagCorpusIndexer`.
+- **FR-11 (Build & Activation Integrity Gate):** Manifest + SHA-256 + schema/duplicate/fixture validation in Python CI scripts and Android runtime.
+- **FR-12 (Diagnostic Error Reporting):** Zero-PII diagnostic payload (`collection`, `referenceNumber`, `schemeId`, `corpusRevision`, `lookupStatus`, `appVersion`) copyable/shareable from error states.

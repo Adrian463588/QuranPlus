@@ -108,6 +108,8 @@ class SafUserDataManager(
                         put("hadithTranslation", b.hadithTranslation)
                         put("note", b.note ?: "")
                         put("timestamp", b.timestamp)
+                        b.schemeId?.let { put("schemeId", it) }
+                        b.stableId?.let { put("stableId", it) }
                     }
                     array.put(obj)
                 }
@@ -127,7 +129,7 @@ class SafUserDataManager(
                 val jsonText = safAssetStore.readText("userdata", "hadith_bookmarks.json") ?: return@withLock 0
                 val array = JSONArray(jsonText)
                 val current = preferencesManager.hadithBookmarks.firstOrNull() ?: emptyList()
-                val currentMap = current.associateBy { "${it.collectionId}:${it.hadithNumber}" }.toMutableMap()
+                val currentMap = current.associateBy { "${it.collectionId}:${it.schemeId ?: "legacy"}:${it.hadithNumber}" }.toMutableMap()
                 var restoredCount = 0
 
                 for (i in 0 until array.length()) {
@@ -139,7 +141,9 @@ class SafUserDataManager(
                     val hadithTranslation = obj.optString("hadithTranslation", "")
                     val note = obj.optString("note", "").takeIf { it.isNotBlank() }
                     val timestamp = obj.optLong("timestamp", System.currentTimeMillis())
-                    val key = "$collectionId:$hadithNumber"
+                    val schemeId = obj.optString("schemeId", "").takeIf { it.isNotBlank() }
+                    val stableId = obj.optString("stableId", "").takeIf { it.isNotBlank() }
+                    val key = "$collectionId:${schemeId ?: "legacy"}:$hadithNumber"
 
                     val existing = currentMap[key]
                     if (existing == null) {
@@ -151,7 +155,9 @@ class SafUserDataManager(
                             hadithTextArabic = hadithTextArabic,
                             hadithTranslation = hadithTranslation,
                             note = note,
-                            timestamp = timestamp
+                            timestamp = timestamp,
+                            schemeId = schemeId,
+                            stableId = stableId
                         )
                         restoredCount++
                     } else if (existing.note.isNullOrBlank() && !note.isNullOrBlank()) {
@@ -194,6 +200,8 @@ class SafUserDataManager(
                         put("hadithNumber", m.hadithNumber)
                         put("timestamp", m.timestamp)
                         put("colorIndex", m.colorIndex)
+                        m.schemeId?.let { put("schemeId", it) }
+                        m.stableId?.let { put("stableId", it) }
                     })
                 }
                 root.put("hadithMarkers", hArray)
@@ -215,6 +223,8 @@ class SafUserDataManager(
                         put("hadithNumber", h.hadithNumber)
                         put("timestamp", h.timestamp)
                         put("colorIndex", h.colorIndex)
+                        h.schemeId?.let { put("schemeId", it) }
+                        h.stableId?.let { put("stableId", it) }
                     })
                 }
 
@@ -276,7 +286,9 @@ class SafUserDataManager(
                                 collectionName = obj.getString("collectionName"),
                                 hadithNumber = obj.getInt("hadithNumber"),
                                 timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
-                                colorIndex = obj.optInt("colorIndex", i)
+                                colorIndex = obj.optInt("colorIndex", i),
+                                schemeId = obj.optString("schemeId", "").takeIf { it.isNotBlank() },
+                                stableId = obj.optString("stableId", "").takeIf { it.isNotBlank() }
                             )
                         )
                     }
@@ -288,7 +300,9 @@ class SafUserDataManager(
                             collectionName = hObj.getString("collectionName"),
                             hadithNumber = hObj.getInt("hadithNumber"),
                             timestamp = hObj.optLong("timestamp", System.currentTimeMillis()),
-                            colorIndex = hObj.optInt("colorIndex", 0)
+                            colorIndex = hObj.optInt("colorIndex", 0),
+                            schemeId = hObj.optString("schemeId", "").takeIf { it.isNotBlank() },
+                            stableId = hObj.optString("stableId", "").takeIf { it.isNotBlank() }
                         )
                     )
                 }
