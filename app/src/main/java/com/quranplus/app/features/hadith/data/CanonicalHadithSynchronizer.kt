@@ -3,6 +3,7 @@ package com.quranplus.app.features.hadith.data
 import android.content.Context
 import android.util.JsonReader
 import android.util.JsonToken
+import androidx.room.useWriterConnection
 import com.quranplus.app.core.database.QuranDatabase
 import com.quranplus.app.core.database.entity.HadithChapterEntity
 import com.quranplus.app.core.database.entity.HadithCollectionEntity
@@ -167,6 +168,7 @@ class CanonicalHadithSynchronizer(
                             )
                         )
                     }
+                    invalidateStaleRagVectors()
                     CanonicalSyncResult.Synchronized(importedTotal, collectionCount)
                 }
             } catch (error: Exception) {
@@ -183,6 +185,25 @@ class CanonicalHadithSynchronizer(
                 )
             } finally {
                 tempArchive.delete()
+            }
+        }
+    }
+
+    private suspend fun invalidateStaleRagVectors() {
+        runCatching {
+            database.useWriterConnection { connection ->
+                val hasMeta = connection.usePrepared(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rag_index_metadata'"
+                ) { it.step() }
+                if (hasMeta) {
+                    connection.usePrepared("DELETE FROM rag_index_metadata WHERE id = 1") { it.step() }
+                }
+                val hasVec = connection.usePrepared(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'quranplus_vectors'"
+                ) { it.step() }
+                if (hasVec) {
+                    connection.usePrepared("DELETE FROM quranplus_vectors WHERE source_type = 'hadith'") { it.step() }
+                }
             }
         }
     }

@@ -1,0 +1,227 @@
+{
+  "total_corpus_records": 65716,
+  "targeted_candidates_inspected": 103,
+  "summary": {
+    "VERIFIED_CORRECT": 90,
+    "VERIFIED_INCORRECT": 0,
+    "NEEDS_REVIEW": 10,
+    "SOURCE_UNAVAILABLE": 3
+  },
+  "verified_incorrect": [],
+  "needs_review": [
+    {
+      "collection_id": "ahmad",
+      "stable_id": "mit:ahmad:16576",
+      "arabic_terms": [
+        "الوشر",
+        "نتف",
+        "وشم"
+      ],
+      "indonesian_terms": [
+        "mencukur alis",
+        "mengikir",
+        "mentato"
+      ],
+      "correction_applied": null,
+      "status": "NEEDS_REVIEW",
+      "note": "Arabic النتف (plucking hair) rendered as mencabut/mencukur bulu alis by upstream translator; left untouched pending scholarly editorial decision."
+    },
+    {
+      "collection_id": "ahmad",
+      "stable_id": "mit:ahmad:16577",
+      "arabic_terms": [
+        "الوشر",
+        "نتف",
+        "وشم"
+      ],
+      "indonesian_terms": [
+        "mencukur alis",
+        "mengikir",
+        "mentato"
+      ],
+      "correction_applied": null,
+      "status": "NEEDS_REVIEW",
+      "note": "Arabic النتف (plucking hair) rendered as mencabut/mencukur bulu alis by upstream translator; left untouched pending scholarly editorial decision."
+    },
+    {
+      "collection_id": "ahmad",
+      "stable_id": "mit:ahmad:16578",
+      "arabic_terms": [
+        "الوشر",
+        "نتف",
+        "وشم"
+      ],
+      "indonesian_terms": [
+        "mencukur alis",
+        "mengikir",
+        "mentato"
+      ],
+      "correction_applied": null,
+      "status": "NEEDS_REVIEW",
+      "note": "Arabic النتف (plucking hair) rendered as mencabut/mencukur bulu alis by upstream translator; left untouched pending scholarly editorial decision."
+    },
+    {
+      "collection_id": "ahmad",
+      "stable_id": "mit:ahmad:16582",
+      "arabic_terms": [
+        "الوشر",
+        "نتف",
+        "وشم"
+      ],
+      "indonesian_terms": [
+        "mencukur alis",
+        "mengikir",
+        "mentato"
+      ],
+      "correction_applied": null,
+      "status": "NEEDS_REVIEW",
+      "note": "Arabic النتف (plucking hair) rendered as mencabut/mencukur bulu alis by upstream translator; left untouched pending scholarly editorial decision."
+    },
+    {
+      "collection_id": "darimi",
+      "stable_id": "mit:darimi:2534",
+      "arabic_terms": [
+        "نتف",
+        "وشم"
+      ],
+      "indonesian_terms": [
+        "bulu alis",
+        "tato"
+      ],
+      "correction_applied": null,
+      "status": "NEEDS_REVIEW",
+      "note": "Arabic النتف (plucking hair) rendered as mencabut/mencukur bulu alis by upstream translator; left untouched pending scholarly editorial decision."
+    },
+    {
+      "collection_id": "bukhari",
+      "stable_id": "sunnah:bukhari:5541",
+      "arabic_terms": [],
+      "indonesian_terms": [
+        "tato"
+      ],
+      "correction_applied": null,
+      "status": "NEEDS_REVIEW",
+      "note": "Animal/facial branding (الوسم/الصورة) rendered with '(tato)' in upstream translation; left untouched pending expert review."
+    },
+    {
+      "collection_id": "bukhari",
+      "stable_id": "sunnah:bukhari:5932",
+      "arabic_terms": [],
+      "indonesian_terms": [
+        "ditato",
+        "mentato"
+      ],
+      "correction_applied": null,
+      "status": "NEEDS_REVIEW",
+      "note": "Animal/facial branding (الوسم/الصورة) rendered with '(tato)' in upstream translation; left untouched pending expert review."
+    },
+    {
+      "collection_id": "muslim",
+      "stable_id": "sunnah:muslim:2116.01",
+      "arabic_terms": [],
+      "indonesian_terms": [
+        "tato"
+      ],
+      "correction_applied": null,
+      "status": "NEEDS_REVIEW",
+      "note": "Animal/facial branding (الوسم/الصورة) rendered with '(tato)' in upstream translation; left untouched pending expert review."
+    },
+    {
+      "collection_id": "muslim",
+      "stable_id": "sunnah:muslim:2117",
+      "arabic_terms": [],
+      "indonesian_terms": [
+        "mentato",
+        "tato"
+      ],
+      "correction_applied": null,
+      "status": "NEEDS_REVIEW",
+      "note": "Animal/facial branding (الوسم/الصورة) rendered with '(tato)' in upstream translation; left untouched pending expert review."
+    },
+    {
+      "collection_id": "nasai",
+      "stable_id": "sunnah:nasai:5110",
+      "arabic_terms": [
+        "الوشر",
+        "نتف",
+        "وشم"
+      ],
+      "indonesian_terms": [
+        "membuat tato",
+        "mencabut bulu",
+        "mengikir"
+      ],
+      "correction_applied": null,
+      "status": "NEEDS_REVIEW",
+      "note": "Arabic النتف (plucking hair) rendered as mencabut/mencukur bulu alis by upstream translator; left untouched pending scholarly editorial decision."
+    }
+  ],
+  "source_unavailable": [
+    {
+      "collection_id": "bukhari",
+      "stable_id": "sunnah:bukhari:5933",
+      "arabic_terms": [
+        "مستوشمه",
+        "واشمه"
+      ],
+      "indonesian_terms": [],
+      "correction_applied": null,
+      "status": "SOURCE_UNAVAILABLE",
+      "note": "Indonesian translation absent from upstream source."
+    },
+    {
+      "collection_id": "muslim",
+      "stable_id": "sunnah:muslim:2125.02",
+      "arabic_terms": [
+        "مستوشمات",
+        "موشومات",
+        "واشمات"
+      ],
+      "indonesian_terms": [],
+      "correction_applied": null,
+      "status": "SOURCE_UNAVAILABLE",
+      "note": "Indonesian translation absent from upstream source."
+    },
+    {
+      "collection_id": "nasai",
+      "stable_id": "sunnah:nasai:5100",
+      "arabic_terms": [
+        "متفلجات"
+      ],
+      "indonesian_terms": [],
+      "correction_applied": null,
+      "status": "SOURCE_UNAVAILABLE",
+      "note": "Indonesian translation absent from upstream source."
+    }
+  ],
+  "corrected_records": [
+    {
+      "collection_id": "nasai",
+      "stable_id": "sunnah:nasai:5111",
+      "arabic_terms": [
+        "الوشر",
+        "وشم"
+      ],
+      "indonesian_terms": [
+        "membuat tato",
+        "mengkikir"
+      ],
+      "correction_applied": "CORR-NASAI-5111-01",
+      "status": "VERIFIED_CORRECT"
+    },
+    {
+      "collection_id": "nasai",
+      "stable_id": "sunnah:nasai:5112",
+      "arabic_terms": [
+        "الوشر",
+        "وشم"
+      ],
+      "indonesian_terms": [
+        "membuat tato",
+        "mengkikir"
+      ],
+      "correction_applied": "CORR-NASAI-5112-01",
+      "status": "VERIFIED_CORRECT"
+    }
+  ]
+}

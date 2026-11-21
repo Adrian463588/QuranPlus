@@ -5,7 +5,11 @@ import org.json.JSONObject
 import java.security.MessageDigest
 
 /** Content-bound crosswalk; archive identities remain stable for saved user data. */
-class HadithNumbering(private val loadJson: () -> String = { "{}" }) {
+class HadithNumbering(
+    private val corrector: HadithContentCorrector = HadithContentCorrector(),
+    private val loadJson: () -> String = { "{}" }
+) {
+    constructor(loadJson: () -> String) : this(HadithContentCorrector(), loadJson)
     private data class Entry(val archive: Int, val number: Int, val book: Int, val hadith: Int, val hash: String)
 
     private val entries: Map<String, Map<Int, Entry>> by lazy {
@@ -32,11 +36,15 @@ class HadithNumbering(private val loadJson: () -> String = { "{}" }) {
     fun isContentValid(row: HadithEntity): Boolean =
         entries[row.collectionId]?.containsKey(row.hadithNumber) != true || entry(row) != null
 
-    fun indonesianTranslation(row: HadithEntity): String =
-        if (row.collectionId == "abudawud" && referenceNumber(row) == 3837) {
-            // زبد is butter, as confirmed by sunnah.com/abudawud:3837.
-            row.translationId.replace("keju dan kurma", "mentega dan kurma")
-        } else row.translationId
+    fun indonesianTranslation(row: HadithEntity): String {
+        val targetNumber = referenceNumber(row) ?: row.hadithNumber
+        return corrector.applyTranslationOnly(
+            collectionId = row.collectionId,
+            referenceOrArchiveNumber = targetNumber,
+            stableId = row.stableId.takeIf { it.isNotBlank() },
+            translationId = row.translationId
+        )
+    }
 
     fun canonicalUrl(row: HadithEntity): String? = entry(row)?.let { mapped ->
         // A Muslim base-number URL selects variant a. In-book references are

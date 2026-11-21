@@ -1,10 +1,10 @@
 # Hadith Corpus Validation Summary
 
 - **Status:** PASS
-- **Bundle:** `sunnah-canonical-bundle.zip` (34,735,973 bytes, SHA-256 `b3ab43be9b3b3a050deb6349d8d40682a831f5af348899cbe51f17ba63427d38`)
-- **Licenses:** `Unlicense+MIT` | **Revision:** `df57907be35291c91ad6a6691180e22ca9920784+mit9`
+- **Bundle:** `sunnah-canonical-bundle.zip` (34,736,101 bytes, SHA-256 `00cd175e2ec64627fd4275c4fc9724ceb1646de404bf70dc21ea885d7bb77d0b`)
+- **Licenses:** `Unlicense+MIT` | **Revision:** `df57907be35291c91ad6a6691180e22ca9920784+mit9+corr1`
 - **Total Verified Records:** 65,716 across 9 collections
-- **Golden Fixtures Verified:** HF-001, HF-002, HF-003, HF-004, HF-005
+- **Golden Fixtures Verified:** HF-001, HF-002, HF-003, HF-004, HF-005, HF-006
 - **Integrity Issues Found:** 0
 
 | Collection | Default Scheme | License | Records | Scheme Ranges (Min..Max) | Gaps Explained | Status |

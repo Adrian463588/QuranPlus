@@ -90,5 +90,34 @@ class HadithNumberingDeviceTest {
         assertEquals(HadithLookupStatus.FOUND, hf5Al.status)
         assertTrue(hf5Al.records.single().textArabic.contains("مَنْ نَزَلَتْ بِهِ فَاقَةٌ"))
         assertNotEquals(hf5Ris.records.single().stableId, hf5Al.records.single().stableId)
+
+        // HF-006: Sunan an-Nasa'i 5111 / 5022 & sibling 5112 / 5023 + FTS5 search
+        val hf6 = repository.searchDetailed("nasai", "5111", HadithNumberingScheme.SUNNAH)
+        assertEquals(HadithLookupStatus.FOUND, hf6.status)
+        assertEquals("sunnah:nasai:5111", hf6.records.single().stableId)
+        assertTrue(hf6.records.single().textArabic.contains("قَالَ بَلَغَنَا"))
+        assertTrue(hf6.records.single().translationId.contains("mengkikir gigi dan membuat tato."))
+        assertFalse(hf6.records.single().translationId.contains("bulu alis"))
+        assertTrue(hf6.records.single().grades.any { it.authority == "Al-Albani" && it.grade == "Sahih" })
+        assertTrue(hf6.records.single().grades.any { it.authority == "Zubair Ali Zai" && it.grade == "Daif" })
+        assertEquals("https://sunnah.com/nasai:5111", hf6.records.single().canonicalUrl)
+
+        val hf6Arch = repository.searchDetailed("nasai", "5022", HadithNumberingScheme.ARCHIVE_GADING)
+        assertEquals(HadithLookupStatus.FOUND, hf6Arch.status)
+        assertEquals("sunnah:nasai:5111", hf6Arch.records.single().stableId)
+        assertTrue(hf6Arch.records.single().translationId.contains("mengkikir gigi dan membuat tato."))
+
+        val hf6Twin = repository.searchDetailed("nasai", "5112", HadithNumberingScheme.SUNNAH)
+        assertEquals(HadithLookupStatus.FOUND, hf6Twin.status)
+        assertTrue(hf6Twin.records.single().translationId.contains("mengkikir gigi dan membuat tato."))
+        assertFalse(hf6Twin.records.single().translationId.contains("bulu alis"))
+
+        val ftsTato = repository.searchDetailed("nasai", "membuat tato", HadithNumberingScheme.SUNNAH)
+        assertEquals(HadithLookupStatus.FOUND, ftsTato.status)
+        assertTrue(ftsTato.records.any { it.stableId == "sunnah:nasai:5111" })
+
+        val valid5109 = repository.searchDetailed("nasai", "5109", HadithNumberingScheme.SUNNAH)
+        assertEquals(HadithLookupStatus.FOUND, valid5109.status)
+        assertTrue(valid5109.records.single().translationId.contains("mencabut bulu alis"))
     }
 }

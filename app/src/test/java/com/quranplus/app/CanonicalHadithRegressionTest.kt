@@ -14,6 +14,7 @@ import com.quranplus.app.features.chatbot.data.InternetResearcher
 import com.quranplus.app.features.chatbot.data.LlmRunner
 import com.quranplus.app.features.hadith.data.CanonicalHadithSynchronizer
 import com.quranplus.app.features.hadith.data.HadithBundleManager
+import com.quranplus.app.features.hadith.data.HadithContentCorrector
 import com.quranplus.app.features.hadith.data.HadithNumbering
 import com.quranplus.app.features.hadith.data.HadithRepositoryImpl
 import com.quranplus.app.features.hadith.domain.GetHadithCollectionsUseCase
@@ -467,6 +468,121 @@ class CanonicalHadithRegressionTest {
         assertEquals(1, chatRes.citations.size)
         assertEquals("https://hadits.net/ahmad:4001", chatRes.citations.single().canonicalUrl)
         assertTrue(chatRes.citations.single().textSnippet.contains("آيَةُ اللِّعَانِ"))
+    }
+
+    @Test
+    fun GIVEN_nasai5111And5112_WHEN_verifiedAcrossBundleRepoAndRag_THEN_correctsTattooPreservesNamshAndGrades() = runTest {
+        val hf6 = loadRecordFromAsset("nasai", 5111, "sunnah")
+        val hf6Arch = loadRecordFromAsset("nasai", 5022, "archive_gading")
+        assertEquals(hf6.entity.stableId, hf6Arch.entity.stableId)
+        assertEquals("sunnah:nasai:5111", hf6.entity.stableId)
+        assertTrue(hf6.entity.textArabic.contains("قَالَ بَلَغَنَا"))
+        assertFalse(hf6.entity.textArabic.contains("قَالَبَلَغَنَا"))
+        assertTrue(hf6.entity.textArabic.contains("الْوَشْرِ وَالْوَشْمِ"))
+        assertTrue(hf6.entity.translationId.contains("[Ahmad bin Amru bin As Sarh]"))
+        assertTrue(hf6.entity.translationId.contains("mengkikir gigi dan membuat tato."))
+        assertFalse(hf6.entity.translationId.contains("bulu alis"))
+        assertEquals("https://sunnah.com/nasai:5111", hf6.entity.canonicalUrl)
+        assertTrue(hf6.grades.any { it.authority == "Al-Albani" && it.grade == "Sahih" })
+        assertTrue(hf6.grades.any { it.authority == "Abu Ghuddah" && it.grade == "Sahih" })
+        assertTrue(hf6.grades.any { it.authority == "Zubair Ali Zai" && it.grade == "Daif" })
+
+        val hf6Twin = loadRecordFromAsset("nasai", 5112, "sunnah")
+        val hf6TwinArch = loadRecordFromAsset("nasai", 5023, "archive_gading")
+        assertEquals(hf6Twin.entity.stableId, hf6TwinArch.entity.stableId)
+        assertTrue(hf6Twin.entity.textArabic.contains("قَالَ بَلَغَنَا"))
+        assertTrue(hf6Twin.entity.translationId.contains("[Qutaibah]"))
+        assertTrue(hf6Twin.entity.translationId.contains("mengkikir gigi dan membuat tato."))
+        assertFalse(hf6Twin.entity.translationId.contains("bulu alis"))
+
+        // Preserve valid related hadiths (الْمُتَنَمِّصَاتِ)
+        val nasai5109 = loadRecordFromAsset("nasai", 5109, "sunnah")
+        assertTrue(nasai5109.entity.textArabic.contains("الْمُتَنَمِّصَاتِ"))
+        assertTrue(nasai5109.entity.translationId.contains("mencabut bulu alis"))
+        val bukhari5931 = loadRecordFromAsset("bukhari", 5931, "sunnah")
+        assertTrue(bukhari5931.entity.translationId.contains("mencukur habis alis"))
+
+        // Exact scheme-scoped lookup for canonical 5111 and archive 5022
+        val dao = mockk<HadithDao>(relaxed = true)
+        coEvery { dao.countActiveDistinctHadiths("nasai") } returns 5679
+        coEvery { dao.findByReference("nasai", "sunnah", 5111, null, any()) } returns listOf(hf6.entity)
+        coEvery { dao.findByReference("nasai", "archive_gading", 5022, null, any()) } returns listOf(hf6.entity)
+        coEvery { dao.getReferencesForHadiths(any()) } returns hf6.refs
+        coEvery { dao.getGradesForHadiths(any()) } returns hf6.grades
+
+        val repo = HadithRepositoryImpl(dao, ioDispatcher = Dispatchers.Unconfined)
+        val sunnahRes = repo.searchDetailed("nasai", "5111", HadithNumberingScheme.SUNNAH)
+        assertEquals(HadithLookupStatus.FOUND, sunnahRes.status)
+        assertEquals("sunnah:nasai:5111", sunnahRes.records.single().stableId)
+        assertTrue(sunnahRes.records.single().translationId.contains("mengkikir gigi dan membuat tato."))
+
+        val archiveRes = repo.searchDetailed("nasai", "5022", HadithNumberingScheme.ARCHIVE_GADING)
+        assertEquals(HadithLookupStatus.FOUND, archiveRes.status)
+        assertEquals("sunnah:nasai:5111", archiveRes.records.single().stableId)
+        assertEquals("https://sunnah.com/nasai:5111", archiveRes.records.single().canonicalUrl)
+
+        // Offline RAG grounding resolves corrected Nasai 5111 and arsip 5022 without stale text
+        val database = mockk<QuranDatabase>(relaxed = true)
+        every { database.hadithDao() } returns dao
+        val chatRepo = ChatRepositoryImpl(
+            mockk<ChatDao>(relaxed = true),
+            mockk<EmbeddingService>(relaxed = true),
+            mockk<VectorRetriever>(relaxed = true),
+            RagPipeline(),
+            mockk<LlmRunner>(relaxed = true).apply { every { isAvailable() } returns false },
+            database,
+            RagRuntimeCoordinator(),
+            mockk<InternetResearcher>().apply { coEvery { search(any(), any()) } returns emptyList() },
+            mockk<PreferencesManager>().apply { every { onlineResearchEnabled } returns flowOf(true) },
+            HadithNumbering { "{}" }
+        )
+        val ragCanonical = chatRepo.generateRagResponse("s-nasai-5111", "Jelaskan hadits Nasai 5111 tentang tato", AiPersona.USTADZ, null)
+        assertEquals(1, ragCanonical.citations.size)
+        assertEquals("https://sunnah.com/nasai:5111", ragCanonical.citations.single().canonicalUrl)
+        assertTrue(ragCanonical.citations.single().textSnippet.contains("mengkikir gigi dan membuat tato."))
+        assertFalse(ragCanonical.citations.single().textSnippet.contains("bulu alis"))
+
+        val ragArchive = chatRepo.generateRagResponse("s-nasai-5022", "Lihat hadits Nasai arsip 5022", AiPersona.USTADZ, null)
+        assertEquals(1, ragArchive.citations.size)
+        assertEquals("hadith:nasai:5022", ragArchive.citations.single().deepLinkTarget)
+        assertTrue(ragArchive.citations.single().textSnippet.contains("mengkikir gigi dan membuat tato."))
+    }
+
+    @Test
+    fun GIVEN_hadithContentCorrector_WHEN_applied_THEN_fixesLegacyWhitespaceEnforcesIdempotencyAndRejectsMismatch() {
+        val corrector = HadithContentCorrector { assetFile("content-corrections.json").readText(Charsets.UTF_8) }
+        val legacyArabic = "أَخْبَرَنَا أَحْمَدُ بْنُ عَمْرِو بْنِ السَّرْحِ قَالَ حَدَّثَنَا ابْنُ وَهْبٍ قَالَ أَخْبَرَنِي اللَّيْثُ عَنْ يَزِيدَ بْنِ أَبِي حَبِيبٍ عَنْ أَبِي الْحُصَيْنِ الْحِمْيَرِيِّ عَنْ أَبِي رَيْحَانَةَ قَالَبَلَغَنَا أَنَّ رَسُولَ اللَّهِ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ نَهَى عَنْ الْوَشْرِ وَالْوَشْمِ"
+        val legacyIndonesian = "Telah mengabarkan kepada kami [Ahmad bin Amru bin As Sarh] ia berkata; telah menceritakan kepada kami [Ibnu Wahb] ia berkata; telah mengabarkan kepadaku [Al Laits] dari [Yazid bin Abu Habib] dari [Abu Al Hushain Al Himyari] dari [Abu Raihanah] ia berkata, \"Telah sampai kabar kepada kami bahwa Rasulullah shallallahu 'alaihi wasallam melarang mengkikir gigi dan mencabut bulu alis.\""
+
+        // First application fixes both translation and missing Arabic space
+        val applied = corrector.apply("nasai", 5022, "archive_gading:nasai:5022", legacyArabic, legacyIndonesian)
+        assertTrue(applied is HadithContentCorrector.CorrectionOutcome.Applied)
+        val resolved = applied as HadithContentCorrector.CorrectionOutcome.Applied
+        assertEquals("CORR-NASAI-5111-01", resolved.correctionId)
+        assertTrue(resolved.fixedArabic.contains("قَالَ بَلَغَنَا"))
+        assertFalse(resolved.fixedArabic.contains("قَالَبَلَغَنَا"))
+        assertTrue(resolved.fixedTranslationId.contains("mengkikir gigi dan membuat tato."))
+        assertFalse(resolved.fixedTranslationId.contains("bulu alis"))
+
+        // Second application is strictly idempotent (no further mutation)
+        val secondPass = corrector.apply(
+            "nasai", 5111, "sunnah:nasai:5111", resolved.fixedArabic, resolved.fixedTranslationId
+        )
+        assertTrue(secondPass is HadithContentCorrector.CorrectionOutcome.AlreadyCorrected)
+
+        // Upstream digest mismatch rejects silent mutation (fail-closed)
+        val mismatch = corrector.apply(
+            "nasai", 5111, "sunnah:nasai:5111", resolved.fixedArabic, "Teks sumber upstream berubah tidak dikenal"
+        )
+        assertTrue(mismatch is HadithContentCorrector.CorrectionOutcome.DigestMismatch)
+
+        // Unrelated valid hadith remains completely untouched
+        val valid5109 = corrector.apply(
+            "nasai", 5109, "sunnah:nasai:5109",
+            "لَعَنَ اللَّهُ الْمُتَنَمِّصَاتِ",
+            "melaknat wanita yang mencabut bulu alis"
+        )
+        assertTrue(valid5109 is HadithContentCorrector.CorrectionOutcome.NoRule)
     }
 
     private fun mockDaoForFixture(fixture: LoadedFixture): HadithDao {

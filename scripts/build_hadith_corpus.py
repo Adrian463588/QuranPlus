@@ -22,6 +22,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 ASSET_DIR = ROOT / "app/src/main/assets/hadith"
 BUNDLE_PATH = ASSET_DIR / "sunnah-canonical-bundle.zip"
 MANIFEST_PATH = ASSET_DIR / "corpus-manifest.json"
+CORRECTIONS_PATH = ASSET_DIR / "content-corrections.json"
 NUMBERING_PATH = ASSET_DIR / "numbering.json"
 AUDIT_PATH = ROOT / "specs/003-hadith-integrity/audit/hadith-audit.json"
 
@@ -65,6 +66,47 @@ EXPECTED_INPUT_SHA256 = {
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def load_content_corrections() -> tuple[str, dict[tuple[str, str, str], dict]]:
+    raw = CORRECTIONS_PATH.read_bytes()
+    doc = json.loads(raw.decode("utf-8"))
+    by_key = {
+        (item["collection_id"], item["stable_id"], item["language"]): item
+        for item in doc["corrections"]
+    }
+    return sha256_bytes(raw), by_key
+
+
+def apply_content_correction(
+    col_id: str,
+    stable_id: str,
+    arabic_text: str,
+    ind_text: str,
+    corrections_by_key: dict[tuple[str, str, str], dict],
+) -> tuple[str, str, str | None]:
+    rule = corrections_by_key.get((col_id, stable_id, "id"))
+    if not rule:
+        return arabic_text, ind_text, None
+
+    ws_from = rule.get("arabic_whitespace_from")
+    ws_to = rule.get("arabic_whitespace_to")
+    if ws_from and ws_to and ws_from in arabic_text:
+        arabic_text = arabic_text.replace(ws_from, ws_to)
+    assert not ws_from or ws_from not in arabic_text, f"Whitespace repair incomplete for {stable_id}"
+
+    digest = sha256_bytes(ind_text.encode("utf-8"))
+    if digest == rule["corrected_text_sha256"]:
+        return arabic_text, ind_text, rule["correction_id"]
+    accepted = set(rule.get("accepted_original_sha256s", [rule["original_text_sha256"]]))
+    if digest not in accepted:
+        raise ValueError(
+            f"Source digest mismatch for {rule['correction_id']} ({stable_id}): "
+            f"expected {sorted(accepted)}, got {digest}"
+        )
+    fixed = rule["corrected_text"]
+    assert sha256_bytes(fixed.encode("utf-8")) == rule["corrected_text_sha256"]
+    return arabic_text, fixed, rule["correction_id"]
 
 
 def split_number(raw_num) -> tuple[int, str]:
@@ -474,6 +516,8 @@ def build_canonical_bundle(
 ) -> None:
     info = json.loads((fawaz_dir / "info.json").read_bytes().decode("utf-8"))
     numbering = json.loads(NUMBERING_PATH.read_text(encoding="utf-8"))
+    corrections_sha, corrections_by_key = load_content_corrections()
+    applied_corrections: list[str] = []
 
     gading_by_col = {}
     if gading_zip_path.is_file():
@@ -634,8 +678,15 @@ def build_canonical_bundle(
                 ind_text = gading_records[archive_nums[0]].get("id", "").strip()
             if not ind_text:
                 ind_text = i.get("text", "").strip()
-            if col_id == "abudawud" and primary_number == 3837 and "keju dan kurma" in ind_text:
-                ind_text = ind_text.replace("keju dan kurma", "mentega dan kurma")
+            arabic_text, ind_text, applied_id = apply_content_correction(
+                col_id=col_id,
+                stable_id=stable_id,
+                arabic_text=arabic_text,
+                ind_text=ind_text,
+                corrections_by_key=corrections_by_key,
+            )
+            if applied_id:
+                applied_corrections.append(applied_id)
 
             for r in refs:
                 key = (col_id, r["scheme"], r["number"], r["variant"])
@@ -751,13 +802,19 @@ def build_canonical_bundle(
     }
     total_active += darimi_meta["active_record_count"]
 
+    assert sorted(applied_corrections) == sorted(c["correction_id"] for c in corrections_by_key.values()), (
+        f"Unapplied corrections: expected {len(corrections_by_key)}, applied {applied_corrections}"
+    )
+
     manifest_body = {
         "bundle_id": "quranplus-sunnah-canonical",
         "source_id": "fawazahmed0-hadith-api",
         "source_uri": FAWAZ_SOURCE_URI,
         "secondary_source_id": "irsyadulibad-hadits-database",
         "secondary_source_uri": IRSYAD_SOURCE_URI,
-        "revision": f"{FAWAZ_REVISION}+mit9",
+        "revision": f"{FAWAZ_REVISION}+mit9+corr1",
+        "correction_manifest_sha256": corrections_sha,
+        "applied_corrections": sorted(applied_corrections),
         "license_id": "Unlicense+MIT",
         "licenses": {
             "sunnah_canonical_7": FAWAZ_LICENSE,
@@ -790,12 +847,14 @@ def build_canonical_bundle(
 
     AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
     audit_doc = {
-        "audit_date": "2026-11-20",
+        "audit_date": "2026-11-21",
         "canonical_bundle": {
             "source_uri": FAWAZ_SOURCE_URI,
             "secondary_source_uri": IRSYAD_SOURCE_URI,
             "revision": manifest_body["revision"],
             "license": manifest_body["license_id"],
+            "correction_manifest_sha256": corrections_sha,
+            "applied_corrections": sorted(applied_corrections),
             "archive_size_bytes": len(zip_bytes),
             "archive_sha256": sha256_bytes(zip_bytes),
             "total_active_records": total_active,

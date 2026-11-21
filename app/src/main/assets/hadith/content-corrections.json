@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-21",
+  "corrections": [
+    {
+      "correction_id": "CORR-ABUDAWUD-3837-01",
+      "collection_id": "abudawud",
+      "stable_id": "sunnah:abudawud:3837",
+      "scheme_id": "sunnah",
+      "canonical_reference": 3837,
+      "archive_reference": 3340,
+      "language": "id",
+      "original_text_sha256": "1a38f50a1952d7c052a05e80e3816f3684876ea19885c96c60b5aa5cc9b8426a",
+      "accepted_original_sha256s": [
+        "1a38f50a1952d7c052a05e80e3816f3684876ea19885c96c60b5aa5cc9b8426a"
+      ],
+      "corrected_text_sha256": "4f0041ff333faede6d2a14de9b191eba3efe5248622a5cc0cbb4d5a78896404b",
+      "corrected_text": "Telah menceritakan kepada kami [Muhammad bin Al Wazir] telah menceritakan kepada kami [Al Walid bin Mazyad] ia berkata; aku mendengar [Ibnu Jabir] berkata; telah menceritakan kepadaku [Sulaim bin 'Amir] dari [dua anak] [Busr As Sulami] mereka berkata, \"Rasulullah shallallahu 'alaihi wasallam menemui kami, lalu kami menghidangkan mentega dan kurma, dan beliau menyukai keduanya.\"",
+      "source_reference": "https://sunnah.com/abudawud:3837",
+      "verification_status": "VERIFIED",
+      "rationale": "Arabic زُبْدًا refers to butter (mentega), not cheese (keju)."
+    },
+    {
+      "correction_id": "CORR-NASAI-5111-01",
+      "collection_id": "nasai",
+      "stable_id": "sunnah:nasai:5111",
+      "scheme_id": "sunnah",
+      "canonical_reference": 5111,
+      "archive_reference": 5022,
+      "language": "id",
+      "original_text_sha256": "db7a8841c6b5a2e497da0a995cc671e67962133a5d1012f28f51e9fb17fa7393",
+      "accepted_original_sha256s": [
+        "db7a8841c6b5a2e497da0a995cc671e67962133a5d1012f28f51e9fb17fa7393",
+        "f71914c87ea21fdff1a0c3b926d4f2525359d8e71bb1a6f5d2c3f08e09f176df"
+      ],
+      "corrected_text_sha256": "63d8a8eb68b618bab4da004578cada9af9aac682135bb13c4473cb4bc2a74687",
+      "corrected_text": "Telah mengabarkan kepada kami [Ahmad bin Amru bin As Sarh] ia berkata; telah menceritakan kepada kami [Ibnu Wahb] ia berkata; telah mengabarkan kepadaku [Al Laits] dari [Yazid bin Abu Habib] dari [Abu Al Hushain Al Himyari] dari [Abu Raihanah] ia berkata, \"Telah sampai kabar kepada kami bahwa Rasulullah shallallahu 'alaihi wasallam melarang mengkikir gigi dan membuat tato.\"",
+      "arabic_whitespace_from": "قَالَبَلَغَنَا",
+      "arabic_whitespace_to": "قَالَ بَلَغَنَا",
+      "source_reference": "https://sunnah.com/nasai:5111",
+      "verification_status": "VERIFIED",
+      "rationale": "Arabic الْوَشْمِ (al-wasym) means making tattoos (membuat tato), not eyebrow plucking (النمص / mencabut bulu alis); preserves verified sanad and canonical قَالَ بَلَغَنَا spacing."
+    },
+    {
+      "correction_id": "CORR-NASAI-5112-01",
+      "collection_id": "nasai",
+      "stable_id": "sunnah:nasai:5112",
+      "scheme_id": "sunnah",
+      "canonical_reference": 5112,
+      "archive_reference": 5023,
+      "language": "id",
+      "original_text_sha256": "3c2a4cd853097d7ca14572ec237606daf182bfee5e362c2b9670f09bb3bb151c",
+      "accepted_original_sha256s": [
+        "3c2a4cd853097d7ca14572ec237606daf182bfee5e362c2b9670f09bb3bb151c",
+        "fd821c142461cb6d1138169adf26ce93dbf6d4f5469c96e8dc0837eb92aa0b47"
+      ],
+      "corrected_text_sha256": "a55a933b4fb321e6c3a9c5a575d1e0d2f40c1c3418331fe7bacf11040c61bf80",
+      "corrected_text": "Telah menceritakan kepada kami [Qutaibah] ia berkata; telah menceritakan kepada kami [Al Laits] dari [Yazid bin Abu Habib] dari [Abu Al Hushain Al Himyari] dari [Abu Raihanah] ia berkata, \"Telah sampai kabar kepada kami bahwa Rasulullah shallallahu 'alaihi wasallam melarang mengkikir gigi dan membuat tato.\"",
+      "arabic_whitespace_from": "قَالَبَلَغَنَا",
+      "arabic_whitespace_to": "قَالَ بَلَغَنَا",
+      "source_reference": "https://sunnah.com/nasai:5112",
+      "verification_status": "VERIFIED",
+      "rationale": "Twin isnad of Nasai 5111 via Qutaibah with identical matn الْوَشْرِ وَالْوَشْمِ mistranslated upstream as mencabut bulu alis instead of membuat tato."
+    }
+  ]
+}

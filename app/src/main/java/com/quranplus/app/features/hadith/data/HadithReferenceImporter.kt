@@ -26,7 +26,12 @@ data class HadithImportSummary(
 /** Imports a real Hadist JSON source selected through SAF or extracted from the bundle. */
 class HadithReferenceImporter(
     private val context: Context,
-    private val database: QuranDatabase
+    private val database: QuranDatabase,
+    private val contentCorrector: HadithContentCorrector = HadithContentCorrector {
+        runCatching {
+            context.assets.open("hadith/content-corrections.json").bufferedReader().use { it.readText() }
+        }.getOrDefault("{}")
+    }
 ) {
     suspend fun import(
         uri: Uri,
@@ -77,8 +82,25 @@ class HadithReferenceImporter(
         val titleArabic = parsed.titleArabic
         val enrichedRecords = parsed.records.map { record ->
             val stableId = "$schemeId:${parsed.collectionId}:${record.hadithNumber}"
-            val checksum = sha256Hex("${record.textArabic}\n${record.translationEn}\n${record.translationId}")
+            val (correctedArabic, correctedId) = when (
+                val outcome = contentCorrector.apply(
+                    collectionId = parsed.collectionId,
+                    hadithNumber = record.hadithNumber,
+                    stableId = stableId,
+                    arabicText = record.textArabic,
+                    translationId = record.translationId
+                )
+            ) {
+                is HadithContentCorrector.CorrectionOutcome.Applied ->
+                    outcome.fixedArabic to outcome.fixedTranslationId
+                is HadithContentCorrector.CorrectionOutcome.AlreadyCorrected ->
+                    outcome.fixedArabic to outcome.fixedTranslationId
+                else -> record.textArabic to record.translationId
+            }
+            val checksum = sha256Hex("${correctedArabic}\n${record.translationEn}\n${correctedId}")
             record.copy(
+                textArabic = correctedArabic,
+                translationId = correctedId,
                 stableId = stableId,
                 schemeId = schemeId,
                 contentChecksum = checksum,

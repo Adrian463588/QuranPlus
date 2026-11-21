@@ -1,16 +1,18 @@
 package com.quranplus.app
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -101,7 +103,7 @@ class MainNavigationSmokeTest {
         waitForText("Al-Qur'an Al-Karim")
 
         composeRule.onNodeWithText("More").performClick()
-        composeRule.onNodeWithText("Pengaturan").performClick()
+        composeRule.onAllNodes(hasText("Pengaturan") and hasClickAction()).onFirst().performClick()
 
         waitForText("Tajwid Berwarna (High Contrast)")
         composeRule.onNodeWithText("Folder Model & Dokumen (SAF)").performScrollTo()
@@ -113,7 +115,7 @@ class MainNavigationSmokeTest {
         waitForText("Al-Qur'an Al-Karim")
 
         composeRule.onNodeWithText("More").performClick()
-        composeRule.onNodeWithText("Bookmark").performClick()
+        composeRule.onAllNodes(hasText("Bookmark") and hasClickAction()).onFirst().performClick()
 
         waitForText("Daftar Bookmark")
     }
@@ -122,9 +124,8 @@ class MainNavigationSmokeTest {
     fun GIVEN_reader_WHEN_titleIdentityIsClicked_THEN_quranRootIsDisplayed() {
         waitForText("Al-Qur'an Al-Karim")
 
-        composeRule.onNodeWithText("Al-Qur'an").performClick()
-        waitForText("Al-Faatiha")
-        composeRule.onNodeWithText("Al-Faatiha").performClick()
+        composeRule.onAllNodesWithText("Al-Qur'an")[0].performClick()
+        openFirstSurahReader()
         waitForContentDescription("Beranda Quran")
         composeRule.onNodeWithContentDescription("Beranda Quran").performClick()
 
@@ -135,14 +136,24 @@ class MainNavigationSmokeTest {
     fun GIVEN_reader_WHEN_hamburgerHomeIsClicked_THEN_quranRootIsDisplayed() {
         waitForText("Al-Qur'an Al-Karim")
 
-        composeRule.onNodeWithText("Al-Qur'an").performClick()
-        waitForText("Al-Faatiha")
-        composeRule.onNodeWithText("Al-Faatiha").performClick()
+        composeRule.onAllNodesWithText("Al-Qur'an")[0].performClick()
+        openFirstSurahReader()
         waitForContentDescription("Menu Quran")
         composeRule.onNodeWithContentDescription("Menu Quran").performClick()
         composeRule.onNodeWithText("Beranda Quran").performClick()
 
         waitForText("Al-Qur'an Al-Karim")
+    }
+
+    private fun openFirstSurahReader() {
+        waitForText("Al-Faatiha")
+        composeRule.onAllNodes(hasText("Al-Faatiha") and hasClickAction()).onFirst().performClick()
+        val hasOpenButton = runCatching {
+            composeRule.onAllNodesWithText("Buka reader").fetchSemanticsNodes().isNotEmpty()
+        }.getOrDefault(false)
+        if (hasOpenButton) {
+            composeRule.onNodeWithText("Buka reader").performClick()
+        }
     }
 
     private fun waitForText(text: String) {

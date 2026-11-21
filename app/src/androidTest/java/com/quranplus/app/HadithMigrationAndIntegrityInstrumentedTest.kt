@@ -6,11 +6,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.room.Room
+import androidx.room.useReaderConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -31,6 +33,7 @@ import com.quranplus.app.features.hadith.presentation.HadithViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -70,6 +73,10 @@ class HadithMigrationAndIntegrityInstrumentedTest {
                 // Seed legacy v14 custom non-bundled collection row that must survive upgrade cleanly
                 conn.prepare("INSERT INTO hadith_collections(id, title_arabic, title_english, source_revision, source_sha256, license_status, grade_status, record_count, chapter_count, is_complete, bundle_allowed) VALUES ('custom_note', 'فوائد', 'Fawaid Custom', 'local-1', '', 'licensed', 'not_provided', 1, 0, 1, 1)").use { it.step() }
                 conn.prepare("INSERT INTO hadiths(id, collection_id, hadith_number, title, text_arabic, translation_id, translation_en, reference, source_revision, source_sha256, license_status, language, is_complete) VALUES (9900001, 'custom_note', 1, 'Fawaid Custom', 'إنما الأعمال', 'Amal tergantung niat', '', 'Fawaid Custom no. 1', 'local-1', '', 'licensed', 'id', 1)").use { it.step() }
+                // Seed stale pre-upgrade nasai:5111 and stale rag_index_metadata to prove replacement & invalidation
+                conn.prepare("INSERT INTO hadiths(id, collection_id, hadith_number, title, text_arabic, translation_id, translation_en, reference, source_revision, source_sha256, license_status, language, is_complete) VALUES (5105117, 'nasai', 5111, 'Sunan al-Nasa''i', 'قَالَبَلَغَنَا', 'mengkikir gigi dan mencabut bulu alis.', '', 'Sunan al-Nasa''i no. 5111', 'old-rev', '', 'licensed', 'id', 1)").use { it.step() }
+                conn.prepare("CREATE TABLE IF NOT EXISTS rag_index_metadata(id INTEGER PRIMARY KEY CHECK(id = 1), fingerprint TEXT NOT NULL, model_id TEXT NOT NULL, model_revision TEXT NOT NULL, tokenizer_sha256 TEXT NOT NULL, embedding_dimension INTEGER NOT NULL, normalized INTEGER NOT NULL, pooling TEXT NOT NULL, max_sequence_length INTEGER NOT NULL, chunk_token_count INTEGER NOT NULL, chunk_overlap_tokens INTEGER NOT NULL, corpus_record_count INTEGER NOT NULL, corpus_fingerprint TEXT NOT NULL, updated_at INTEGER NOT NULL)").use { it.step() }
+                conn.prepare("INSERT INTO rag_index_metadata(id, fingerprint, model_id, model_revision, tokenizer_sha256, embedding_dimension, normalized, pooling, max_sequence_length, chunk_token_count, chunk_overlap_tokens, corpus_record_count, corpus_fingerprint, updated_at) VALUES (1, 'stale-fp', 'm', 'r', 't', 384, 1, 'mean', 256, 510, 50, 1, 'stale-cfp', 1700000000)").use { it.step() }
             }
 
             // 2. Open with Room v16 + MIGRATION_14_15 + MIGRATION_15_16
@@ -100,6 +107,14 @@ class HadithMigrationAndIntegrityInstrumentedTest {
                 val sync = CanonicalHadithSynchronizer(context, db)
                 val syncRes = sync.ensureSynchronized()
                 assertTrue("Expected Synchronized but got $syncRes", syncRes is CanonicalSyncResult.Synchronized)
+                assertEquals(CanonicalSyncResult.AlreadyCurrent, sync.ensureSynchronized())
+                val staleMetaRemaining = db.useReaderConnection { conn ->
+                    conn.usePrepared("SELECT COUNT(*) FROM rag_index_metadata") { st ->
+                        st.step()
+                        st.getInt(0)
+                    }
+                }
+                assertEquals(0, staleMetaRemaining)
                 assertEquals(65_716, (syncRes as CanonicalSyncResult.Synchronized).activeRecords)
                 assertEquals(9, syncRes.collectionCount)
                 assertEquals(1, db.hadithDao().countActiveDistinctHadiths("custom_note"))
@@ -138,6 +153,17 @@ class HadithMigrationAndIntegrityInstrumentedTest {
                 val muslim2723b = repo.searchDetailed("muslim", "2723b", HadithNumberingScheme.SUNNAH)
                 assertEquals(1, muslim2723b.records.size)
                 assertEquals("02", muslim2723b.records.single().variantSuffix)
+
+                // HF-006: Sunan an-Nasa'i 5111 / 5022 + 5112 / 5023 + FTS5 + preserved 5109
+                val nasai5111 = repo.searchDetailed("nasai", "5111", HadithNumberingScheme.SUNNAH)
+                assertEquals(HadithLookupStatus.FOUND, nasai5111.status)
+                assertTrue(nasai5111.records.single().translationId.contains("mengkikir gigi dan membuat tato."))
+                assertFalse(nasai5111.records.single().translationId.contains("bulu alis"))
+                val nasai5022 = repo.searchDetailed("nasai", "5022", HadithNumberingScheme.ARCHIVE_GADING)
+                assertEquals(nasai5111.records.single().stableId, nasai5022.records.single().stableId)
+                val nasaiTatoFts = repo.searchDetailed("nasai", "membuat tato", HadithNumberingScheme.SUNNAH)
+                assertTrue(nasaiTatoFts.records.any { it.stableId == "sunnah:nasai:5111" })
+                assertTrue(repo.searchDetailed("nasai", "5109", HadithNumberingScheme.SUNNAH).records.single().translationId.contains("mencabut bulu alis"))
             } finally {
                 db.close()
             }
@@ -216,5 +242,19 @@ class HadithMigrationAndIntegrityInstrumentedTest {
             vm.state.value is HadithUiState.LookupIssue
         }
         composeRule.onNodeWithText("Gunakan No. Sunnah.com").assertIsDisplayed().performClick()
+
+        // Open Sunan an-Nasa'i 5111 offline -> verify corrected translation rendered onscreen (phone or tablet viewport)
+        vm.openReference("nasai", 5111, "sunnah")
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            vm.state.value.let { st ->
+                st is HadithUiState.Ready && st.records.any { it.stableId == "sunnah:nasai:5111" }
+            }
+        }
+        composeRule.onAllNodesWithText("mengkikir gigi dan membuat tato.", substring = true).onFirst().assertIsDisplayed()
+        assertEquals(
+            0,
+            composeRule.onAllNodesWithText("mengkikir gigi dan mencabut bulu alis.", substring = true)
+                .fetchSemanticsNodes().size
+        )
     }
 }

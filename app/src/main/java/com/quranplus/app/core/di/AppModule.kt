@@ -19,6 +19,7 @@ import com.quranplus.app.features.chatbot.presentation.ChatViewModel
 import com.quranplus.app.features.audio.data.AudioDownloadScheduler
 import com.quranplus.app.features.audio.presentation.AudioDownloadViewModel
 import com.quranplus.app.features.hadith.data.CanonicalHadithSynchronizer
+import com.quranplus.app.features.hadith.data.HadithContentCorrector
 import com.quranplus.app.features.hadith.data.HadithRepositoryImpl
 import com.quranplus.app.features.hadith.data.HadithNumbering
 import com.quranplus.app.features.hadith.data.HadithReferenceImporter
@@ -129,7 +130,12 @@ val appModule = module {
     single<LlmRunner> { LiteRtLmRunner(androidContext(), get(), get()) }
     single { SafAssetStore(androidContext(), get()) }
     single { SafDocumentImporter(androidContext(), get(), get()) }
-    single { HadithReferenceImporter(androidContext(), get()) }
+    single {
+        HadithContentCorrector {
+            androidContext().assets.open("hadith/content-corrections.json").bufferedReader().use { it.readText() }
+        }
+    }
+    single { HadithReferenceImporter(androidContext(), get(), get()) }
     single { CanonicalHadithSynchronizer(androidContext(), get()) }
     single { HadithBundleImporter(get(), get(), get()) }
     single { HadithBundleManager(get(), get(), get(), get(), get()) }
@@ -140,7 +146,7 @@ val appModule = module {
     // Repositories
     single<QuranRepository> { QuranRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<WordByWordRepository> { WordByWordRepositoryImpl(get()) }
-    single { HadithNumbering { androidContext().assets.open("hadith/numbering.json").bufferedReader().use { it.readText() } } }
+    single { HadithNumbering(get()) { androidContext().assets.open("hadith/numbering.json").bufferedReader().use { it.readText() } } }
     single<HadithRepository> { HadithRepositoryImpl(get(), get(), get()) }
     single<TahsinRepository> { TahsinRepositoryImpl(get()) }
     single<QuizRepository> { QuizRepositoryImpl(get()) }
