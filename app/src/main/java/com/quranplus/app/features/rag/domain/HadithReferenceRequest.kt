@@ -3,11 +3,11 @@ package com.quranplus.app.features.rag.domain
 import java.net.URI
 
 data class HadithReferenceRequest(val collection: String, val number: Int, val suffix: String = "", val archive: Boolean = false) {
-    val url: String
-        get() = if (collection == "ahmad" && !archive) {
-            "https://hadits.net/ahmad:$number$suffix"
-        } else {
-            "https://sunnah.com/$collection:$number$suffix"
+    val url: String?
+        get() = when {
+            archive || collection == "darimi" -> null
+            collection == "ahmad" -> "https://hadits.net/ahmad:$number$suffix"
+            else -> "https://sunnah.com/$collection:$number$suffix"
         }
 
     fun targetSchemeId(): String = when {
@@ -18,15 +18,19 @@ data class HadithReferenceRequest(val collection: String, val number: Int, val s
 
     fun matches(citation: RetrievedCitation): Boolean {
         if (citation.evidenceKind != EvidenceKind.HADITH || citation.collection != collection) return false
-        if (archive) {
+        if (archive || targetSchemeId() == "archive_gading") {
             val target = citation.navigationTarget() as? CitationTarget.Hadith ?: return false
             return !citation.isInternetSourced() && target.collectionId == collection && target.hadithNumber == number
         }
         if (!citation.isInternetSourced() && suffix.isEmpty() &&
             citation.providerId == "local-hadith-bundle" &&
-            (citation.reference.contains("(Sunnah.com") || citation.reference.contains("(Ar-Risalah"))
+            (citation.reference.contains("(Sunnah.com") ||
+                citation.reference.contains("(Ar-Risalah") ||
+                citation.reference.contains("(Al-Alamiyah"))
         ) {
-            return findAll(citation.reference).firstOrNull() == this
+            return findAll(citation.reference).firstOrNull()?.let {
+                it.collection == collection && it.number == number && it.suffix == suffix
+            } ?: false
         }
         val sourceUrl = citation.canonicalUrl ?: citation.deepLinkTarget ?: return false
         val uri = runCatching { URI(sourceUrl) }.getOrNull() ?: return false
@@ -43,7 +47,7 @@ data class HadithReferenceRequest(val collection: String, val number: Int, val s
             "bukhari" to "(?:al[ -]*)?bukhari", "muslim" to "muslim",
             "tirmidhi" to "(?:at[ -]*)?(?:tirmidhi|tirmidzi|tirmizi)",
             "nasai" to "(?:an[ -]*)?nasa['’]?i", "ibnmajah" to "ibn[u]?[ -]*majah",
-            "ahmad" to "(?:musnad\\s+)?ahmad", "darimi" to "(?:ad[ -]*)?darimi", "malik" to "malik"
+            "ahmad" to "(?:musnad\\s+)?ahmad", "darimi" to "(?:(?:sunan|musnad)\\s+)?(?:(?:al|ad)[ -]*)?darimi", "malik" to "malik"
         )
         private val archiveToken = "(?:arsip|gading|tafsirq|(?:al[ -]*)?alamiyah)"
         private val pattern = Regex(

@@ -491,8 +491,17 @@ class HadithViewModel(
     }
 
     private fun extractReferenceNumber(input: String): Int? {
-        val match = NUMERIC_REFERENCE_REGEX.matchEntire(input.trim()) ?: return null
-        return match.groupValues[1].toIntOrNull()?.takeIf { it > 0 }
+        val trimmed = input.trim()
+        val match = NUMERIC_REFERENCE_REGEX.matchEntire(trimmed)
+        if (match != null) {
+            return match.groupValues[1].toIntOrNull()?.takeIf { it > 0 }
+        }
+        val stripped = COLLECTION_LEAD_IN_REGEX.replace(trimmed, "").trim()
+        return com.quranplus.app.features.rag.domain.HadithReferenceRequest.findAll(stripped)
+            .singleOrNull()
+            ?.takeIf { _selectedCollection.value == null || _selectedCollection.value == it.collection }
+            ?.takeIf { stripped.split(Regex("\\s+")).filter(String::isNotBlank).size <= 5 }
+            ?.number
     }
 
     private fun isCatalog(): Boolean = _query.value.isBlank() && _selectedCollection.value == null
@@ -504,8 +513,9 @@ class HadithViewModel(
     }
 
     private companion object {
+        val COLLECTION_LEAD_IN_REGEX = Regex("(?i)^(?:hr\\.?|hadit[hs]?|hadis|hadist)\\s+")
         val NUMERIC_REFERENCE_REGEX = Regex(
-            "(?i)^(?:(?:arsip|gading|tafsirq|alamiyah|risalah|hadits?|no\\.?|nomor)\\s+)*(\\d{1,6})(?:\\.(\\d{1,3}|[a-z]{1,3})|([a-z]{1,3}))?(?:\\s+(?:arsip|gading|tafsirq|alamiyah|risalah))?$"
+            "(?i)^(?:(?:arsip|gading|tafsirq|(?:al[ -]*)?alamiyah|(?:ar[ -]*)?risalah|hadits?)\\s+|(?:no\\.?|nomor|#)(?:\\s+|(?=[\\d])))*(\\d{1,6})(?:\\.(\\d{1,3}|[a-z]{1,3})|([a-z]{1,3}))?(?:\\s+(?:arsip|gading|tafsirq|(?:al[ -]*)?alamiyah|(?:ar[ -]*)?risalah))?$"
         )
     }
 }

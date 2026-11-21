@@ -966,6 +966,284 @@ class CanonicalHadithRegressionTest {
         assertEquals(HadithLookupStatus.NO_MATCH, repo.searchDetailed("ahmad", "-1", HadithNumberingScheme.AR_RISALAH).status)
     }
 
+    @Test
+    fun GIVEN_darimi2841_WHEN_searchedAcrossRepoAndAiRag_THEN_preservesMauqufAttributionAndNoFabricatedUrls() = runTest {
+        val darimi2841 = loadRecordFromAsset("darimi", 2841, "archive_gading")
+        val darimi2805 = loadRecordFromAsset("darimi", 2805, "archive_gading")
+        val darimi3023 = loadRecordFromAsset("darimi", 3023, "archive_gading")
+        val bukhari2841 = loadRecordFromAsset("bukhari", 2841, "sunnah")
+
+        // Verify authentic Candidate A (Ali bin Abi Talib Atsar Mauquf) and distinct #2805/#3023/#2841
+        assertEquals("mit:darimi:2841", darimi2841.entity.stableId)
+        assertEquals(null, darimi2841.entity.canonicalUrl)
+        assertTrue(darimi2841.entity.textArabic.contains("مُحَمَّدُ بْنُ الْعَلَاءِ"))
+        assertTrue(darimi2841.entity.textArabic.contains("إِلَى عَلِيٍّ رَضِيَ اللَّهُ عَنْهُ"))
+        assertTrue(darimi2841.entity.textArabic.contains("فَقَضَى بِمِيرَاثِهِ لِأُمِّهِ وَجَعَلَهَا عَصَبَتَهُ"))
+        assertFalse(darimi2841.entity.textArabic.contains("صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ"))
+        assertTrue(darimi2841.entity.translationId.contains("[Ali] radlyallahu 'anhu"))
+        assertTrue(darimi2841.entity.translationId.contains("harta warisan anak itu untuk ibunya"))
+        assertFalse(darimi2841.entity.translationId.contains("Rasulullah"))
+
+        assertTrue(darimi2805.entity.textArabic.contains("أَطْعَمَ جَدَّةً سُدُسًا"))
+        assertNotEquals(darimi2841.entity.stableId, darimi2805.entity.stableId)
+        assertNotEquals(darimi2841.entity.stableId, darimi3023.entity.stableId)
+
+        val fixtures = listOf(darimi2841, darimi2805, darimi3023, bukhari2841)
+        val dao = mockk<HadithDao>(relaxed = true)
+        coEvery { dao.countActiveDistinctHadiths("darimi") } returns 3367
+        coEvery { dao.countActiveDistinctHadiths("bukhari") } returns 7580
+        coEvery { dao.getCollectionById("darimi") } returns HadithCollectionEntity(
+            id = "darimi", titleArabic = "سنن الدارمي", titleEnglish = "Sunan al-Darimi",
+            sourceRevision = "rev", sourceSha256 = "0".repeat(64),
+            licenseStatus = CanonicalHadithSynchronizer.CANONICAL_MIT_LICENSE_STATUS,
+            gradeStatus = "not_provided", recordCount = 3367, chapterCount = 0,
+            isComplete = true, bundleAllowed = true, defaultScheme = "archive_gading",
+            activeRecordCount = 3367, availabilityStatus = CanonicalHadithSynchronizer.STATUS_AVAILABLE
+        )
+        coEvery { dao.getSchemeStatsForCollection("darimi") } returns listOf(
+            HadithSchemeStatEntity("darimi", "archive_gading", "No. Arsip", 3367, 1, 3367, 0, true)
+        )
+        coEvery { dao.findByReference("darimi", "archive_gading", 2841, null, any()) } returns listOf(darimi2841.entity)
+        coEvery { dao.findByReference("darimi", "archive_gading", 2805, null, any()) } returns listOf(darimi2805.entity)
+        coEvery { dao.findByReference(null, "sunnah", 2841, null, any()) } returns listOf(bukhari2841.entity)
+        coEvery { dao.findByReference("ahmad", "ar_risalah", 2841, null, any()) } returns emptyList()
+        coEvery { dao.getReferencesForHadiths(any()) } answers {
+            val ids = firstArg<List<Long>>().toSet()
+            fixtures.filter { it.entity.id in ids }.flatMap { it.refs }
+        }
+        coEvery { dao.getGradesForHadiths(any()) } returns emptyList()
+
+        val repo = HadithRepositoryImpl(dao, ioDispatcher = Dispatchers.Unconfined)
+        listOf("2841", "No. 2841", "No.2841", "#2841", "arsip 2841", "al-alamiyah 2841", "Sunan al-Darimi 2841").forEach { query ->
+            val res = repo.searchDetailed("darimi", query, HadithNumberingScheme.ARCHIVE_GADING)
+            assertEquals("Query '$query' should succeed", HadithLookupStatus.FOUND, res.status)
+            assertEquals("mit:darimi:2841", res.records.single().stableId)
+            assertEquals("No. 2841 (Al-Alamiyah)", res.records.single().numberLabel)
+            assertEquals(null, res.records.single().canonicalUrl)
+        }
+
+        val globalExplicit = repo.searchDetailed(null, "Sunan al-Darimi 2841", HadithNumberingScheme.SUNNAH)
+        assertEquals(HadithLookupStatus.FOUND, globalExplicit.status)
+        assertEquals("mit:darimi:2841", globalExplicit.records.single().stableId)
+
+        val globalNumeric = repo.searchDetailed(null, "2841", HadithNumberingScheme.SUNNAH)
+        assertTrue(globalNumeric.records.any { it.collectionId == "darimi" && it.stableId == "mit:darimi:2841" })
+        assertTrue(globalNumeric.records.any { it.collectionId == "bukhari" && it.hadithNumber == 2841 })
+
+        assertEquals(HadithLookupStatus.RECORD_MISSING, repo.searchDetailed("darimi", "99999", HadithNumberingScheme.ARCHIVE_GADING).status)
+        assertEquals(HadithLookupStatus.NO_MATCH, repo.searchDetailed("darimi", "0", HadithNumberingScheme.ARCHIVE_GADING).status)
+
+        // AI/RAG retrieval + RagPipeline Mauquf safeguard
+        val database = mockk<QuranDatabase>(relaxed = true)
+        every { database.hadithDao() } returns dao
+        val chatRepo = ChatRepositoryImpl(
+            mockk<ChatDao>(relaxed = true),
+            mockk<EmbeddingService>(relaxed = true),
+            mockk<VectorRetriever>(relaxed = true),
+            RagPipeline(),
+            mockk<LlmRunner>(relaxed = true).apply { every { isAvailable() } returns false },
+            database,
+            RagRuntimeCoordinator(),
+            mockk<InternetResearcher>().apply { coEvery { search(any(), any()) } returns emptyList() },
+            mockk<PreferencesManager>().apply { every { onlineResearchEnabled } returns flowOf(true) },
+            HadithNumbering { "{}" }
+        )
+        val aiRes = chatRepo.generateRagResponse("s-darimi-2841", "Hadis Sunan al-Darimi nomor 2841", AiPersona.USTADZ, null)
+        assertEquals(1, aiRes.citations.size)
+        val citation = aiRes.citations.single()
+        assertEquals("hadith:darimi:2841", citation.deepLinkTarget)
+        assertEquals(null, citation.canonicalUrl)
+        assertTrue(citation.textSnippet.contains("[Ali] radlyallahu 'anhu"))
+        assertFalse(citation.textSnippet.contains("Rasulullah"))
+
+        val prompt = RagPipeline().buildAugmentedPrompt("Jelaskan status atsar ini", AiPersona.USTADZ, null, aiRes.citations)
+        assertTrue(prompt.contains("jangan menisbahkan riwayat sahabat atau atsar mauquf sebagai sabda Nabi"))
+    }
+
+    @Test
+    fun GIVEN_allNineCollectionsBundled_WHEN_auditingEverySupportedReferenceViaProductionRepository_THEN_100PercentDeterministicSearchability() = runTest {
+        val bundleFile = assetFile("sunnah-canonical-bundle.zip")
+        val manifest = JSONObject(assetFile("corpus-manifest.json").readText(Charsets.UTF_8))
+        val colJson = manifest.getJSONObject("collections")
+        val entitiesById = HashMap<Long, HadithEntity>(70_000)
+        val refsByHadithId = HashMap<Long, List<HadithReferenceEntity>>(70_000)
+        val gradesByHadithId = HashMap<Long, List<HadithGradeEntity>>(20_000)
+        val refsByColSchemeNum = HashMap<Triple<String, String, Int>, MutableList<HadithReferenceEntity>>(120_000)
+        val statsByCol = HashMap<String, List<HadithSchemeStatEntity>>(9)
+        val activeCountByCol = HashMap<String, Int>(9)
+        val collectionMetaById = HashMap<String, HadithCollectionEntity>(9)
+
+        data class ExpectedLookup(
+            val colId: String,
+            val scheme: HadithNumberingScheme,
+            val query: String,
+            val number: Int,
+            val variant: String,
+            val expectedStableId: String
+        )
+        val allExpected = ArrayList<ExpectedLookup>(110_000)
+        val allMissing = ArrayList<Triple<String, HadithNumberingScheme, Int>>(3_000)
+
+        ZipFile(bundleFile).use { zip ->
+            for (colId in colJson.keys()) {
+                val cm = colJson.getJSONObject(colId)
+                val doc = JSONObject(zip.getInputStream(zip.getEntry(cm.getString("file"))!!).readBytes().toString(Charsets.UTF_8))
+                val defaultScheme = doc.getString("default_scheme")
+                val titleEn = doc.getString("title_english")
+                val isMit = doc.optString("license").equals("MIT", ignoreCase = true)
+                val licenseStatus = if (isMit) CanonicalHadithSynchronizer.CANONICAL_MIT_LICENSE_STATUS else CanonicalHadithSynchronizer.CANONICAL_LICENSE_STATUS
+
+                val schemeRanges = cm.getJSONObject("scheme_ranges")
+                val colStats = mutableListOf<HadithSchemeStatEntity>()
+                for (scKey in schemeRanges.keys()) {
+                    val sr = schemeRanges.getJSONObject(scKey)
+                    colStats += HadithSchemeStatEntity(
+                        colId, scKey, scKey,
+                        sr.getInt("record_count"), sr.getInt("min_reference_number"),
+                        sr.getInt("max_reference_number"), sr.getInt("missing_slot_count"), scKey == defaultScheme
+                    )
+                }
+                statsByCol[colId] = colStats
+                val recs = doc.getJSONArray("records")
+                activeCountByCol[colId] = recs.length()
+                collectionMetaById[colId] = HadithCollectionEntity(
+                    id = colId, titleArabic = cm.getString("title_arabic"), titleEnglish = titleEn,
+                    sourceRevision = doc.getString("source_revision"), sourceSha256 = cm.getString("sha256"),
+                    licenseStatus = licenseStatus, gradeStatus = if (cm.getInt("graded_count") > 0) "attributed" else "partial",
+                    recordCount = recs.length(), chapterCount = cm.getInt("chapter_count"),
+                    isComplete = true, bundleAllowed = true, defaultScheme = defaultScheme,
+                    activeRecordCount = recs.length(), availabilityStatus = CanonicalHadithSynchronizer.STATUS_AVAILABLE
+                )
+
+                val supportedIds = HadithNumberingScheme.schemesForCollection(colId).map { it.schemeId }.toSet()
+                for (i in 0 until recs.length()) {
+                    val rec = recs.getJSONObject(i)
+                    val id = rec.getLong("id")
+                    val stableId = rec.getString("stable_id")
+                    val hNum = rec.getInt("hadith_number")
+                    val ar = rec.getString("arabic")
+                    val en = rec.optString("english")
+                    val ind = rec.getString("indonesian")
+                    val gradesArr = rec.getJSONArray("grades")
+                    val grades = (0 until gradesArr.length()).map { g ->
+                        val go = gradesArr.getJSONObject(g)
+                        HadithGradeEntity(hadithId = id, stableId = stableId, authority = go.getString("authority"), grade = go.getString("grade"))
+                    }
+                    val refsArr = rec.getJSONArray("references")
+                    val refs = (0 until refsArr.length()).map { r ->
+                        val ro = refsArr.getJSONObject(r)
+                        val sc = ro.getString("scheme")
+                        val num = ro.getInt("number")
+                        val variant = ro.optString("variant")
+                        val refEntity = HadithReferenceEntity(
+                            hadithId = id, stableId = stableId, collectionId = colId, schemeId = sc,
+                            referenceNumber = num, variantSuffix = variant,
+                            canonicalUrl = ro.optString("url").takeIf { it.isNotBlank() && it != "null" },
+                            isPrimary = sc == defaultScheme
+                        )
+                        refsByColSchemeNum.getOrPut(Triple(colId, sc, num)) { mutableListOf() }.add(refEntity)
+                        if (sc in supportedIds) {
+                            val schemeEnum = HadithNumberingScheme.fromSchemeId(sc)!!
+                            val q = when {
+                                variant.isBlank() -> num.toString()
+                                variant.first().isDigit() -> "$num.$variant"
+                                else -> "$num$variant"
+                            }
+                            allExpected += ExpectedLookup(colId, schemeEnum, q, num, variant, stableId)
+                        }
+                        refEntity
+                    }
+                    entitiesById[id] = HadithEntity(
+                        id = id, collectionId = colId, hadithNumber = hNum, title = titleEn,
+                        textArabic = ar, translationId = ind, translationEn = en,
+                        reference = "$titleEn no. $hNum", sourceRevision = doc.getString("source_revision"),
+                        sourceSha256 = cm.getString("sha256"), licenseStatus = licenseStatus,
+                        isComplete = rec.getBoolean("is_complete"), stableId = stableId,
+                        schemeId = defaultScheme,
+                        canonicalUrl = rec.optString("canonical_url").takeIf { it.isNotBlank() && it != "null" },
+                        contentChecksum = rec.getString("content_sha256"),
+                        verificationStatus = rec.getString("verification_status")
+                    )
+                    refsByHadithId[id] = refs
+                    if (grades.isNotEmpty()) gradesByHadithId[id] = grades
+                }
+
+                val msArr = doc.getJSONArray("missing_slots")
+                for (i in 0 until msArr.length()) {
+                    val ms = msArr.getJSONObject(i)
+                    val sc = ms.getString("scheme")
+                    val num = ms.getInt("number")
+                    val variant = ms.optString("variant")
+                    if (variant.isNotBlank()) continue
+                    refsByColSchemeNum.getOrPut(Triple(colId, sc, num)) { mutableListOf() }.add(
+                        HadithReferenceEntity(
+                            hadithId = null, stableId = "missing:$colId:$sc:$num",
+                            collectionId = colId, schemeId = sc, referenceNumber = num,
+                            reviewStatus = ms.getString("reason")
+                        )
+                    )
+                    HadithNumberingScheme.fromSchemeId(sc)?.takeIf { sc in supportedIds }?.let {
+                        allMissing += Triple(colId, it, num)
+                    }
+                }
+            }
+        }
+
+        val dao = object : HadithDao by mockk(relaxed = true) {
+            override suspend fun countActiveDistinctHadiths(collectionId: String?): Int =
+                collectionId?.let { activeCountByCol[it] ?: 0 } ?: 65_716
+            override suspend fun getCollectionById(collectionId: String): HadithCollectionEntity? = collectionMetaById[collectionId]
+            override suspend fun getSchemeStatsForCollection(collectionId: String): List<HadithSchemeStatEntity> =
+                statsByCol[collectionId].orEmpty()
+            override suspend fun findByReference(
+                collectionId: String?,
+                schemeId: String,
+                number: Int,
+                variant: String?,
+                limit: Int
+            ): List<HadithEntity> {
+                val col = collectionId ?: return emptyList()
+                return refsByColSchemeNum[Triple(col, schemeId, number)]
+                    .orEmpty()
+                    .filter { it.hadithId != null && (variant == null || it.variantSuffix == variant) }
+                    .mapNotNull { entitiesById[it.hadithId] }
+            }
+            override suspend fun getReferenceEntries(
+                collectionId: String?,
+                schemeId: String,
+                number: Int
+            ): List<HadithReferenceEntity> {
+                val col = collectionId ?: return emptyList()
+                return refsByColSchemeNum[Triple(col, schemeId, number)].orEmpty()
+            }
+            override suspend fun getReferencesForHadiths(hadithIds: List<Long>): List<HadithReferenceEntity> =
+                hadithIds.flatMap { refsByHadithId[it].orEmpty() }
+            override suspend fun getGradesForHadiths(hadithIds: List<Long>): List<HadithGradeEntity> =
+                hadithIds.flatMap { gradesByHadithId[it].orEmpty() }
+        }
+
+        val repo = HadithRepositoryImpl(dao, ioDispatcher = Dispatchers.Unconfined)
+        assertTrue("Expected >= 90,000 supported references across all 9 collections", allExpected.size >= 90_000)
+
+        var resolvedCount = 0
+        for (item in allExpected) {
+            val res = repo.searchDetailed(item.colId, item.query, item.scheme)
+            assertEquals("Failed lookup ${item.colId}:${item.scheme.schemeId}:${item.query}", HadithLookupStatus.FOUND, res.status)
+            assertTrue(
+                "Missing expected stableId ${item.expectedStableId} in ${res.records.map { it.stableId }}",
+                res.records.any { it.stableId == item.expectedStableId }
+            )
+            assertTrue(res.records.all { it.textArabic.isNotBlank() || it.translationId.isNotBlank() || it.translationEn.isNotBlank() })
+            resolvedCount++
+        }
+        assertEquals(allExpected.size, resolvedCount)
+
+        for ((colId, scheme, num) in allMissing) {
+            val res = repo.searchDetailed(colId, num.toString(), scheme)
+            assertNotEquals("Unmapped slot $colId:${scheme.schemeId}:$num must never return FOUND", HadithLookupStatus.FOUND, res.status)
+        }
+    }
+
     private fun sha256Hex(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }

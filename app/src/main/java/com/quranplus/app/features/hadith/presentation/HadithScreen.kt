@@ -1414,12 +1414,23 @@ private fun HadithResults(
     onScrolledToIndex: () -> Unit = {}
 ) {
     val collectionName = collections.firstOrNull { it.id == selectedCollection }?.title.orEmpty()
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val focusedRecordIndex = remember(records, highlightedNumber) {
+        highlightedNumber?.let { targetNum ->
+            records.indexOfFirst { it.hadithNumber == targetNum }
+        }?.takeIf { it >= 0 }
+    }
+    val hasHeaderBanner = query.isNotBlank() || highlightedNumber != null
+    val resolvedInitialIndex = (scrollToIndex ?: focusedRecordIndex)?.let { idx ->
+        if (hasHeaderBanner) idx + 1 else idx
+    }?.coerceIn(0, (records.size + (if (hasHeaderBanner) 1 else 0) - 1).coerceAtLeast(0)) ?: 0
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState(
+        initialFirstVisibleItemIndex = resolvedInitialIndex
+    )
 
     LaunchedEffect(scrollToIndex, records.size) {
         val target = scrollToIndex ?: return@LaunchedEffect
         if (target in records.indices) {
-            val listIndex = if (query.isNotBlank() || highlightedNumber != null) target + 1 else target
+            val listIndex = if (hasHeaderBanner) target + 1 else target
             listState.scrollToItem(listIndex)
             onScrolledToIndex()
         }

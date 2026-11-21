@@ -411,6 +411,25 @@ def validate(write_reports: bool = False) -> None:
         assert ("ahmad", "archive_gading", ckpt) in golden, f"Missing ahmad archive_gading checkpoint #{ckpt}"
     assert ("ahmad", "ar_risalah", 27647) in golden, "Missing ahmad ar_risalah max #27647"
 
+    # Golden Fixture HF-008 (BUG-S3-HADITH-DARIMI-2841): Sunan al-Darimi 2841 & complete 3,367-record archive
+    assert collection_reports["darimi"]["active_record_count"] == 3367, "Darimi must contain all 3,367 MIT records"
+    assert collection_reports["darimi"]["default_scheme"] == "archive_gading"
+    assert list(collection_reports["darimi"]["schemes"].keys()) == ["archive_gading"], "Do not fabricate Sunnah.com scheme for Darimi"
+    hf8 = golden[("darimi", "archive_gading", 2841)]
+    assert hf8["stable_id"] == "mit:darimi:2841"
+    assert hf8["canonical_url"] is None, f"Do not fabricate URL for darimi:2841: {hf8['canonical_url']}"
+    assert "مُحَمَّدُ بْنُ الْعَلَاءِ" in hf8["arabic"] and "فِي وَلَدِ الْمُتَلَاعِنَيْنِ" in hf8["arabic"]
+    assert "إِلَى عَلِيٍّ رَضِيَ اللَّهُ عَنْهُ" in hf8["arabic"] and "لِأُمِّهِ وَجَعَلَهَا عَصَبَتَهُ" in hf8["arabic"]
+    assert "[Ali] radlyallahu 'anhu" in hf8["indonesian"] and "harta warisan anak itu untuk ibunya" in hf8["indonesian"]
+    # Ensure Mauquf attribution to Ali bin Abi Talib is never altered to prophetic speech
+    assert "صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ" not in hf8["arabic"] and "Rasulullah" not in hf8["indonesian"]
+    # Candidate B (#2805 Marfu' grandmother 1/6) and #2975/#3023/#3027 remain distinct archive records
+    hf8_2805 = golden[("darimi", "archive_gading", 2805)]
+    assert "أَطْعَمَ جَدَّةً سُدُسًا" in hf8_2805["arabic"] and hf8_2805["stable_id"] != hf8["stable_id"]
+    assert "مِيرَاثِ" not in golden[("darimi", "archive_gading", 3023)]["arabic"]
+    for ckpt in (1, 10, 100, 500, 1000, 1500, 2000, 2500, 2805, 2839, 2840, 2841, 2842, 2843, 2948, 2949, 2975, 3023, 3027, 3367):
+        assert ("darimi", "archive_gading", ckpt) in golden, f"Missing darimi archive_gading checkpoint #{ckpt}"
+
     # Deterministic targeted semantic audit report across all 9 collections
     semantic_findings = run_semantic_audit(all_records, corrections_doc)
     if write_reports and SEMANTIC_AUDIT_PATH.parent.exists():
@@ -433,7 +452,7 @@ def validate(write_reports: bool = False) -> None:
         "total_collections": len(collection_reports),
         "total_active_records": total_active,
         "total_issues": total_issues,
-        "fixtures_verified": ["HF-001", "HF-002", "HF-003", "HF-004", "HF-005", "HF-006"],
+        "fixtures_verified": ["HF-001", "HF-002", "HF-003", "HF-004", "HF-005", "HF-006", "HF-007", "HF-008"],
         "collections": collection_reports,
     }
 
@@ -467,7 +486,7 @@ def validate(write_reports: bool = False) -> None:
             )
         REPORT_MD_PATH.write_text("\n".join(md_lines) + "\n", encoding="utf-8", newline="\n")
 
-    print(f"PASS: {total_active} records verified across {len(collection_reports)} collections; HF-001..HF-006 passed")
+    print(f"PASS: {total_active} records verified across {len(collection_reports)} collections; HF-001..HF-008 passed")
 
 
 if __name__ == "__main__":

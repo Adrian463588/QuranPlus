@@ -65,7 +65,43 @@ class HadithReferenceRequestTest {
             val archiveReq = IslamicQueryAnalyzer.analyze(query).hadithReference
             assertEquals("Query '$query' should target archive_gading", HadithReferenceRequest("ahmad", 4302, archive = true), archiveReq)
             assertEquals("archive_gading", archiveReq?.targetSchemeId())
+            assertNull(archiveReq?.url)
         }
+    }
+
+    @Test
+    fun GIVEN_darimiAliasesAndUrl_WHEN_parsingAndMatching_THEN_noFabricatedSunnahUrlAndLocalMatchWorks() {
+        listOf(
+            "Hadis Sunan al-Darimi nomor 2841",
+            "Sunan ad-Darimi 2841",
+            "Musnad ad-Darimi 2841",
+            "al-Darimi no. 2841",
+            "darimi:2841"
+        ).forEach { query ->
+            val req = IslamicQueryAnalyzer.analyze(query).hadithReference
+            assertEquals("Query '$query' failed", HadithReferenceRequest("darimi", 2841, archive = false), req)
+            assertEquals("archive_gading", req?.targetSchemeId())
+            assertNull("Must never fabricate Sunnah.com URL for Darimi", req?.url)
+        }
+
+        val localDarimi2841 = RetrievedCitation(
+            sourceId = "hadith-8102841",
+            sourceType = "hadith",
+            title = "Sunan al-Darimi no. 2841 (Al-Alamiyah)",
+            reference = "Sunan al-Darimi no. 2841 (Al-Alamiyah)",
+            textSnippet = "[Ali] radlyallahu 'anhu...",
+            score = 1.0f,
+            collection = "darimi",
+            identifier = "2841",
+            deepLinkTarget = "hadith:darimi:2841",
+            canonicalUrl = null,
+            providerId = "local-hadith-bundle"
+        )
+        val req = IslamicQueryAnalyzer.analyze("Hadis Sunan al-Darimi nomor 2841").hadithReference!!
+        assertTrue(req.matches(localDarimi2841))
+        assertFalse(req.matches(localDarimi2841.copy(deepLinkTarget = "hadith:darimi:2805", identifier = "2805")))
+        assertFalse(req.matches(localDarimi2841.copy(collection = "bukhari", deepLinkTarget = "hadith:bukhari:2841")))
+        assertFalse(req.matches(localDarimi2841.copy(providerId = "sunnah-public")))
     }
 
     private fun source(book: String, number: Int) = RetrievedCitation(

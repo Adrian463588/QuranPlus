@@ -332,4 +332,61 @@ class HadithMigrationAndIntegrityInstrumentedTest {
         }
         composeRule.onNodeWithText("Hadist Tidak Tersedia").assertIsDisplayed()
     }
+
+    @Test
+    fun GIVEN_darimi2841AndAllCheckpointsOnRoomSql_WHEN_searchedAndRendered_THEN_passesOfflineAndAiGrounding() {
+        val db = QuranDatabase.getInstance(context)
+        val sync = CanonicalHadithSynchronizer(context, db)
+        runBlocking { sync.ensureSynchronized() }
+
+        val repo = HadithRepositoryImpl(db.hadithDao(), HadithNumbering(), sync)
+        val chatRepo = org.koin.java.KoinJavaComponent.getKoin().get<ChatRepository>()
+        val bundleManager = org.koin.java.KoinJavaComponent.getKoin().get<HadithBundleManager>()
+
+        runBlocking {
+            assertEquals(3_367, db.hadithDao().countActiveDistinctHadiths("darimi"))
+            val checkpoints = listOf(1, 10, 100, 500, 1000, 1500, 2000, 2500, 2805, 2839, 2840, 2841, 2842, 2843, 2948, 2949, 2975, 3023, 3027, 3_367)
+            checkpoints.forEach { n ->
+                val res = repo.searchDetailed("darimi", n.toString(), HadithNumberingScheme.ARCHIVE_GADING)
+                assertEquals("Checkpoint darimi#$n failed", HadithLookupStatus.FOUND, res.status)
+                val rec = res.records.single()
+                assertEquals("mit:darimi:$n", rec.stableId)
+                assertEquals(null, rec.canonicalUrl)
+            }
+
+            val d2841 = repo.searchDetailed("darimi", "No. 2841", HadithNumberingScheme.ARCHIVE_GADING).records.single()
+            assertTrue(d2841.textArabic.contains("إِلَى عَلِيٍّ رَضِيَ اللَّهُ عَنْهُ"))
+            assertTrue(d2841.translationId.contains("[Ali] radlyallahu 'anhu"))
+            assertFalse(d2841.translationId.contains("Rasulullah"))
+
+            assertEquals("mit:darimi:2841", repo.searchDetailed(null, "Sunan al-Darimi 2841", HadithNumberingScheme.SUNNAH).records.single().stableId)
+            assertEquals(HadithLookupStatus.RECORD_MISSING, repo.searchDetailed("darimi", "999999", HadithNumberingScheme.ARCHIVE_GADING).status)
+
+            val aiReply = chatRepo.generateRagResponse("dev-darimi-2841", "Hadis Sunan al-Darimi nomor 2841", AiPersona.USTADZ, null)
+            assertEquals(1, aiReply.citations.size)
+            assertEquals("hadith:darimi:2841", aiReply.citations.single().deepLinkTarget)
+            assertEquals(null, aiReply.citations.single().canonicalUrl)
+            assertTrue(aiReply.citations.single().textSnippet.contains("[Ali] radlyallahu 'anhu"))
+        }
+
+        val vm = HadithViewModel(GetHadithCollectionsUseCase(repo), SearchHadithUseCase(repo), bundleManager)
+        composeRule.setContent {
+            QuranPlusTheme(darkTheme = true) {
+                HadithScreen(viewModel = vm, onRequestStorage = {}, onBundleReadyForAi = {})
+            }
+        }
+
+        vm.openReference("darimi", 2841, "archive_gading")
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            vm.state.value.let { it is HadithUiState.Ready && it.records.any { r -> r.stableId == "mit:darimi:2841" } }
+        }
+        composeRule.onAllNodesWithText("harta warisan anak itu untuk ibunya", substring = true).onFirst().assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithText("sunnah.com/darimi", substring = true).fetchSemanticsNodes().size)
+
+        vm.setQuery("999999")
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            vm.state.value is HadithUiState.LookupIssue
+        }
+        composeRule.onNodeWithText("Hadist Tidak Tersedia").assertIsDisplayed()
+    }
 }
