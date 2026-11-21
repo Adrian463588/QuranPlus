@@ -1065,183 +1065,197 @@ class CanonicalHadithRegressionTest {
         val bundleFile = assetFile("sunnah-canonical-bundle.zip")
         val manifest = JSONObject(assetFile("corpus-manifest.json").readText(Charsets.UTF_8))
         val colJson = manifest.getJSONObject("collections")
-        val entitiesById = HashMap<Long, HadithEntity>(70_000)
-        val refsByHadithId = HashMap<Long, List<HadithReferenceEntity>>(70_000)
-        val gradesByHadithId = HashMap<Long, List<HadithGradeEntity>>(20_000)
-        val refsByColSchemeNum = HashMap<Triple<String, String, Int>, MutableList<HadithReferenceEntity>>(120_000)
-        val statsByCol = HashMap<String, List<HadithSchemeStatEntity>>(9)
-        val activeCountByCol = HashMap<String, Int>(9)
-        val collectionMetaById = HashMap<String, HadithCollectionEntity>(9)
 
         data class ExpectedLookup(
-            val colId: String,
             val scheme: HadithNumberingScheme,
             val query: String,
-            val number: Int,
-            val variant: String,
             val expectedStableId: String
         )
-        val allExpected = ArrayList<ExpectedLookup>(110_000)
-        val allMissing = ArrayList<Triple<String, HadithNumberingScheme, Int>>(3_000)
+
+        var totalActiveRecords = 0
+        var totalResolvedRefs = 0
+        var totalMissingChecked = 0
+        val sharedStubDao = mockk<HadithDao>(relaxed = true)
 
         ZipFile(bundleFile).use { zip ->
             for (colId in colJson.keys()) {
                 val cm = colJson.getJSONObject(colId)
-                val doc = JSONObject(zip.getInputStream(zip.getEntry(cm.getString("file"))!!).readBytes().toString(Charsets.UTF_8))
-                val defaultScheme = doc.getString("default_scheme")
-                val titleEn = doc.getString("title_english")
-                val isMit = doc.optString("license").equals("MIT", ignoreCase = true)
-                val licenseStatus = if (isMit) CanonicalHadithSynchronizer.CANONICAL_MIT_LICENSE_STATUS else CanonicalHadithSynchronizer.CANONICAL_LICENSE_STATUS
-
-                val schemeRanges = cm.getJSONObject("scheme_ranges")
-                val colStats = mutableListOf<HadithSchemeStatEntity>()
-                for (scKey in schemeRanges.keys()) {
-                    val sr = schemeRanges.getJSONObject(scKey)
-                    colStats += HadithSchemeStatEntity(
-                        colId, scKey, scKey,
-                        sr.getInt("record_count"), sr.getInt("min_reference_number"),
-                        sr.getInt("max_reference_number"), sr.getInt("missing_slot_count"), scKey == defaultScheme
-                    )
-                }
-                statsByCol[colId] = colStats
-                val recs = doc.getJSONArray("records")
-                activeCountByCol[colId] = recs.length()
-                collectionMetaById[colId] = HadithCollectionEntity(
-                    id = colId, titleArabic = cm.getString("title_arabic"), titleEnglish = titleEn,
-                    sourceRevision = doc.getString("source_revision"), sourceSha256 = cm.getString("sha256"),
-                    licenseStatus = licenseStatus, gradeStatus = if (cm.getInt("graded_count") > 0) "attributed" else "partial",
-                    recordCount = recs.length(), chapterCount = cm.getInt("chapter_count"),
-                    isComplete = true, bundleAllowed = true, defaultScheme = defaultScheme,
-                    activeRecordCount = recs.length(), availabilityStatus = CanonicalHadithSynchronizer.STATUS_AVAILABLE
-                )
-
                 val supportedIds = HadithNumberingScheme.schemesForCollection(colId).map { it.schemeId }.toSet()
-                for (i in 0 until recs.length()) {
-                    val rec = recs.getJSONObject(i)
-                    val id = rec.getLong("id")
-                    val stableId = rec.getString("stable_id")
-                    val hNum = rec.getInt("hadith_number")
-                    val ar = rec.getString("arabic")
-                    val en = rec.optString("english")
-                    val ind = rec.getString("indonesian")
-                    val gradesArr = rec.getJSONArray("grades")
-                    val grades = (0 until gradesArr.length()).map { g ->
-                        val go = gradesArr.getJSONObject(g)
-                        HadithGradeEntity(hadithId = id, stableId = stableId, authority = go.getString("authority"), grade = go.getString("grade"))
-                    }
-                    val refsArr = rec.getJSONArray("references")
-                    val refs = (0 until refsArr.length()).map { r ->
-                        val ro = refsArr.getJSONObject(r)
-                        val sc = ro.getString("scheme")
-                        val num = ro.getInt("number")
-                        val variant = ro.optString("variant")
-                        val refEntity = HadithReferenceEntity(
-                            hadithId = id, stableId = stableId, collectionId = colId, schemeId = sc,
-                            referenceNumber = num, variantSuffix = variant,
-                            canonicalUrl = ro.optString("url").takeIf { it.isNotBlank() && it != "null" },
-                            isPrimary = sc == defaultScheme
+                val entitiesById: HashMap<Long, HadithEntity>
+                val refsByHadithId: HashMap<Long, List<HadithReferenceEntity>>
+                val gradesByHadithId: HashMap<Long, List<HadithGradeEntity>>
+                val refsBySchemeNum: HashMap<Pair<String, Int>, MutableList<HadithReferenceEntity>>
+                val expectedForCol: ArrayList<ExpectedLookup>
+                val missingForCol: ArrayList<Pair<HadithNumberingScheme, Int>>
+                val colStats = mutableListOf<HadithSchemeStatEntity>()
+                val collectionMeta: HadithCollectionEntity
+                val recCount: Int
+
+                // Parse a single collection into compact maps and release JSON tree before lookup loop
+                run {
+                    val doc = JSONObject(zip.getInputStream(zip.getEntry(cm.getString("file"))!!).readBytes().toString(Charsets.UTF_8))
+                    val defaultScheme = doc.getString("default_scheme")
+                    val titleEn = doc.getString("title_english")
+                    val isMit = doc.optString("license").equals("MIT", ignoreCase = true)
+                    val licenseStatus = if (isMit) CanonicalHadithSynchronizer.CANONICAL_MIT_LICENSE_STATUS else CanonicalHadithSynchronizer.CANONICAL_LICENSE_STATUS
+                    val sourceRev = doc.getString("source_revision")
+                    val colSha = cm.getString("sha256")
+
+                    val schemeRanges = cm.getJSONObject("scheme_ranges")
+                    for (scKey in schemeRanges.keys()) {
+                        val sr = schemeRanges.getJSONObject(scKey)
+                        colStats += HadithSchemeStatEntity(
+                            colId, scKey, scKey,
+                            sr.getInt("record_count"), sr.getInt("min_reference_number"),
+                            sr.getInt("max_reference_number"), sr.getInt("missing_slot_count"), scKey == defaultScheme
                         )
-                        refsByColSchemeNum.getOrPut(Triple(colId, sc, num)) { mutableListOf() }.add(refEntity)
-                        if (sc in supportedIds) {
-                            val schemeEnum = HadithNumberingScheme.fromSchemeId(sc)!!
-                            val q = when {
-                                variant.isBlank() -> num.toString()
-                                variant.first().isDigit() -> "$num.$variant"
-                                else -> "$num$variant"
+                    }
+                    val recs = doc.getJSONArray("records")
+                    recCount = recs.length()
+                    collectionMeta = HadithCollectionEntity(
+                        id = colId, titleArabic = cm.getString("title_arabic"), titleEnglish = titleEn,
+                        sourceRevision = sourceRev, sourceSha256 = colSha,
+                        licenseStatus = licenseStatus, gradeStatus = if (cm.getInt("graded_count") > 0) "attributed" else "partial",
+                        recordCount = recCount, chapterCount = cm.getInt("chapter_count"),
+                        isComplete = true, bundleAllowed = true, defaultScheme = defaultScheme,
+                        activeRecordCount = recCount, availabilityStatus = CanonicalHadithSynchronizer.STATUS_AVAILABLE
+                    )
+
+                    entitiesById = HashMap(recCount)
+                    refsByHadithId = HashMap(recCount)
+                    gradesByHadithId = HashMap()
+                    refsBySchemeNum = HashMap(recCount * 2)
+                    expectedForCol = ArrayList(recCount * 2)
+                    missingForCol = ArrayList()
+
+                    for (i in 0 until recCount) {
+                        val rec = recs.getJSONObject(i)
+                        val id = rec.getLong("id")
+                        val stableId = rec.getString("stable_id")
+                        val hNum = rec.getInt("hadith_number")
+                        val ar = rec.getString("arabic")
+                        val en = rec.optString("english")
+                        val ind = rec.getString("indonesian")
+                        val gradesArr = rec.getJSONArray("grades")
+                        if (gradesArr.length() > 0) {
+                            gradesByHadithId[id] = (0 until gradesArr.length()).map { g ->
+                                val go = gradesArr.getJSONObject(g)
+                                HadithGradeEntity(hadithId = id, stableId = stableId, authority = go.getString("authority"), grade = go.getString("grade"))
                             }
-                            allExpected += ExpectedLookup(colId, schemeEnum, q, num, variant, stableId)
                         }
-                        refEntity
-                    }
-                    entitiesById[id] = HadithEntity(
-                        id = id, collectionId = colId, hadithNumber = hNum, title = titleEn,
-                        textArabic = ar, translationId = ind, translationEn = en,
-                        reference = "$titleEn no. $hNum", sourceRevision = doc.getString("source_revision"),
-                        sourceSha256 = cm.getString("sha256"), licenseStatus = licenseStatus,
-                        isComplete = rec.getBoolean("is_complete"), stableId = stableId,
-                        schemeId = defaultScheme,
-                        canonicalUrl = rec.optString("canonical_url").takeIf { it.isNotBlank() && it != "null" },
-                        contentChecksum = rec.getString("content_sha256"),
-                        verificationStatus = rec.getString("verification_status")
-                    )
-                    refsByHadithId[id] = refs
-                    if (grades.isNotEmpty()) gradesByHadithId[id] = grades
-                }
-
-                val msArr = doc.getJSONArray("missing_slots")
-                for (i in 0 until msArr.length()) {
-                    val ms = msArr.getJSONObject(i)
-                    val sc = ms.getString("scheme")
-                    val num = ms.getInt("number")
-                    val variant = ms.optString("variant")
-                    if (variant.isNotBlank()) continue
-                    refsByColSchemeNum.getOrPut(Triple(colId, sc, num)) { mutableListOf() }.add(
-                        HadithReferenceEntity(
-                            hadithId = null, stableId = "missing:$colId:$sc:$num",
-                            collectionId = colId, schemeId = sc, referenceNumber = num,
-                            reviewStatus = ms.getString("reason")
+                        val refsArr = rec.getJSONArray("references")
+                        val refs = (0 until refsArr.length()).map { r ->
+                            val ro = refsArr.getJSONObject(r)
+                            val sc = ro.getString("scheme")
+                            val num = ro.getInt("number")
+                            val variant = ro.optString("variant")
+                            val refEntity = HadithReferenceEntity(
+                                hadithId = id, stableId = stableId, collectionId = colId, schemeId = sc,
+                                referenceNumber = num, variantSuffix = variant,
+                                canonicalUrl = ro.optString("url").takeIf { it.isNotBlank() && it != "null" },
+                                isPrimary = sc == defaultScheme
+                            )
+                            refsBySchemeNum.getOrPut(sc to num) { mutableListOf() }.add(refEntity)
+                            if (sc in supportedIds) {
+                                val schemeEnum = HadithNumberingScheme.fromSchemeId(sc)!!
+                                val q = when {
+                                    variant.isBlank() -> num.toString()
+                                    variant.first().isDigit() -> "$num.$variant"
+                                    else -> "$num$variant"
+                                }
+                                expectedForCol += ExpectedLookup(schemeEnum, q, stableId)
+                            }
+                            refEntity
+                        }
+                        entitiesById[id] = HadithEntity(
+                            id = id, collectionId = colId, hadithNumber = hNum, title = titleEn,
+                            textArabic = ar, translationId = ind, translationEn = en,
+                            reference = "$titleEn no. $hNum", sourceRevision = sourceRev,
+                            sourceSha256 = colSha, licenseStatus = licenseStatus,
+                            isComplete = rec.getBoolean("is_complete"), stableId = stableId,
+                            schemeId = defaultScheme,
+                            canonicalUrl = rec.optString("canonical_url").takeIf { it.isNotBlank() && it != "null" },
+                            contentChecksum = rec.getString("content_sha256"),
+                            verificationStatus = rec.getString("verification_status")
                         )
-                    )
-                    HadithNumberingScheme.fromSchemeId(sc)?.takeIf { sc in supportedIds }?.let {
-                        allMissing += Triple(colId, it, num)
+                        refsByHadithId[id] = refs
+                    }
+
+                    val msArr = doc.getJSONArray("missing_slots")
+                    for (i in 0 until msArr.length()) {
+                        val ms = msArr.getJSONObject(i)
+                        val sc = ms.getString("scheme")
+                        val num = ms.getInt("number")
+                        val variant = ms.optString("variant")
+                        if (variant.isNotBlank()) continue
+                        refsBySchemeNum.getOrPut(sc to num) { mutableListOf() }.add(
+                            HadithReferenceEntity(
+                                hadithId = null, stableId = "missing:$colId:$sc:$num",
+                                collectionId = colId, schemeId = sc, referenceNumber = num,
+                                reviewStatus = ms.getString("reason")
+                            )
+                        )
+                        HadithNumberingScheme.fromSchemeId(sc)?.takeIf { sc in supportedIds }?.let {
+                            missingForCol += it to num
+                        }
                     }
                 }
+
+                val dao = object : HadithDao by sharedStubDao {
+                    override suspend fun countActiveDistinctHadiths(collectionId: String?): Int =
+                        if (collectionId == colId) recCount else 0
+                    override suspend fun getCollectionById(collectionId: String): HadithCollectionEntity? =
+                        collectionMeta.takeIf { collectionId == colId }
+                    override suspend fun getSchemeStatsForCollection(collectionId: String): List<HadithSchemeStatEntity> =
+                        if (collectionId == colId) colStats else emptyList()
+                    override suspend fun findByReference(
+                        collectionId: String?,
+                        schemeId: String,
+                        number: Int,
+                        variant: String?,
+                        limit: Int
+                    ): List<HadithEntity> {
+                        if (collectionId != colId) return emptyList()
+                        return refsBySchemeNum[schemeId to number]
+                            .orEmpty()
+                            .filter { it.hadithId != null && (variant == null || it.variantSuffix == variant) }
+                            .mapNotNull { entitiesById[it.hadithId] }
+                    }
+                    override suspend fun getReferenceEntries(
+                        collectionId: String?,
+                        schemeId: String,
+                        number: Int
+                    ): List<HadithReferenceEntity> =
+                        if (collectionId == colId) refsBySchemeNum[schemeId to number].orEmpty() else emptyList()
+                    override suspend fun getReferencesForHadiths(hadithIds: List<Long>): List<HadithReferenceEntity> =
+                        hadithIds.flatMap { refsByHadithId[it].orEmpty() }
+                    override suspend fun getGradesForHadiths(hadithIds: List<Long>): List<HadithGradeEntity> =
+                        hadithIds.flatMap { gradesByHadithId[it].orEmpty() }
+                }
+
+                val repo = HadithRepositoryImpl(dao, ioDispatcher = Dispatchers.Unconfined)
+                for (item in expectedForCol) {
+                    val res = repo.searchDetailed(colId, item.query, item.scheme)
+                    assertEquals("Failed lookup $colId:${item.scheme.schemeId}:${item.query}", HadithLookupStatus.FOUND, res.status)
+                    assertTrue(
+                        "Missing expected stableId ${item.expectedStableId} in ${res.records.map { it.stableId }}",
+                        res.records.any { it.stableId == item.expectedStableId }
+                    )
+                    assertTrue(res.records.all { it.textArabic.isNotBlank() || it.translationId.isNotBlank() || it.translationEn.isNotBlank() })
+                    totalResolvedRefs++
+                }
+                for ((scheme, num) in missingForCol) {
+                    val res = repo.searchDetailed(colId, num.toString(), scheme)
+                    assertNotEquals("Unmapped slot $colId:${scheme.schemeId}:$num must never return FOUND", HadithLookupStatus.FOUND, res.status)
+                    totalMissingChecked++
+                }
+                totalActiveRecords += recCount
             }
         }
 
-        val dao = object : HadithDao by mockk(relaxed = true) {
-            override suspend fun countActiveDistinctHadiths(collectionId: String?): Int =
-                collectionId?.let { activeCountByCol[it] ?: 0 } ?: 65_716
-            override suspend fun getCollectionById(collectionId: String): HadithCollectionEntity? = collectionMetaById[collectionId]
-            override suspend fun getSchemeStatsForCollection(collectionId: String): List<HadithSchemeStatEntity> =
-                statsByCol[collectionId].orEmpty()
-            override suspend fun findByReference(
-                collectionId: String?,
-                schemeId: String,
-                number: Int,
-                variant: String?,
-                limit: Int
-            ): List<HadithEntity> {
-                val col = collectionId ?: return emptyList()
-                return refsByColSchemeNum[Triple(col, schemeId, number)]
-                    .orEmpty()
-                    .filter { it.hadithId != null && (variant == null || it.variantSuffix == variant) }
-                    .mapNotNull { entitiesById[it.hadithId] }
-            }
-            override suspend fun getReferenceEntries(
-                collectionId: String?,
-                schemeId: String,
-                number: Int
-            ): List<HadithReferenceEntity> {
-                val col = collectionId ?: return emptyList()
-                return refsByColSchemeNum[Triple(col, schemeId, number)].orEmpty()
-            }
-            override suspend fun getReferencesForHadiths(hadithIds: List<Long>): List<HadithReferenceEntity> =
-                hadithIds.flatMap { refsByHadithId[it].orEmpty() }
-            override suspend fun getGradesForHadiths(hadithIds: List<Long>): List<HadithGradeEntity> =
-                hadithIds.flatMap { gradesByHadithId[it].orEmpty() }
-        }
-
-        val repo = HadithRepositoryImpl(dao, ioDispatcher = Dispatchers.Unconfined)
-        assertTrue("Expected >= 90,000 supported references across all 9 collections", allExpected.size >= 90_000)
-
-        var resolvedCount = 0
-        for (item in allExpected) {
-            val res = repo.searchDetailed(item.colId, item.query, item.scheme)
-            assertEquals("Failed lookup ${item.colId}:${item.scheme.schemeId}:${item.query}", HadithLookupStatus.FOUND, res.status)
-            assertTrue(
-                "Missing expected stableId ${item.expectedStableId} in ${res.records.map { it.stableId }}",
-                res.records.any { it.stableId == item.expectedStableId }
-            )
-            assertTrue(res.records.all { it.textArabic.isNotBlank() || it.translationId.isNotBlank() || it.translationEn.isNotBlank() })
-            resolvedCount++
-        }
-        assertEquals(allExpected.size, resolvedCount)
-
-        for ((colId, scheme, num) in allMissing) {
-            val res = repo.searchDetailed(colId, num.toString(), scheme)
-            assertNotEquals("Unmapped slot $colId:${scheme.schemeId}:$num must never return FOUND", HadithLookupStatus.FOUND, res.status)
-        }
+        assertEquals(65_716, totalActiveRecords)
+        assertTrue("Expected >= 120,000 supported references across all 9 collections, got $totalResolvedRefs", totalResolvedRefs >= 120_000)
+        assertTrue("Expected >= 2,600 documented unmapped slots checked, got $totalMissingChecked", totalMissingChecked >= 2_600)
     }
 
     private fun sha256Hex(bytes: ByteArray): String =
