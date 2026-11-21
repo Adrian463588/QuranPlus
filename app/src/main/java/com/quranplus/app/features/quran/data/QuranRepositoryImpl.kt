@@ -35,30 +35,23 @@ class QuranRepositoryImpl(
 
     override fun getAllSurahs(): Flow<List<Surah>> {
         return quranDao.getAllSurahs().map { list ->
-            list.map { entity ->
-                Surah(
-                    number = entity.number,
-                    nameArabic = entity.nameArabic,
-                    nameLatin = entity.nameLatin,
-                    nameEnglish = entity.nameEnglish,
-                    revelationType = entity.revelationType,
-                    ayahCount = entity.ayahCount
-                )
-            }
+            list.map { it.toDomainSurah() }
         }
     }
 
-    override suspend fun getSurah(surahNumber: Int): Surah? {
-        val entity = quranDao.getSurahByNumber(surahNumber) ?: return null
-        return Surah(
-            number = entity.number,
-            nameArabic = entity.nameArabic,
-            nameLatin = entity.nameLatin,
-            nameEnglish = entity.nameEnglish,
-            revelationType = entity.revelationType,
-            ayahCount = entity.ayahCount
+    override suspend fun getSurah(surahNumber: Int): Surah? =
+        quranDao.getSurahByNumber(surahNumber)?.toDomainSurah()
+
+    private fun com.quranplus.app.core.database.entity.SurahEntity.toDomainSurah(): Surah =
+        Surah(
+            number = number,
+            nameArabic = nameArabic,
+            nameLatin = nameLatin,
+            nameEnglish = nameEnglish,
+            revelationType = revelationType,
+            ayahCount = ayahCount,
+            nameMeaningId = SurahMapper.getMeaningId(number)
         )
-    }
 
     override fun getAyahsBySurah(surahNumber: Int): Flow<List<Ayah>> {
         val ayahsFlow = quranDao.getAyahsBySurah(surahNumber)

@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -154,6 +155,58 @@ class MainNavigationSmokeTest {
         if (hasOpenButton) {
             composeRule.onNodeWithText("Buka reader").performClick()
         }
+    }
+
+    @Test
+    fun GIVEN_quranHomeAndSearch_WHEN_browsingSelectingScrollingAndSearchingMeanings_THEN_displaysAllIndonesianMeaningsCorrectly() {
+        waitForText("Al-Faatiha")
+        composeRule.onAllNodesWithText("Pembukaan", useUnmergedTree = true).fetchSemanticsNodes().let {
+            assertTrue("Expected Pembukaan in Surah list", it.isNotEmpty())
+        }
+        composeRule.onAllNodesWithText("Sapi Betina", useUnmergedTree = true).fetchSemanticsNodes().let {
+            assertTrue("Expected Sapi Betina in Surah list", it.isNotEmpty())
+        }
+        composeRule.onAllNodesWithText("Perempuan", useUnmergedTree = true).fetchSemanticsNodes().let {
+            assertTrue("Expected Perempuan for An-Nisaa in Surah list", it.isNotEmpty())
+        }
+
+        // Open/select An-Nisaa cleanly across both Compact (reader navigation) and Expanded (detail panel)
+        composeRule.onAllNodes(hasText("An-Nisaa") and hasClickAction()).onFirst().performClick()
+        assertTrue(
+            composeRule.onAllNodesWithText(
+                "Baca surah ini dengan tampilan reader yang mendukung tajwid, terjemahan, transliterasi, dan bookmark.",
+                useUnmergedTree = true
+            ).fetchSemanticsNodes().isEmpty()
+        )
+        val hasOpenButton = runCatching {
+            composeRule.onAllNodesWithText("Buka reader").fetchSemanticsNodes().isNotEmpty()
+        }.getOrDefault(false)
+        if (hasOpenButton) {
+            composeRule.onAllNodesWithText("Perempuan", useUnmergedTree = true).fetchSemanticsNodes().let {
+                assertTrue("Expected Perempuan in list and detail panel", it.size <= 2)
+            }
+            composeRule.onNodeWithText("Buka reader").performClick()
+        }
+        waitForText("An-Nisaa")
+        composeRule.activityRule.scenario.onActivity { activity ->
+            activity.onBackPressedDispatcher.onBackPressed()
+        }
+
+        // Scroll to Surah 114 and verify An-Naas -> Manusia
+        waitForText("Al-Faatiha")
+        val listNode = composeRule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction()).onFirst()
+        listNode.performScrollToNode(hasText("An-Naas"))
+        waitForText("Manusia")
+
+        // Search by Indonesian Surah meaning ("Sapi Betina") -> Al-Baqara without At-Tin
+        composeRule.onNodeWithContentDescription("Cari ayat").performClick()
+        waitForText("Pencarian FTS5 Cepat")
+        composeRule.onAllNodes(androidx.compose.ui.test.hasSetTextAction()).onFirst().performClick()
+        composeRule.onAllNodes(androidx.compose.ui.test.hasSetTextAction()).onFirst().performTextInput("Sapi Betina")
+        waitForText("Al-Baqara")
+        assertTrue(
+            composeRule.onAllNodesWithText("At-Tin", useUnmergedTree = true).fetchSemanticsNodes().isEmpty()
+        )
     }
 
     private fun waitForText(text: String) {

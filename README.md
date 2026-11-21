@@ -31,7 +31,7 @@ Untuk langsung menginstal aplikasi **Quran Plus** di smartphone atau tablet Andr
 ## 🌟 Fitur Utama
 
 ### 📖 1. Al-Qur'an Al-Karim 30 Juz
-- **114 Surah & 6.236 Ayat Lengkap:** Disertai penanda Juz, Halaman, dan Makkiyyah/Madaniyyah.
+- **114 Surah & 6.236 Ayat Lengkap:** Disertai arti nama surah bahasa Indonesia terverifikasi (Kemenag RI), penanda Juz, Halaman, dan Makkiyyah/Madaniyyah.
 - **Tajwid Berwarna Interaktif:** Dibuat menggunakan native Compose `AnnotatedString` dengan pewarnaan standar Kemenag RI (Ikhfa, Idgham, Iqlab, Qalqalah, Mad, Gunnah).
 - **Word-by-Word (Per Kata):** 77.429 unit sumber menyajikan teks Arab, transliterasi Latin presisi, dan terjemahan per kata berbasis standar [Islamic.app Word API](https://docs.islamic.app/api-reference/words) & Quran.com API v4.
 - **Pencarian Kilat FTS5:** Pencarian teks Arab, transliterasi, maupun terjemahan Indonesia menggunakan full-text search SQLite FTS5.

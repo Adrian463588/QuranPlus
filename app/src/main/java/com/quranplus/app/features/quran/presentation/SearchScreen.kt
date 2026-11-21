@@ -136,7 +136,8 @@ fun SearchScreen(
                 nameLatin = ref.latinName,
                 nameEnglish = "",
                 revelationType = "",
-                ayahCount = ref.ayahCount
+                ayahCount = ref.ayahCount,
+                nameMeaningId = ref.meaningId
             )
         }
     }
@@ -149,7 +150,8 @@ fun SearchScreen(
                     surahNumber = surah.number,
                     nameLatin = surah.nameLatin,
                     nameArabic = surah.nameArabic,
-                    nameEnglish = surah.nameEnglish
+                    nameEnglish = surah.nameEnglish,
+                    nameMeaningId = surah.nameMeaningId
                 )
             }
         }
@@ -1037,7 +1039,8 @@ fun SearchSurahMatchCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 val subtitle = buildString {
-                    if (surah.nameEnglish.isNotBlank()) append(surah.nameEnglish)
+                    val meaning = surah.nameMeaningId.ifBlank { surah.nameEnglish }
+                    if (meaning.isNotBlank()) append(meaning)
                     if (surah.revelationType.isNotBlank()) {
                         if (isNotEmpty()) append(" • ")
                         append(surah.revelationType.uppercase())

@@ -142,6 +142,31 @@ class QuranDatabaseInstrumentedTest {
     }
 
     @Test
+    fun GIVEN_bundledDatabase_WHEN_loading114SurahsViaRepository_THEN_allHaveIndonesianMeaningsAndPreserveCorpus() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val database = QuranDatabase.getInstance(context)
+        val repository = QuranRepositoryImpl(
+            quranDao = database.quranDao(),
+            bookmarkDao = database.bookmarkDao(),
+            lastReadDao = database.lastReadDao(),
+            tafsirDao = database.tafsirDao()
+        )
+
+        val surahs = repository.getAllSurahs().first()
+        assertEquals(114, surahs.size)
+        assertEquals((1..114).toList(), surahs.map { it.number })
+        assertEquals(6236, surahs.sumOf { it.ayahCount })
+        assertTrue(surahs.all { it.nameMeaningId.isNotBlank() && it.nameArabic.isNotBlank() && it.revelationType.isNotBlank() })
+
+        assertEquals("Pembukaan", repository.getSurah(1)?.nameMeaningId)
+        assertEquals("Sapi Betina", repository.getSurah(2)?.nameMeaningId)
+        assertEquals("Keluarga Imran", repository.getSurah(3)?.nameMeaningId)
+        assertEquals("Perempuan", repository.getSurah(4)?.nameMeaningId)
+        assertEquals("Hidangan", repository.getSurah(5)?.nameMeaningId)
+        assertEquals("Manusia", repository.getSurah(114)?.nameMeaningId)
+    }
+
+    @Test
     fun GIVEN_bundledSqliteVecExtension_WHEN_indexChecksReadiness_THEN_vec0IsAvailable() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val database = QuranDatabase.getInstance(context)

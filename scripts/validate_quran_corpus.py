@@ -188,6 +188,54 @@ def utf16_span_is_safe(value: str, start: int, end: int) -> bool:
     return 0 <= utf16_start < utf16_end <= utf16_length
 
 
+def validate_surah_mapper_meanings(surah_counts: dict[int, int]) -> tuple[int, list[dict[str, object]]]:
+    mapper_path = Path(__file__).resolve().parents[1] / "app/src/main/java/com/quranplus/app/core/utils/SurahMapper.kt"
+    issues: list[dict[str, object]] = []
+    if not mapper_path.is_file():
+        return 0, [{"type": "surah_mapper_missing", "path": str(mapper_path)}]
+
+    src = mapper_path.read_text(encoding="utf-8")
+    pattern = re.compile(r'SurahRef\(\s*(\d+)\s*,\s*"((?:[^"\\]|\\.)*)"\s*,\s*(\d+)\s*,\s*"((?:[^"\\]|\\.)*)"\s*\)')
+    entries = [(int(n), lat, int(cnt), m.strip()) for n, lat, cnt, m in pattern.findall(src)]
+
+    seen: set[int] = set()
+    for num, _, cnt, meaning in entries:
+        if num in seen:
+            issues.append({"type": "duplicate_surah_number", "surah": num})
+        seen.add(num)
+        if not meaning:
+            issues.append({"type": "empty_surah_meaning_id", "surah": num})
+        if surah_counts.get(num) != cnt:
+            issues.append({"type": "surah_ayah_count_mismatch", "surah": num, "mapper": cnt, "db": surah_counts.get(num)})
+
+    if len(entries) != 114 or seen != set(range(1, 115)):
+        issues.append({"type": "surah_meaning_coverage_mismatch", "count": len(entries), "unique": len(seen)})
+
+    fixtures = {
+        1: "Pembukaan",
+        2: "Sapi Betina",
+        3: "Keluarga Imran",
+        4: "Perempuan",
+        5: "Hidangan",
+        6: "Binatang Ternak",
+        7: "Tempat yang Tertinggi",
+        8: "Rampasan Perang",
+        9: "Pengampunan",
+        10: "Yunus",
+        12: "Yusuf",
+        14: "Ibrahim",
+        19: "Maryam",
+        47: "Muhammad",
+        114: "Manusia",
+    }
+    by_num = {num: meaning for num, _, _, meaning in entries}
+    for num, expected in fixtures.items():
+        if by_num.get(num) != expected:
+            issues.append({"type": "surah_meaning_fixture_mismatch", "surah": num, "expected": expected, "actual": by_num.get(num)})
+
+    return len(entries), issues
+
+
 def validate(database_path: Path) -> dict[str, object]:
     connection = sqlite3.connect(database_path)
     connection.row_factory = sqlite3.Row
@@ -286,9 +334,13 @@ def validate(database_path: Path) -> dict[str, object]:
                     "ayah": row["ayah_number"],
                 })
 
+    surah_meaning_count, meaning_issues = validate_surah_mapper_meanings(surah_counts)
+    issues.extend(meaning_issues)
     expected_ayah_count = sum(surah_counts.values())
     valid = (
         len(surah_counts) == 114
+        and surah_meaning_count == 114
+        and not meaning_issues
         and expected_ayah_count == EXPECTED_AYAHS
         and len(ayahs) == EXPECTED_AYAHS
         and len(ayah_keys) == EXPECTED_AYAHS
@@ -305,6 +357,7 @@ def validate(database_path: Path) -> dict[str, object]:
         "status": "valid" if valid else "blocked",
         "ayah_count": len(ayahs),
         "surah_count": len(surah_counts),
+        "surah_meaning_count": surah_meaning_count,
         "expected_ayah_count": expected_ayah_count,
         "word_count": word_count,
         "word_ayah_count": word_ayah_count,
@@ -327,8 +380,26 @@ def validate(database_path: Path) -> dict[str, object]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("database", type=Path, nargs="?", default=Path("app/src/main/assets/databases/quranplus.db"))
+    parser.add_argument("--surah-meanings-only", action="store_true")
     args = parser.parse_args()
-    result = validate(args.database.resolve())
+    db_path = args.database.resolve()
+    if args.surah_meanings_only:
+        connection = sqlite3.connect(db_path)
+        try:
+            surah_counts = dict(connection.execute("SELECT number, ayah_count FROM surahs ORDER BY number").fetchall())
+        finally:
+            connection.close()
+        count, meaning_issues = validate_surah_mapper_meanings(surah_counts)
+        print(json.dumps({
+            "surah_meaning_status": "valid" if count == 114 and not meaning_issues else "blocked",
+            "surah_meaning_count": count,
+            "expected_ayah_count": sum(surah_counts.values()),
+            "issues": meaning_issues,
+        }, ensure_ascii=False, indent=2))
+        if count != 114 or meaning_issues:
+            raise SystemExit(2)
+        return
+    result = validate(db_path)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if result["status"] != "valid":
         raise SystemExit(2)

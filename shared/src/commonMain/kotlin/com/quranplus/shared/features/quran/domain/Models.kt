@@ -6,7 +6,8 @@ data class Surah(
     val nameLatin: String,
     val nameEnglish: String,
     val revelationType: String,
-    val ayahCount: Int
+    val ayahCount: Int,
+    val nameMeaningId: String = ""
 )
 data class Ayah(
     val id: Long,

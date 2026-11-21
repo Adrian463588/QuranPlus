@@ -910,13 +910,20 @@ private fun AyahJumpSheet(
                     if (surahs.isNotEmpty()) surahs
                     else (1..114).mapNotNull { num ->
                         val r = SurahMapper.getSurah(num) ?: return@mapNotNull null
-                        Surah(r.number, "", r.latinName, "", "", r.ayahCount)
+                        Surah(r.number, "", r.latinName, "", "", r.ayahCount, r.meaningId)
                     }
                 }
                 val filteredSurahs = remember(surahFilterQuery, allList) {
                     if (surahFilterQuery.isBlank()) allList
                     else allList.filter { s ->
-                        SurahMapper.matchesSurah(surahFilterQuery, s.number, s.nameLatin, s.nameArabic, s.nameEnglish)
+                        SurahMapper.matchesSurah(
+                            query = surahFilterQuery,
+                            surahNumber = s.number,
+                            nameLatin = s.nameLatin,
+                            nameArabic = s.nameArabic,
+                            nameEnglish = s.nameEnglish,
+                            nameMeaningId = s.nameMeaningId
+                        )
                     }
                 }
 

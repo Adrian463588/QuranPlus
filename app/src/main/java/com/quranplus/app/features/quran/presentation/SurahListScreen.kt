@@ -108,7 +108,7 @@ fun SurahListScreen(
     var selectedTab by rememberSaveable { mutableStateOf(QuranListTab.SURAH) }
     var showTajwidSheet by remember { mutableStateOf(false) }
     var showQuranMenu by remember { mutableStateOf(false) }
-    var selectedSurahNumber by remember { mutableStateOf<Int?>(null) }
+    var selectedSurahNumber by rememberSaveable { mutableStateOf<Int?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Scaffold(
@@ -664,19 +664,23 @@ private fun SurahDetailPane(
             color = MaterialTheme.colorScheme.primary,
             textAlign = TextAlign.End
         )
-        Text(
-            text = surah.nameLatin,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Text(
+                text = surah.nameLatin,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            if (surah.nameMeaningId.isNotBlank()) {
+                Text(
+                    text = surah.nameMeaningId,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         Text(
             text = "${surah.revelationType.uppercase()} • ${surah.ayahCount} Ayat",
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = "Baca surah ini dengan tampilan reader yang mendukung tajwid, terjemahan, transliterasi, dan bookmark.",
-            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         AppPrimaryButton(
@@ -991,6 +995,15 @@ fun SurahItemRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (surah.nameMeaningId.isNotBlank()) {
+                    Text(
+                        text = surah.nameMeaningId,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -1014,12 +1027,13 @@ fun SurahItemRow(
             }
 
             if (showArabicName) {
+                Spacer(modifier = Modifier.width(Spacing.sm))
                 Text(
                     text = surah.nameArabic,
                     style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp),
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.End,
-                    modifier = Modifier.widthIn(max = 140.dp),
+                    modifier = Modifier.widthIn(max = 120.dp),
                     maxLines = 1,
                     softWrap = false,
                     overflow = TextOverflow.Ellipsis
