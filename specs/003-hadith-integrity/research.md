@@ -35,3 +35,18 @@
 - **`bukhari:5931` & `muslim:2125`:** Checked as supporting references; neither is substituted onto `nasai:5111`/`5112`.
 - **`bukhari:5541`, `muslim:2116.01`, `muslim:2117`:** Animal face branding (`الْوَسْمِ` / `الصورة`) loosely rendered with `"tato"` in Lidwa; flagged `NEEDS_REVIEW` in `semantic-audit-report.json` rather than auto-mutated.
 - **`bukhari:5933`, `muslim:2125.02`:** English-only `fawazahmed0` variants lacking Indonesian upstream alignment; classified `SOURCE_UNAVAILABLE` for Indonesian (surface honest UI unavailable notice).
+
+## 4. BUG-S3-HADITH-AHMAD-4302 Verification & Crosswalk Audit (`Musnad Ahmad 4302`)
+
+- **Why Legacy Quran Plus Failed on `ahmad:4302`:**
+  - The legacy `gadingnst/hadith-api` `books/ahmad.json` archive contained **4,305 sparse records** across raw IDs `1..26363` (last 10: `26353..26363`). Numbers `100, 1000, 2000, 3000, 3999, 4000, 4001, 4002, 4299..4305` were completely absent from `gadingnst/ahmad.json` even though the UI displayed `"4305 hadist"`.
+- **Canonical Verified Multi-Edition Identity for `Musnad Ahmad 4302`:**
+  - **Default Edition — Mu'assasat al-Risalah (`ar_risalah:4302`, `https://hadits.net/ahmad:4302` -> `mit:ahmad:4075`, Al-Alamiyah `#4075`):**
+    - Sanad/Matn: Narrated by Yahya bin Zakariya -> Isma'il -> Qais -> Ibn Mas'ud: `كُنَّا مَعَ رَسُولِ اللَّهِ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ لَيْسَ لَنَا نِسَاءٌ... أَلَا نَسْتَخْصِي` (QS Al-Ma'idah: 87).
+  - **Al-Alamiyah / Archive Edition (`archive_gading:4302` -> `mit:ahmad:4302`, Mu'assasat al-Risalah `#4531`):**
+    - Sanad/Matn: `حَدَّثَنَا عَبْدُ الرَّحْمَنِ حَدَّثَنَا مَالِكٌ عَنْ نَافِعٍ عَنِ ابْنِ عُمَرَ أَنَّ النَّبِيَّ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ نَهَى عَنْ تَلَقِّي السِّلَعِ حَتَّى يُهْبَطَ بِهَا الْأَسْوَاقُ وَنَهَى عَنْ النَّجْشِ وَقَالَ لَا يَبِعْ بَعْضُكُمْ عَلَى بَيْعِ بَعْضٍ`
+    - Indonesian (`irsyadulibad`, MIT): `Telah menceritakan kepada kami [Abdurrahman] telah menceritakan kepada kami [Malik] dari [Nafi'] dari [Ibnu Umar], bahwa Nabi shallallahu 'alaihi wasallam melarang menghentikan barang dagangan hingga diturunkan di pasar, beliau juga melarang najasy (menambah harga untuk menipu yang lain), beliau bersabda: "Janganlah sebagian kalian menjual di atas penjualan sebagian lain."`
+    - Confirmed exact match against candidate Arabic matn (`لَا يَبِعْ بَعْضُكُمْ عَلَى بَيْعِ بَعْضٍ`), distinct from Bukhari/Muslim/Tirmidhi/Nasai parallel narrations and distinct from Mu'assasat al-Risalah `#4302` (never silently substituted).
+- **Crosswalk Defect Diagnosed & Repaired in `build_hadith_corpus.py` (`+mit9+corr2`):**
+  - Prior n-gram window (`pos < 14`) truncated short Malik/Nafi/Ibn Umar hadiths before their distinguishing matn (`الشغار`, `المزابنة`), and asymmetric `_verify_pair` (`min(len)`) mis-linked `ar_risalah:4526` (`نهى عن الشغار`, actually `mit:ahmad:4297`) onto `mit:ahmad:4302` alongside `4531`, `ar_risalah:4528` (`المزابنة`, actually `mit:ahmad:4299`) onto `mit:ahmad:4300`, and `ar_risalah:4532` onto a distant duplicate (`4890` instead of `4304`).
+  - Expanding indexed 6-grams up to token 40, enforcing symmetric Dice + matn-tail verification, bounding Pass 1 positional window (`±2200`), and adding 2 monotonic bracket-refinement passes repairs all local alignments (`4526->4297`, `4527->4298`, `4528->4299`, `4529->4300`, `4530->4301`, `4531->4302`, `4532->4304`, `4533->4305`), cleanly removing spurious `4526` from `mit:ahmad:4302` while maintaining full 26,363-record coverage.

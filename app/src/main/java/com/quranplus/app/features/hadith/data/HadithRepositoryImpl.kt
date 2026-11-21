@@ -16,6 +16,7 @@ import com.quranplus.app.features.hadith.domain.HadithReferenceAlias
 import com.quranplus.app.features.hadith.domain.HadithRepository
 import com.quranplus.app.features.hadith.domain.HadithSchemeRange
 import com.quranplus.app.features.hadith.domain.HadithSearchResult
+import com.quranplus.app.features.rag.domain.HadithReferenceRequest
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -178,6 +179,25 @@ class HadithRepositoryImpl(
         val trimmed = query.trim()
         val effectiveScheme = resolveEffectiveScheme(collectionId, trimmed, scheme)
 
+        val explicitColRef = parseCollectionPrefixedQuery(trimmed)
+        if (explicitColRef != null && (collectionId == null || collectionId == explicitColRef.collection)) {
+            val targetScheme = resolveEffectiveScheme(
+                collectionId = explicitColRef.collection,
+                trimmedQuery = trimmed,
+                requestedScheme = HadithNumberingScheme.fromSchemeId(explicitColRef.targetSchemeId()) ?: scheme
+            )
+            val parsedExplicit = ParsedReferenceQuery(
+                number = explicitColRef.number,
+                variant = explicitColRef.suffix.ifBlank { null },
+                rawDisplay = if (explicitColRef.suffix.isBlank()) {
+                    explicitColRef.number.toString()
+                } else {
+                    "${explicitColRef.number}${explicitColRef.suffix}"
+                }
+            )
+            return@withContext searchNumeric(explicitColRef.collection, parsedExplicit, targetScheme, trimmed)
+        }
+
         val parsedRef = parseReferenceQuery(trimmed)
         if (trimmed.isBlank() && collectionId != null) {
             val records = browseSlice(collectionId, effectiveScheme, limit = INITIAL_BROWSE_LIMIT, offset = 0)
@@ -277,12 +297,46 @@ class HadithRepositoryImpl(
             }
         }.distinctBy { it.id }
 
-        if (directMatches.isNotEmpty()) {
-            return HadithSearchResult(
-                status = HadithLookupStatus.FOUND,
-                records = enrich(directMatches, scheme),
-                scheme = scheme
-            )
+        if (directMatches.isNotEmpty() || (collectionId == null && scheme == HadithNumberingScheme.SUNNAH &&
+                !ARCHIVE_KEYWORD_REGEX.containsMatchIn(rawQuery) &&
+                !RISALAH_KEYWORD_REGEX.containsMatchIn(rawQuery))
+        ) {
+            if (collectionId == null && scheme == HadithNumberingScheme.SUNNAH &&
+                !ARCHIVE_KEYWORD_REGEX.containsMatchIn(rawQuery) &&
+                !RISALAH_KEYWORD_REGEX.containsMatchIn(rawQuery)
+            ) {
+                val ahmadMatches = dao.findByReference(
+                    collectionId = "ahmad",
+                    schemeId = HadithNumberingScheme.AR_RISALAH.schemeId,
+                    number = parsedRef.number,
+                    variant = parsedRef.variant,
+                    limit = MAX_RESULTS
+                )
+                val darimiMatches = dao.findByReference(
+                    collectionId = "darimi",
+                    schemeId = HadithNumberingScheme.ARCHIVE_GADING.schemeId,
+                    number = parsedRef.number,
+                    variant = parsedRef.variant,
+                    limit = MAX_RESULTS
+                )
+                val combined = enrich(directMatches, scheme, preferredNumber = parsedRef.number) +
+                    enrich(ahmadMatches, HadithNumberingScheme.AR_RISALAH, preferredNumber = parsedRef.number) +
+                    enrich(darimiMatches, HadithNumberingScheme.ARCHIVE_GADING, preferredNumber = parsedRef.number)
+                val deduped = combined.distinctBy { it.id }.take(MAX_RESULTS)
+                if (deduped.isNotEmpty()) {
+                    return HadithSearchResult(
+                        status = HadithLookupStatus.FOUND,
+                        records = deduped,
+                        scheme = scheme
+                    )
+                }
+            } else {
+                return HadithSearchResult(
+                    status = HadithLookupStatus.FOUND,
+                    records = enrich(directMatches, scheme, preferredNumber = parsedRef.number),
+                    scheme = scheme
+                )
+            }
         }
 
         // Check explicitly documented gaps/unmapped edition slots for this scheme
@@ -509,7 +563,8 @@ class HadithRepositoryImpl(
 
     private suspend fun enrich(
         entities: List<HadithEntity>,
-        requestedScheme: HadithNumberingScheme
+        requestedScheme: HadithNumberingScheme,
+        preferredNumber: Int? = null
     ): List<HadithRecord> {
         if (entities.isEmpty()) return emptyList()
         val ids = entities.map { it.id }.distinct()
@@ -528,16 +583,19 @@ class HadithRepositoryImpl(
         return entities.map { entity ->
             val refs = refsByHadith[entity.id].orEmpty()
             val grades = gradesByHadith[entity.id].orEmpty().map { HadithGrade(it.authority, it.grade) }
-            entity.toRecord(requestedScheme, refs, grades)
+            entity.toRecord(requestedScheme, refs, grades, preferredNumber)
         }
     }
 
     private fun HadithEntity.toRecord(
         requestedScheme: HadithNumberingScheme,
         refs: List<HadithReferenceEntity>,
-        gradesList: List<HadithGrade>
+        gradesList: List<HadithGrade>,
+        preferredNumber: Int? = null
     ): HadithRecord {
-        val activeRef = refs.firstOrNull { it.schemeId == requestedScheme.schemeId }
+        val activeRef = preferredNumber?.let { target ->
+            refs.firstOrNull { it.schemeId == requestedScheme.schemeId && it.referenceNumber == target }
+        } ?: refs.firstOrNull { it.schemeId == requestedScheme.schemeId }
         val sunnahRef = refs.firstOrNull { it.schemeId == CanonicalHadithSynchronizer.SCHEME_SUNNAH }
         val risalahRef = refs.firstOrNull { it.schemeId == CanonicalHadithSynchronizer.SCHEME_AR_RISALAH }
         val archiveRef = refs.firstOrNull { it.schemeId == CanonicalHadithSynchronizer.SCHEME_ARCHIVE_GADING }
@@ -667,6 +725,15 @@ class HadithRepositoryImpl(
             else -> "$number$variant"
         }
 
+    private fun parseCollectionPrefixedQuery(trimmed: String): HadithReferenceRequest? {
+        val strippedPrefix = COLLECTION_LEAD_IN_REGEX.replace(trimmed, "").trim()
+        val match = HadithReferenceRequest.findAll(strippedPrefix).singleOrNull() ?: return null
+        val tailCheck = COLLECTION_SUFFIX_NOISE_REGEX.replace(strippedPrefix, "").trim()
+        val tokens = tailCheck.split(WHITESPACE_REGEX).filter { it.isNotBlank() }
+        // Only treat as pure reference query when the input doesn't append extra prose/keywords
+        return match.takeIf { tokens.size <= 5 }
+    }
+
     private fun parseReferenceQuery(trimmed: String): ParsedReferenceQuery? {
         val match = NUMERIC_REFERENCE_REGEX.matchEntire(trimmed) ?: return null
         val number = match.groupValues[1].toIntOrNull()?.takeIf { it > 0 } ?: return null
@@ -734,10 +801,13 @@ class HadithRepositoryImpl(
         const val MAX_RESULTS = 100
         const val MAX_QUERY_TOKENS = 12
         const val BATCH_QUERY_LIMIT = 450
-        val ARCHIVE_KEYWORD_REGEX = Regex("(?i)\\b(arsip|gading|tafsirq|alamiyah)\\b")
-        val RISALAH_KEYWORD_REGEX = Regex("(?i)\\b(risalah|arna.?ut)\\b")
+        val ARCHIVE_KEYWORD_REGEX = Regex("(?i)\\b(arsip|gading|tafsirq|(?:al[ -]*)?alamiyah)\\b")
+        val RISALAH_KEYWORD_REGEX = Regex("(?i)\\b((?:ar[ -]*)?risalah|arna.?ut)\\b")
+        val COLLECTION_LEAD_IN_REGEX = Regex("(?i)^(?:hr\\.?|hadit[hs]?|hadis|hadist)\\s+")
+        val COLLECTION_SUFFIX_NOISE_REGEX = Regex("[():#]")
+        val WHITESPACE_REGEX = Regex("\\s+")
         val NUMERIC_REFERENCE_REGEX = Regex(
-            "(?i)^(?:(?:arsip|gading|tafsirq|alamiyah|risalah|hadits?|no\\.?|nomor)\\s+)*(\\d{1,6})(?:\\.(\\d{1,3}|[a-z]{1,3})|([a-z]{1,3}))?(?:\\s+(?:arsip|gading|tafsirq|alamiyah|risalah))?$"
+            "(?i)^(?:(?:arsip|gading|tafsirq|(?:al[ -]*)?alamiyah|(?:ar[ -]*)?risalah|hadits?)\\s+|(?:no\\.?|nomor|#)(?:\\s+|(?=[\\d])))*(\\d{1,6})(?:\\.(\\d{1,3}|[a-z]{1,3})|([a-z]{1,3}))?(?:\\s+(?:arsip|gading|tafsirq|(?:al[ -]*)?alamiyah|(?:ar[ -]*)?risalah))?$"
         )
     }
 }

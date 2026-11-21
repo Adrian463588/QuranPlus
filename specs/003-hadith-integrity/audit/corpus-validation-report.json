@@ -1,10 +1,10 @@
 {
   "validation_status": "PASS",
   "archive_filename": "sunnah-canonical-bundle.zip",
-  "archive_size_bytes": 34736101,
-  "archive_sha256": "00cd175e2ec64627fd4275c4fc9724ceb1646de404bf70dc21ea885d7bb77d0b",
+  "archive_size_bytes": 34737340,
+  "archive_sha256": "4b49f7b773f097363fa096cc85cdc87ec6d78a3526466986e052882103344a7b",
   "license_id": "Unlicense+MIT",
-  "revision": "df57907be35291c91ad6a6691180e22ca9920784+mit9+corr1",
+  "revision": "df57907be35291c91ad6a6691180e22ca9920784+mit9+corr2",
   "total_collections": 9,
   "total_active_records": 65716,
   "total_issues": 0,
@@ -72,12 +72,12 @@
       "incorrect_grade_attributions": 0,
       "schemes": {
         "ar_risalah": {
-          "record_count": 24357,
-          "unique_numbers": 25016,
+          "record_count": 25069,
+          "unique_numbers": 25233,
           "min_reference_number": 1,
           "max_reference_number": 27647,
-          "range_span_gaps": 2631,
-          "documented_edition_gaps": 2631
+          "range_span_gaps": 2414,
+          "documented_edition_gaps": 2414
         },
         "archive_gading": {
           "record_count": 26363,
@@ -88,7 +88,7 @@
           "documented_edition_gaps": 0
         }
       },
-      "sha256": "36c9e528f11279b84c833837e44518c6a87ea096ba5fee27488371673fccb1ac",
+      "sha256": "83fb99ed9f309126f20444552e7a54639929b00e8b31f2b011be33c38cdaa680",
       "status": "PASS"
     },
     "bukhari": {

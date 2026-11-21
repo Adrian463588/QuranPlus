@@ -4,7 +4,7 @@
   "source_uri": "https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784",
   "secondary_source_id": "irsyadulibad-hadits-database",
   "secondary_source_uri": "https://github.com/irsyadulibad/hadits-database",
-  "revision": "df57907be35291c91ad6a6691180e22ca9920784+mit9+corr1",
+  "revision": "df57907be35291c91ad6a6691180e22ca9920784+mit9+corr2",
   "correction_manifest_sha256": "887f51cf1ef7d022ff019d67b33d154f0ab7cb03e93b6b2fea1d2d0ae9bb8cb3",
   "applied_corrections": [
     "CORR-ABUDAWUD-3837-01",
@@ -19,7 +19,7 @@
   "license_url": "https://unlicense.org/",
   "schema_version": 16,
   "active_record_count": 65716,
-  "missing_slot_count": 3042,
+  "missing_slot_count": 2825,
   "collections": {
     "bukhari": {
       "title_english": "Sahih al-Bukhari",
@@ -287,15 +287,15 @@
       "indonesian_count": 26363,
       "english_count": 0,
       "graded_count": 1,
-      "missing_slot_count": 2631,
+      "missing_slot_count": 2414,
       "chapter_count": 1,
       "scheme_ranges": {
         "ar_risalah": {
-          "record_count": 24357,
-          "reference_count": 25016,
+          "record_count": 25069,
+          "reference_count": 25233,
           "min_reference_number": 1,
           "max_reference_number": 27647,
-          "missing_slot_count": 2631
+          "missing_slot_count": 2414
         },
         "archive_gading": {
           "record_count": 26363,
@@ -306,7 +306,7 @@
         }
       },
       "file": "collections/ahmad.json",
-      "sha256": "36c9e528f11279b84c833837e44518c6a87ea096ba5fee27488371673fccb1ac"
+      "sha256": "83fb99ed9f309126f20444552e7a54639929b00e8b31f2b011be33c38cdaa680"
     },
     "darimi": {
       "title_english": "Sunan al-Darimi",
@@ -338,6 +338,6 @@
     }
   },
   "archive_filename": "sunnah-canonical-bundle.zip",
-  "archive_size_bytes": 34736101,
-  "archive_sha256": "00cd175e2ec64627fd4275c4fc9724ceb1646de404bf70dc21ea885d7bb77d0b"
+  "archive_size_bytes": 34737340,
+  "archive_sha256": "4b49f7b773f097363fa096cc85cdc87ec6d78a3526466986e052882103344a7b"
 }

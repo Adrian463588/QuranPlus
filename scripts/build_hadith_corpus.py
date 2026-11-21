@@ -209,19 +209,47 @@ def _strip_risalah_intro(tokens: list[str]) -> list[str]:
     return tokens
 
 
+def _full_dice(rtoks: list[str], atoks: list[str]) -> float:
+    rset, aset = set(rtoks[:50]), set(atoks[:50])
+    return (2.0 * len(rset & aset)) / max(1, len(rset) + len(aset))
+
+
+def _bigram_dice(rtoks: list[str], atoks: list[str]) -> float:
+    r2 = set(zip(rtoks[:45], rtoks[1:46]))
+    a2 = set(zip(atoks[:45], atoks[1:46]))
+    return (2.0 * len(r2 & a2)) / max(1, len(r2) + len(a2))
+
+
+def _tail_sim(rtoks: list[str], atoks: list[str]) -> float:
+    r_tail = set(rtoks[min(8, len(rtoks) // 2) :][:35])
+    a_tail = set(atoks[min(8, len(atoks) // 2) :][:35])
+    if not r_tail or not a_tail:
+        return 1.0
+    dice = (2.0 * len(r_tail & a_tail)) / max(1, len(r_tail) + len(a_tail))
+    overlap_min = len(r_tail & a_tail) / max(1, min(len(r_tail), len(a_tail)))
+    # Preserve split Ar-Risalah -> Al-Alamiyah pairs (e.g. #4531 -> #4302/#4303) while blocking sanad-only short matches.
+    if abs(len(rtoks) - len(atoks)) >= 8 and min(len(rtoks), len(atoks)) >= 25:
+        return max(dice, overlap_min)
+    return dice
+
+
 def _verify_pair(rtoks: list[str], atoks: list[str]) -> bool:
     if len(rtoks) < 4 or len(atoks) < 4:
         return False
-    stop = {"حدثنا", "اخبرنا", "انبانا", "قال", "عن", "بن", "ابو", "ابي"}
-    r_head = {w for w in rtoks[:8] if w not in stop}
-    a_head = {w for w in atoks[:8] if w not in stop}
-    if not r_head or not a_head:
+    stop = {"حدثنا", "اخبرنا", "انبانا", "قال", "عن", "بن", "ابو", "ابي", "صلي", "الله", "عليه", "وسلم"}
+    r_head = {w for w in rtoks[:10] if w not in stop}
+    a_head = {w for w in atoks[:10] if w not in stop}
+    if r_head and a_head and (len(r_head & a_head) / max(1, min(len(r_head), len(a_head)))) < 0.60:
         return False
-    if len(r_head & a_head) / max(1, min(len(r_head), len(a_head))) < 0.65:
-        return False
-    rset = set(rtoks[:40])
-    aset = set(atoks[:40])
-    return len(rset & aset) / max(1, min(len(rset), len(aset))) >= 0.70
+    dice = _full_dice(rtoks, atoks)
+    tail = _tail_sim(rtoks, atoks)
+    if dice >= 0.68 and tail >= 0.50:
+        return True
+    if abs(len(rtoks) - len(atoks)) >= 8 and min(len(rtoks), len(atoks)) >= 22:
+        rset, aset = set(rtoks[:45]), set(atoks[:45])
+        overlap = len(rset & aset) / max(1, min(len(rset), len(aset)))
+        return overlap >= 0.78 and tail >= 0.55
+    return False
 
 
 def build_ahmad_risalah_crosswalk(
@@ -234,7 +262,7 @@ def build_ahmad_risalah_crosswalk(
     ir_tokens = {n: _norm_ar_tokens(ar) for n, (ar, _) in irsyad_ahmad.items()}
     gram6: dict[tuple[str, ...], set[int]] = {}
     for n, toks in ir_tokens.items():
-        for pos in range(0, min(14, max(1, len(toks) - 6))):
+        for pos in range(0, min(40, max(1, len(toks) - 5))):
             gram6.setdefault(tuple(toks[pos : pos + 6]), set()).add(n)
 
     matches = list(re.finditer(r"(?m)^# (?:•\s*)?(\d+)\s*-\s*", text25794))
@@ -249,50 +277,75 @@ def build_ahmad_risalah_crosswalk(
             block = block[:hdr_idx]
         risalah.setdefault(num, block)
 
+    r_tokens = {num: _strip_risalah_intro(_norm_ar_tokens(blk)) for num, blk in risalah.items()}
     r_to_al: dict[int, int] = {}
-    for rnum, blk in sorted(risalah.items()):
-        rtoks = _strip_risalah_intro(_norm_ar_tokens(blk))
+    for rnum in sorted(risalah):
+        rtoks = r_tokens[rnum]
+        expected = rnum * 26363.0 / 27647.0
         scores: dict[int, int] = {}
-        for pos in range(0, min(28, max(1, len(rtoks) - 6))):
+        for pos in range(0, min(40, max(1, len(rtoks) - 5))):
             cands = gram6.get(tuple(rtoks[pos : pos + 6]))
-            if cands and len(cands) < 25:
+            if cands and len(cands) < 35:
                 for c in cands:
-                    scores[c] = scores.get(c, 0) + 1
+                    if abs(c - expected) <= 2200:
+                        scores[c] = scores.get(c, 0) + 1
         if not scores:
             continue
         top_score = max(scores.values())
-        top_cands = [c for c, sc in scores.items() if sc == top_score]
-        expected = int(rnum * 26363 / 27647)
-        best = top_cands[0] if len(top_cands) == 1 else min(top_cands, key=lambda c: abs(c - expected))
-        if top_score >= 2 and _verify_pair(rtoks, ir_tokens[best]):
+        top_cands = [c for c, sc in scores.items() if sc >= max(1, top_score - 1)]
+        valid_cands = [c for c in top_cands if _verify_pair(rtoks, ir_tokens[c])]
+        if valid_cands and top_score >= 2:
+            best = max(
+                valid_cands,
+                key=lambda c: (
+                    _full_dice(rtoks, ir_tokens[c])
+                    + _bigram_dice(rtoks, ir_tokens[c])
+                    + 0.02 * scores[c]
+                    - abs(c - expected) / 50000.0
+                ),
+            )
             r_to_al[rnum] = best
 
-    anchors = sorted(r_to_al.keys())
-    for rnum in sorted(risalah):
-        if rnum in r_to_al:
-            continue
-        idx = bisect.bisect_left(anchors, rnum)
-        lo_r = anchors[idx - 1] if idx > 0 else None
-        hi_r = anchors[idx] if idx < len(anchors) else None
-        if lo_r and hi_r and (hi_r - lo_r) <= 15 and 0 <= r_to_al[hi_r] - r_to_al[lo_r] <= 15:
-            lo_al, hi_al = r_to_al[lo_r], r_to_al[hi_r]
-            rtoks = _strip_risalah_intro(_norm_ar_tokens(risalah[rnum]))
-            best_al, best_sim = None, 0.0
-            for al in range(lo_al, hi_al + 1):
-                atoks = ir_tokens[al]
-                if not _verify_pair(rtoks, atoks):
+    # Anchor interpolation + monotonic repair when a repeated hadith drifted outside local bracket anchors
+    for _pass in range(2):
+        anchors = sorted(r_to_al.keys())
+        for rnum in sorted(risalah):
+            idx = bisect.bisect_left(anchors, rnum)
+            lo_idx = idx - 1 if idx > 0 else None
+            hi_idx = (
+                idx + 1
+                if (rnum in r_to_al and idx + 1 < len(anchors))
+                else (idx if rnum not in r_to_al and idx < len(anchors) else None)
+            )
+            lo_r = anchors[lo_idx] if lo_idx is not None else None
+            hi_r = anchors[hi_idx] if hi_idx is not None else None
+            if lo_r and hi_r and (hi_r - lo_r) <= 15 and 0 <= r_to_al[hi_r] - r_to_al[lo_r] <= 15:
+                lo_al, hi_al = r_to_al[lo_r], r_to_al[hi_r]
+                cur_al = r_to_al.get(rnum)
+                if cur_al is not None and lo_al <= cur_al <= hi_al:
                     continue
-                r2 = set(zip(rtoks[:35], rtoks[1:36]))
-                a2 = set(zip(atoks[:35], atoks[1:36]))
-                sim = len(r2 & a2) / max(1, min(len(r2), len(a2)))
-                if sim > best_sim:
-                    best_sim, best_al = sim, al
-            if best_al is not None and best_sim >= 0.55:
-                r_to_al[rnum] = best_al
+                rtoks = r_tokens[rnum]
+                best_al, best_sim = None, 0.0
+                for al in range(lo_al, hi_al + 1):
+                    atoks = ir_tokens[al]
+                    if not _verify_pair(rtoks, atoks):
+                        continue
+                    sim = _bigram_dice(rtoks, atoks)
+                    if sim > best_sim:
+                        best_sim, best_al = sim, al
+                min_sim = 0.65 if cur_al is not None else 0.55
+                if best_al is not None and best_sim >= min_sim:
+                    r_to_al[rnum] = best_al
 
     # Mandatory scholarly spot assertions before publishing crosswalk
     assert r_to_al.get(4001) == 3800, f"Expected Ar-Risalah 4001 -> Al-Alamiyah 3800, got {r_to_al.get(4001)}"
     assert r_to_al.get(4027) == 3823, f"Expected Ar-Risalah 4027 -> Al-Alamiyah 3823, got {r_to_al.get(4027)}"
+    assert r_to_al.get(4302) == 4075, f"Expected Ar-Risalah 4302 -> Al-Alamiyah 4075, got {r_to_al.get(4302)}"
+    assert r_to_al.get(4526) == 4297, f"Expected Ar-Risalah 4526 -> Al-Alamiyah 4297, got {r_to_al.get(4526)}"
+    assert r_to_al.get(4528) == 4299, f"Expected Ar-Risalah 4528 -> Al-Alamiyah 4299, got {r_to_al.get(4528)}"
+    assert r_to_al.get(4531) == 4302, f"Expected Ar-Risalah 4531 -> Al-Alamiyah 4302, got {r_to_al.get(4531)}"
+    assert r_to_al.get(4532) == 4304, f"Expected Ar-Risalah 4532 -> Al-Alamiyah 4304, got {r_to_al.get(4532)}"
+    assert r_to_al.get(4533) == 4305, f"Expected Ar-Risalah 4533 -> Al-Alamiyah 4305, got {r_to_al.get(4533)}"
 
     al_to_rnums: dict[int, list[int]] = {}
     for rnum, al_num in sorted(r_to_al.items()):
@@ -812,7 +865,7 @@ def build_canonical_bundle(
         "source_uri": FAWAZ_SOURCE_URI,
         "secondary_source_id": "irsyadulibad-hadits-database",
         "secondary_source_uri": IRSYAD_SOURCE_URI,
-        "revision": f"{FAWAZ_REVISION}+mit9+corr1",
+        "revision": f"{FAWAZ_REVISION}+mit9+corr2",
         "correction_manifest_sha256": corrections_sha,
         "applied_corrections": sorted(applied_corrections),
         "license_id": "Unlicense+MIT",

@@ -18,7 +18,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.quranplus.app.core.database.QuranDatabase
 import com.quranplus.app.core.ui.theme.QuranPlusTheme
+import com.quranplus.app.features.chatbot.domain.ChatRepository
 import com.quranplus.app.features.hadith.data.CanonicalHadithSynchronizer
+import com.quranplus.app.features.settings.data.AiPersona
 import com.quranplus.app.features.hadith.data.CanonicalSyncResult
 import com.quranplus.app.features.hadith.data.HadithBundleManager
 import com.quranplus.app.features.hadith.data.HadithNumbering
@@ -256,5 +258,78 @@ class HadithMigrationAndIntegrityInstrumentedTest {
             composeRule.onAllNodesWithText("mengkikir gigi dan mencabut bulu alis.", substring = true)
                 .fetchSemanticsNodes().size
         )
+    }
+
+    @Test
+    fun GIVEN_ahmad4302AndFullCheckpointsOnRoomSql_WHEN_searchedAndRendered_THEN_passesOfflineAndAiGrounding() {
+        val db = QuranDatabase.getInstance(context)
+        val sync = CanonicalHadithSynchronizer(context, db)
+        runBlocking { sync.ensureSynchronized() }
+
+        val repo = HadithRepositoryImpl(db.hadithDao(), HadithNumbering(), sync)
+        val chatRepo = org.koin.java.KoinJavaComponent.getKoin().get<ChatRepository>()
+        val bundleManager = org.koin.java.KoinJavaComponent.getKoin().get<HadithBundleManager>()
+
+        runBlocking {
+            val ahmadCount = db.hadithDao().countActiveDistinctHadiths("ahmad")
+            assertEquals(26_363, ahmadCount)
+
+            // Every mandatory archive checkpoint & boundary works end-to-end against real Room SQLite
+            val checkpoints = listOf(1, 10, 100, 1000, 2000, 3000, 3999, 4000, 4001, 4002, 4299, 4300, 4301, 4302, 4303, 4304, 4305, 26_363)
+            checkpoints.forEach { n ->
+                val res = repo.searchDetailed("ahmad", n.toString(), HadithNumberingScheme.ARCHIVE_GADING)
+                assertEquals("Checkpoint archive_gading#$n failed", HadithLookupStatus.FOUND, res.status)
+                assertEquals("mit:ahmad:$n", res.records.single().stableId)
+            }
+            assertEquals(HadithLookupStatus.FOUND, repo.searchDetailed("ahmad", "27647", HadithNumberingScheme.AR_RISALAH).status)
+
+            // Exact distinction: ar_risalah:4302 vs archive_gading:4302 + clean crosswalk
+            val ris4302 = repo.searchDetailed("ahmad", "4302", HadithNumberingScheme.AR_RISALAH).records.single()
+            assertEquals("mit:ahmad:4075", ris4302.stableId)
+            assertTrue(ris4302.textArabic.contains("نَسْتَخْصِي"))
+
+            val arch4302 = repo.searchDetailed("ahmad", "4302", HadithNumberingScheme.ARCHIVE_GADING).records.single()
+            assertEquals("mit:ahmad:4302", arch4302.stableId)
+            assertTrue(arch4302.textArabic.contains("لَا يَبِعْ بَعْضُكُمْ عَلَى بَيْعِ بَعْضٍ"))
+            assertTrue(arch4302.translationId.contains("Janganlah sebagian kalian menjual di atas penjualan sebagian lain"))
+
+            assertEquals("mit:ahmad:4297", repo.searchDetailed("ahmad", "4526", HadithNumberingScheme.AR_RISALAH).records.single().stableId)
+            assertEquals("mit:ahmad:4302", repo.searchDetailed("ahmad", "4531", HadithNumberingScheme.AR_RISALAH).records.single().stableId)
+            assertEquals("mit:ahmad:4075", repo.searchDetailed(null, "ahmad:4302", HadithNumberingScheme.SUNNAH).records.single().stableId)
+            assertEquals("mit:ahmad:4302", repo.searchDetailed(null, "Musnad Ahmad arsip 4302", HadithNumberingScheme.SUNNAH).records.single().stableId)
+            assertEquals(HadithLookupStatus.REFERENCE_UNMAPPED, repo.searchDetailed("ahmad", "4000", HadithNumberingScheme.AR_RISALAH).status)
+            assertEquals(HadithLookupStatus.RECORD_MISSING, repo.searchDetailed("ahmad", "999999", HadithNumberingScheme.ARCHIVE_GADING).status)
+
+            // AI/RAG real Room citations
+            val aiRis = chatRepo.generateRagResponse("dev-ahmad-4302-ris", "Hadis Musnad Ahmad nomor 4302", AiPersona.USTADZ, null)
+            assertTrue(aiRis.citations.any { it.canonicalUrl == "https://hadits.net/ahmad:4302" })
+            val aiArch = chatRepo.generateRagResponse("dev-ahmad-4302-al", "Hadis Musnad Ahmad arsip 4302", AiPersona.USTADZ, null)
+            assertTrue(aiArch.citations.any { it.textSnippet.contains("لَا يَبِعْ بَعْضُكُمْ عَلَى بَيْعِ بَعْضٍ") })
+        }
+
+        val vm = HadithViewModel(GetHadithCollectionsUseCase(repo), SearchHadithUseCase(repo), bundleManager)
+        composeRule.setContent {
+            QuranPlusTheme(darkTheme = true) {
+                HadithScreen(viewModel = vm, onRequestStorage = {}, onBundleReadyForAi = {})
+            }
+        }
+
+        vm.openReference("ahmad", 4302, "archive_gading")
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            vm.state.value.let { it is HadithUiState.Ready && it.records.any { r -> r.stableId == "mit:ahmad:4302" } }
+        }
+        composeRule.onAllNodesWithText("Janganlah sebagian kalian menjual", substring = true).onFirst().assertIsDisplayed()
+
+        vm.setScheme(HadithNumberingScheme.AR_RISALAH)
+        vm.setQuery("4302")
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            vm.state.value.let { it is HadithUiState.Ready && it.records.any { r -> r.stableId == "mit:ahmad:4075" } }
+        }
+
+        vm.setQuery("999999")
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            vm.state.value is HadithUiState.LookupIssue
+        }
+        composeRule.onNodeWithText("Hadist Tidak Tersedia").assertIsDisplayed()
     }
 }

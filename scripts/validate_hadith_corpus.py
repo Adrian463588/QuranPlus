@@ -391,6 +391,26 @@ def validate(write_reports: bool = False) -> None:
     assert "الْمُتَنَمِّصَاتِ" in golden[("nasai", "sunnah", 5109)]["arabic"]
     assert "mencukur habis alis" in golden[("bukhari", "sunnah", 5931)]["indonesian"]
 
+    # Golden Fixture HF-007 (BUG-S3-HADITH-AHMAD-4302): multi-edition Ahmad 4302 + checkpoints + clean crosswalk
+    hf7_ris = golden[("ahmad", "ar_risalah", 4302)]
+    hf7_al = golden[("ahmad", "archive_gading", 4302)]
+    assert hf7_ris["stable_id"] == "mit:ahmad:4075"
+    assert "كُنَّا مَعَ رَسُولِ اللَّهِ" in hf7_ris["arabic"] and "نَسْتَخْصِي" in hf7_ris["arabic"], "HF-007 Ar-Risalah 4302 Arabic mismatch"
+    assert hf7_ris["canonical_url"] == "https://hadits.net/ahmad:4302"
+    assert hf7_al["stable_id"] == "mit:ahmad:4302"
+    assert "عَبْدُ الرَّحْمَنِ" in hf7_al["arabic"] and "لَا يَبِعْ بَعْضُكُمْ عَلَى بَيْعِ بَعْضٍ" in hf7_al["arabic"], "HF-007 Al-Alamiyah 4302 Arabic mismatch"
+    assert "Janganlah sebagian kalian menjual di atas penjualan sebagian lain" in hf7_al["indonesian"], "HF-007 Al-Alamiyah 4302 Indonesian mismatch"
+    assert hf7_ris["stable_id"] != hf7_al["stable_id"]
+    hf7_al_ris_nums = {int(ref["number"]) for ref in hf7_al["references"] if ref["scheme"] == "ar_risalah"}
+    assert 4531 in hf7_al_ris_nums and 4526 not in hf7_al_ris_nums, f"HF-007 contaminated ar_risalah refs on mit:ahmad:4302: {hf7_al_ris_nums}"
+    assert golden[("ahmad", "ar_risalah", 4526)]["stable_id"] == "mit:ahmad:4297", "Ar-Risalah 4526 must map to الشغار (4297)"
+    assert golden[("ahmad", "ar_risalah", 4528)]["stable_id"] == "mit:ahmad:4299", "Ar-Risalah 4528 must map to المزابنة (4299)"
+    assert golden[("ahmad", "ar_risalah", 4531)]["stable_id"] == "mit:ahmad:4302"
+    assert golden[("ahmad", "ar_risalah", 4532)]["stable_id"] == "mit:ahmad:4304"
+    for ckpt in (1, 10, 100, 1000, 2000, 3000, 3999, 4000, 4001, 4002, 4299, 4300, 4301, 4302, 4303, 4304, 4305, 26363):
+        assert ("ahmad", "archive_gading", ckpt) in golden, f"Missing ahmad archive_gading checkpoint #{ckpt}"
+    assert ("ahmad", "ar_risalah", 27647) in golden, "Missing ahmad ar_risalah max #27647"
+
     # Deterministic targeted semantic audit report across all 9 collections
     semantic_findings = run_semantic_audit(all_records, corrections_doc)
     if write_reports and SEMANTIC_AUDIT_PATH.parent.exists():

@@ -45,8 +45,9 @@ data class HadithReferenceRequest(val collection: String, val number: Int, val s
             "nasai" to "(?:an[ -]*)?nasa['’]?i", "ibnmajah" to "ibn[u]?[ -]*majah",
             "ahmad" to "(?:musnad\\s+)?ahmad", "darimi" to "(?:ad[ -]*)?darimi", "malik" to "malik"
         )
+        private val archiveToken = "(?:arsip|gading|tafsirq|(?:al[ -]*)?alamiyah)"
         private val pattern = Regex(
-            "\\b(${aliases.values.joinToString("|")})\\s*(?:(arsip|gading|tafsirq|alamiyah)\\s*)?(?:no\\.?|nomor|:|#)?\\s*(-?\\d+)([a-z]?)\\b",
+            "\\b(${aliases.values.joinToString("|")})\\s*(?:($archiveToken)\\s*)?(?:no\\.?|nomor|:|#)?\\s*(-?\\d+)([a-z]?)(?:\\s*\\(?\\s*(?:no\\.?\\s*)?($archiveToken)\\s*\\)?)?\\b",
             RegexOption.IGNORE_CASE
         )
 
@@ -56,7 +57,8 @@ data class HadithReferenceRequest(val collection: String, val number: Int, val s
             }?.key ?: return@mapNotNull null
             val number = match.groupValues[3].toIntOrNull()?.takeIf { it > 0 } ?: return@mapNotNull null
             val archive = match.groupValues[2].isNotBlank() ||
-                Regex("(?i)(?:arsip|gading|tafsirq|alamiyah)\\s+$").containsMatchIn(text.take(match.range.first))
+                match.groupValues[5].isNotBlank() ||
+                Regex("(?i)$archiveToken\\s+$").containsMatchIn(text.take(match.range.first))
             HadithReferenceRequest(collection, number, match.groupValues[4].lowercase(), archive)
         }.toList()
 

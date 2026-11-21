@@ -50,6 +50,24 @@ class HadithReferenceRequestTest {
         }
     }
 
+    @Test
+    fun GIVEN_ahmad4302AndEditionAliases_WHEN_parsing_THEN_routesExactSchemeWithoutConfusion() {
+        val risalah = IslamicQueryAnalyzer.analyze("Hadis Musnad Ahmad nomor 4302").hadithReference
+        assertEquals(HadithReferenceRequest("ahmad", 4302, archive = false), risalah)
+        assertEquals("ar_risalah", risalah?.targetSchemeId())
+
+        listOf(
+            "Hadis Musnad Ahmad arsip 4302",
+            "Hadis Musnad Ahmad nomor 4302 arsip",
+            "Hadis Musnad Ahmad Al-Alamiyah 4302",
+            "Hadis Musnad Ahmad no. 4302 (Al-Alamiyah)"
+        ).forEach { query ->
+            val archiveReq = IslamicQueryAnalyzer.analyze(query).hadithReference
+            assertEquals("Query '$query' should target archive_gading", HadithReferenceRequest("ahmad", 4302, archive = true), archiveReq)
+            assertEquals("archive_gading", archiveReq?.targetSchemeId())
+        }
+    }
+
     private fun source(book: String, number: Int) = RetrievedCitation(
         "web:sunnah:$book:$number", "hadith", book, "$book:$number", "source text", 0.9f,
         collection = book, identifier = number.toString(), deepLinkTarget = "https://sunnah.com/$book:$number",
