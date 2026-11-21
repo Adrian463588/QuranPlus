@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Download APK](https://img.shields.io/badge/Download-APK%20v1.0.12-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk)
+[![Download APK](https://img.shields.io/badge/Download-APK%20v1.0.13-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk)
 [![Latest Release](https://img.shields.io/github/v/release/Adrian463588/QuranPlus?style=for-the-badge&color=0284c7)](https://github.com/Adrian463588/QuranPlus/releases/latest)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7f52ff?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack-Compose-4285f4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
@@ -20,7 +20,7 @@
 
 Untuk langsung menginstal aplikasi **Quran Plus** di smartphone atau tablet Android Anda:
 
-1. **[📥 Unduh APK Versi Terbaru (v1.0.12)](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.12/app-debug.apk)** *(Direct Mirror: [releases/latest/download/app-debug.apk](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk))*.
+1. **[📥 Unduh APK Versi Terbaru (v1.0.13)](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.13/app-debug.apk)** *(Direct Mirror: [releases/latest/download/app-debug.apk](https://github.com/Adrian463588/QuranPlus/releases/latest/download/app-debug.apk))*.
 2. Setelah unduhan selesai, buka file `app-debug.apk` melalui notifikasi browser atau aplikasi **File Manager / Pengelola File**.
 3. Jika Android menampilkan peringatan keamanan sumber tidak dikenal, pilih **Setelan / Settings** lalu aktifkan **Izinkan dari sumber ini (Allow from this source)**.
 4. Tekan tombol **Pasang / Install**, tunggu hingga proses selesai, dan buka **Quran Plus**.
@@ -38,10 +38,10 @@ Untuk langsung menginstal aplikasi **Quran Plus** di smartphone atau tablet Andr
 - **Bookmark & Riwayat Baca:** Sinkronisasi posisi terakhir dibaca secara otomatis.
 
 ### 📚 2. Ensiklopedia 9 Kitab Hadist
-- **38.102 Hadist Arab–Indonesia:** Mencakup Kutubus Sittah (Bukhari, Muslim, Abu Daud, Tirmidzi, An-Nasa'i, Ibnu Majah) dan Kutubut Tis'ah (Musnad Ahmad, Muwatha' Malik, Sunan Ad-Darimi).
-- **Penomoran Sesuai Sumber:** 28.347 rujukan dipetakan melalui kecocokan isi ke penomoran Sunnah.com. Contoh Abu Dawud 3837 berisi kurma dan mentega (nomor arsip gading 3340). Riwayat yang belum dapat dipetakan memakai label edisi tafsirq/gading; nomor lintas edisi tidak dianggap sama. Identitas arsip untuk bookmark/marker tetap dipertahankan.
-- **Penyimpanan SAF Mandiri:** Arsip hadist diunduh langsung dari [gadingnst/hadith-api](https://github.com/gadingnst/hadith-api) dan disimpan di folder Storage Access Framework (SAF) milik pengguna, aman dari penghapusan saat aplikasi di-uninstall.
-- **Integrasi Corpus RAG:** Seluruh hadist yang diunduh langsung diindeks ke dalam vector database lokal.
+- **65.716 Hadist Arab–Indonesia & 120.616 Rujukan Lintas Edisi:** Mencakup seluruh 9 kitab offline-first bawaan (`sunnah-canonical-bundle.zip` terverifikasi SHA-256): Kutubus Sittah (Bukhari 7.580, Muslim 7.360, Abu Dawud 5.272, Tirmidzi 3.926, An-Nasa'i 5.679, Ibnu Majah 4.340), Muwatha' Malik (1.829), Musnad Ahmad (26.363), dan Sunan Ad-Darimi (3.367).
+- **Penomoran Multi-Edisi Presisi:** Mendukung pemindahan skema rujukan (`Sunnah.com`, `Ar-Risalah` untuk Musnad Ahmad, dan `Al-Alamiyah` / arsip lokal) tanpa substitusi nomor lintas edisi secara diam-diam. Slot edisi yang belum terpetakan ditandai eksplisit beserta pemisahan jumlah hadist terpasang dan rentang nomor rujukan.
+- **Integritas Teks & Pencarian FTS5:** Pencarian nomor eksak maupun teks Arab/Indonesia via Room FTS5, dilengkapi registry koreksi SHA-256 (`content-corrections.json`) serta preservasi status riwayat (seperti atsar Mauquf sahabat).
+- **Penyimpanan SAF & RAG Terintegrasi:** Bookmark/marker pengguna disinkronkan aman ke folder Storage Access Framework (SAF), dan korpus hadist terindeks langsung ke vector database lokal (`sqlite-vec`) untuk rujukan Tanya AI.
 
 ### 📿 3. Dzikir & Hizib Terlengkap
 - **Koleksi Dzikir Harian:**
@@ -179,7 +179,8 @@ Tabel berikut menyediakan tautan unduh langsung (direct download) untuk setiap r
 
 | Versi | Status | Sorotan Perubahan Utama | Tautan Unduh Langsung |
 |:---:|:---:|---|:---:|
-| **v1.0.12** | **Terbaru (Latest)** | Hardening keamanan aplikasi offline (OWASP MASVS-RESILIENCE): optimasi R8/ProGuard agresif dengan penghapusan logging debug di release, proteksi refleksi Room/Koin/Media3/AI JNI, verifikasi runtime integritas signature SHA-256 APK, pendeteksian anti-debugging & tracer (/proc/self/status TracerPid), deteksi dynamic hooking (Frida/Xposed), dan enkripsi lokal berbasis hardware Android Keystore AES-256-GCM. | [📥 Download APK v1.0.12](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.12/app-debug.apk) |
+| **v1.0.13** | **Terbaru (Latest)** | Integritas & restorasi penuh korpus 9 Kitab Hadist (65.716 riwayat & 120.616 rujukan terverifikasi SHA-256): pemulihan `Bukhari 3617`, `Abu Dawud 4000`, `Tirmidzi 3000 & 813`, `Musnad Ahmad 4001 & 4302` dengan perbaikan crosswalk `Ar-Risalah`, kelengkapan 3.367 riwayat `Sunan al-Darimi 2841` beserta atribusi Mauquf di Tanya AI, koreksi terjemahan `Sunan an-Nasa'i 5111/5022` & `5112` via `content-corrections.json`, migrasi non-destruktif Room `v14→v16` + FTS5, serta preservasi posisi gulir layar adaptif saat rotasi. | [📥 Download APK v1.0.13](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.13/app-debug.apk) |
+| **v1.0.12** | Arsip | Hardening keamanan aplikasi offline (OWASP MASVS-RESILIENCE): optimasi R8/ProGuard agresif dengan penghapusan logging debug di release, proteksi refleksi Room/Koin/Media3/AI JNI, verifikasi runtime integritas signature SHA-256 APK, pendeteksian anti-debugging & tracer (/proc/self/status TracerPid), deteksi dynamic hooking (Frida/Xposed), dan enkripsi lokal berbasis hardware Android Keystore AES-256-GCM. | [📥 Download APK v1.0.12](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.12/app-debug.apk) |
 | **v1.0.11** | Arsip | Pencarian dan kutipan hadis memakai pemetaan isi lintas edisi; Abu Dawud 3837 sesuai riwayat kurma dan mentega. Koreksi Arab/harakat, kutipan Quran, serta tag tajwid palsu. Fallback otomatis menolak nomor yang berbeda; bookmark dan marker tetap memakai identitas arsip. | [📥 Download APK v1.0.11](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.11/app-debug.apk) |
 | **v1.0.10** | Arsip | Perbaikan Arab, mad, waqaf dan fallback Quran/Hadist dari v1.0.8–v1.0.9, ditambah label sumber/status yang sesuai: rujukan tidak memadai tidak lagi disebut sebagai model tidak tersedia. | [📥 Download APK v1.0.10](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.10/app-debug.apk) |
 | **v1.0.9** | Arsip | Semua perbaikan v1.0.8, ditambah koreksi tag Mad Tabi'i/Mad Lazim pada huruf muqaththa'ah dan tes warna mad. CI memakai JDK 21 sesuai artefak LiteRT-LM. | [📥 Download APK v1.0.9](https://github.com/Adrian463588/QuranPlus/releases/download/v1.0.9/app-debug.apk) |
@@ -199,8 +200,7 @@ Tabel berikut menyediakan tautan unduh langsung (direct download) untuk setiap r
 
 1. **Al-Qur'an & Tajwid:** Mengikuti standar mushaf Kementerian Agama Republik Indonesia (Kemenag RI) dan [Quran Foundation API](https://api-docs.quran.com/).
 2. **Word-by-Word:** Data bersumber dari [Islamic.app Word API](https://docs.islamic.app/api-reference/words).
-3. **Koleksi Hadist:** Menggunakan format terstruktur Arab-Indonesia dari [gadingnst/hadith-api](https://github.com/gadingnst/hadith-api).
-   Pemetaan nomor berdasarkan kecocokan unik teks Indonesia dari [fawazahmed0/hadith-api](https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784) (Unlicense), dengan revisi dan SHA-256 kedua sumber dipatok. Nomor Muslim memakai penomoran Arab beserta rujukan kitab/hadis untuk membedakan varian.
+3. **Koleksi Hadist:** Bundel terverifikasi SHA-256 menggabungkan [fawazahmed0/hadith-api](https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784) (`Unlicense`, 7 kitab `Sunnah.com`) dan [irsyadulibad/hadits-database](https://github.com/irsyadulibad/hadits-database) (`MIT`, 26.363 riwayat *Musnad Ahmad* & 3.367 riwayat *Sunan Ad-Darimi*) dengan pemetaan lintas edisi (`Sunnah.com`, `Ar-Risalah`, `Al-Alamiyah`), kompatibilitas arsip [gadingnst/hadith-api](https://github.com/gadingnst/hadith-api), serta audit koreksi `content-corrections.json`. Nomor Muslim memakai penomoran Arab beserta rujukan kitab/hadis untuk membedakan varian.
 4. **Audio Murottal:** Sumber rekaman audio dan checksum MD5 EveryAyah ([EveryAyah.com](https://everyayah.com/recitations_ayat.html)).
 5. **Model AI:** Google Gemma Terms of Use ([ai.google.dev/gemma/terms](https://ai.google.dev/gemma/terms)) dan Apache 2.0 untuk Qwen 2.5 & MiniLM.
 
